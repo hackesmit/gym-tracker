@@ -1,0 +1,132 @@
+"""Analytics API endpoints — progress, volume, strength standards, recovery, overload."""
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from ..analytics.overload import get_overload_plan, suggest_next_session
+from ..analytics.progress import get_exercise_progress
+from ..analytics.recovery import get_recovery_status
+from ..analytics.strength import get_strength_standards
+from ..analytics.volume import get_muscle_balance, get_weekly_volume
+from ..database import get_db
+from ..models import ExerciseCatalog, ProgramExercise, WorkoutLog
+
+router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+@router.get("/progress/{exercise}")
+def exercise_progress(
+    exercise: str,
+    db: Session = Depends(get_db),
+):
+    """Progress curve + projections for an exercise (by canonical name, partial match)."""
+    # Find exact or best match
+    catalog = (
+        db.query(ExerciseCatalog)
+        .filter(ExerciseCatalog.canonical_name.ilike(f"%{exercise}%"))
+        .first()
+    )
+    exercise_name = catalog.canonical_name if catalog else exercise.upper()
+
+    result = get_exercise_progress(db, exercise_name)
+    if not result["data_points"]:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No logged data found for exercise matching '{exercise}'",
+        )
+    return result
+
+
+@router.get("/volume")
+def volume_analytics(
+    weeks_back: int = Query(8, ge=1, le=52),
+    db: Session = Depends(get_db),
+):
+    """Weekly volume per muscle group over time with MEV/MAV/MRV reference."""
+    return get_weekly_volume(db, weeks_back=weeks_back)
+
+
+@router.get("/muscle-balance")
+def muscle_balance(
+    weeks_back: int = Query(4, ge=1, le=52),
+    db: Session = Depends(get_db),
+):
+    """Push:Pull and Quad:Ham ratios."""
+    return get_muscle_balance(db, weeks_back=weeks_back)
+
+
+@router.get("/strength-standards")
+def strength_standards(db: Session = Depends(get_db)):
+    """Compare lifts to population-based strength percentiles."""
+    try:
+        return get_strength_standards(db)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.get("/recovery")
+def recovery_status(db: Session = Depends(get_db)):
+    """Recovery status and per-muscle-group fatigue."""
+    return get_recovery_status(db)
+
+
+@router.get("/overload-plan")
+def overload_plan(
+    program_id: int = Query(...),
+    week: int = Query(...),
+    session_name: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Next session's suggested loads/reps based on progressive overload."""
+    plan = get_overload_plan(db, program_id, week, session_name)
+    if not plan["exercises"]:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No exercises found for program {program_id}, week {week}, session '{session_name}'",
+        )
+    return plan
+
+
+@router.get("/summary")
+def dashboard_summary(db: Session = Depends(get_db)):
+    """Dashboard summary stats."""
+    # Total sets logged
+    total_sets = db.query(WorkoutLog).count()
+
+    # Total unique exercises logged
+    exercise_ids = (
+        db.query(WorkoutLog.program_exercise_id).distinct().count()
+    )
+
+    # Recent PRs (exercises with new all-time best in last 4 weeks)
+    # Collect unique exercise names that have been logged
+    logged_exercises = (
+        db.query(ProgramExercise.exercise_name_canonical)
+        .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .distinct()
+        .all()
+    )
+
+    recent_prs = []
+    for (name,) in logged_exercises:
+        progress = get_exercise_progress(db, name)
+        if progress["prs"] and progress["prs"]["is_recent_pr"]:
+            recent_prs.append(
+                {
+                    "exercise": name,
+                    "e1rm": progress["prs"]["all_time_e1rm"],
+                }
+            )
+
+    # Recovery snapshot
+    recovery = get_recovery_status(db)
+
+    return {
+        "total_sets_logged": total_sets,
+        "unique_exercises_logged": exercise_ids,
+        "recent_prs": recent_prs,
+        "recovery_score": recovery.get("overall_score"),
+        "recovery_recommendation": recovery.get("recommendation"),
+    }

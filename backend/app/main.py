@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, SessionLocal, engine
-from .routers import logging, programs
+from .routers import analytics, logging, programs, tracker
 from .seed_catalog import seed_exercise_catalog
 
 
@@ -34,6 +34,8 @@ app.add_middleware(
 
 app.include_router(programs.router)
 app.include_router(logging.router)
+app.include_router(tracker.router)
+app.include_router(analytics.router)
 
 
 @app.get("/")
