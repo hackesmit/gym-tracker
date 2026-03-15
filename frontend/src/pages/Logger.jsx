@@ -4,7 +4,7 @@ import {
   Plus, Minus, Save, Trophy, X, TrendingUp,
 } from 'lucide-react';
 import Card from '../components/Card';
-import RestTimer, { RestTimerBar } from '../components/RestTimer';
+import RestTimer from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import {
@@ -38,7 +38,7 @@ export default function Logger() {
   const [tab, setTab] = useState('workout'); // workout | metrics
   const [scheduleData, setScheduleData] = useState(null);
   const [prList, setPrList] = useState([]);
-  const [restTimerTrigger, setRestTimerTrigger] = useState(0);
+  const [restTimerTriggers, setRestTimerTriggers] = useState({});
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -389,7 +389,11 @@ export default function Logger() {
                         </h4>
                         <div className="space-y-2">
                           {/* Set rows */}
-                          {group.sets.map((s) => (
+                          {group.sets.map((s) => {
+                            const triggerTimer = () => setRestTimerTriggers((prev) => ({
+                              ...prev, [group.name]: (prev[group.name] || 0) + 1,
+                            }));
+                            return (
                             <div key={s.idx} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-end">
                               <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
                               <div className="relative">
@@ -410,7 +414,7 @@ export default function Logger() {
                                   inputMode="numeric"
                                   value={s.reps_completed}
                                   onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
-                                  onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                  onBlur={triggerTimer}
                                   className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
                                   placeholder="0"
                                 />
@@ -423,20 +427,21 @@ export default function Logger() {
                                   step="0.5"
                                   value={s.rpe_actual}
                                   onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
-                                  onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                  onBlur={triggerTimer}
                                   className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
                                   placeholder="--"
                                 />
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                           {/* Rest timer */}
                           {group.rest_period && group.rest_period !== '0 MINS' && (
                             <div className="mt-2">
                               <RestTimer
-                                key={`${group.name}-${restTimerTrigger}`}
+                                key={`${group.name}-${restTimerTriggers[group.name] || 0}`}
                                 restPeriod={group.rest_period}
-                                autoStart={restTimerTrigger > 0}
+                                autoStart={(restTimerTriggers[group.name] || 0) > 0}
                               />
                             </div>
                           )}
@@ -444,13 +449,6 @@ export default function Logger() {
                       </Card>
                     ))}
                   </div>
-                  {dgIdx < displayGroups.length - 1 && dg.exercises[0]?.rest_period && dg.exercises[0].rest_period !== '0 MINS' && (
-                    <RestTimerBar
-                      restPeriod={dg.exercises[dg.exercises.length - 1].rest_period}
-                      triggerKey={restTimerTrigger}
-                      autoStart={restTimerTrigger > 0}
-                    />
-                  )}
                 </div>
               ))}
 
