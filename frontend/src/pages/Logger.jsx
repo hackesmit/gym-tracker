@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   Dumbbell, ChevronLeft, ChevronRight, Check, Timer,
-  Plus, Minus, Save, Trophy, X,
+  Plus, Minus, Save, Trophy, X, TrendingUp,
 } from 'lucide-react';
 import Card from '../components/Card';
-import RestTimer from '../components/RestTimer';
+import RestTimer, { RestTimerBar } from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import {
@@ -323,6 +323,33 @@ export default function Logger() {
             </div>
           )}
 
+          {/* Overload suggestions banner */}
+          {overload?.exercises?.length > 0 && !saved && (
+            <div className="bg-primary/10 border border-primary/25 rounded-xl p-3 sm:p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp size={16} className="text-primary-light" />
+                <span className="text-xs font-semibold text-primary-light uppercase tracking-wider">Progressive Overload</span>
+              </div>
+              <div className="space-y-1">
+                {overload.exercises.map((ex) => {
+                  const displayLoad = ex.suggested_load_kg != null
+                    ? (units === 'lbs' ? +(ex.suggested_load_kg * 2.20462).toFixed(1) : ex.suggested_load_kg)
+                    : null;
+                  return (
+                    <div key={ex.exercise_name} className="flex items-center justify-between text-xs">
+                      <span className="text-text-muted truncate mr-2">{ex.exercise_name}</span>
+                      {displayLoad != null && (
+                        <span className="text-primary-light font-medium whitespace-nowrap">
+                          {displayLoad} {unitLabel} · {ex.method}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {saved ? (
             <Card>
               <div className="text-center py-8">
@@ -361,44 +388,46 @@ export default function Logger() {
                           )}
                         </h4>
                         <div className="space-y-2">
-                          {/* Column headers */}
-                          <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 text-[10px] text-text-muted uppercase tracking-wider px-1">
-                            <span>Set</span>
-                            <span>{unitLabel}</span>
-                            <span>Reps</span>
-                            <span>RPE</span>
-                          </div>
                           {/* Set rows */}
                           {group.sets.map((s) => (
-                            <div key={s.idx} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-center">
-                              <span className="text-xs text-text-muted text-center">{s.set_number}</span>
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                value={s.load_kg}
-                                onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                placeholder="0"
-                              />
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                value={s.reps_completed}
-                                onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
-                                onBlur={() => setRestTimerTrigger((t) => t + 1)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                placeholder="0"
-                              />
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                step="0.5"
-                                value={s.rpe_actual}
-                                onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
-                                onBlur={() => setRestTimerTrigger((t) => t + 1)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                placeholder="--"
-                              />
+                            <div key={s.idx} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-end">
+                              <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
+                              <div className="relative">
+                                <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">{unitLabel}</label>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  value={s.load_kg}
+                                  onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
+                                  className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="relative">
+                                <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">Reps</label>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={s.reps_completed}
+                                  onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
+                                  onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                  className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="relative">
+                                <label className="absolute top-1 left-1.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">RPE</label>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.5"
+                                  value={s.rpe_actual}
+                                  onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
+                                  onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                  className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                  placeholder="--"
+                                />
+                              </div>
                             </div>
                           ))}
                           {/* Rest timer */}
@@ -415,6 +444,13 @@ export default function Logger() {
                       </Card>
                     ))}
                   </div>
+                  {dgIdx < displayGroups.length - 1 && dg.exercises[0]?.rest_period && dg.exercises[0].rest_period !== '0 MINS' && (
+                    <RestTimerBar
+                      restPeriod={dg.exercises[dg.exercises.length - 1].rest_period}
+                      triggerKey={restTimerTrigger}
+                      autoStart={restTimerTrigger > 0}
+                    />
+                  )}
                 </div>
               ))}
 

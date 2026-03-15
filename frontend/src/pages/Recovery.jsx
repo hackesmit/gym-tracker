@@ -126,15 +126,15 @@ export default function Recovery() {
         }>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <Tooltip contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a28f' }} />
+              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} />
+              <Tooltip contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }} />
               {trend.some((t) => t.sleep != null) && (
-                <Line type="monotone" dataKey="sleep" stroke="#3b82f6" name="Sleep (hrs)" dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="sleep" stroke="#60a5fa" name="Sleep (hrs)" dot={{ r: 2 }} />
               )}
               {trend.some((t) => t.stress != null) && (
-                <Line type="monotone" dataKey="stress" stroke="#eab308" name="Stress (1-5)" dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="stress" stroke="#f59e0b" name="Stress (1-5)" dot={{ r: 2 }} />
               )}
               {trend.some((t) => t.soreness != null) && (
                 <Line type="monotone" dataKey="soreness" stroke="#ef4444" name="Soreness (1-5)" dot={{ r: 2 }} />

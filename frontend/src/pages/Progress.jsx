@@ -172,14 +172,14 @@ export default function Progress() {
                 {chartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} unit={` ${unitLabel}`} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a28f' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} unit={` ${unitLabel}`} />
                       <Tooltip
-                        contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 12 }}
-                        labelStyle={{ color: '#94a3b8' }}
+                        contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: '#a8a28f' }}
                       />
-                      <Line type="monotone" dataKey="e1rm" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} name="e1RM" />
+                      <Line type="monotone" dataKey="e1rm" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} name="e1RM" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
