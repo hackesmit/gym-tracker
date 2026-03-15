@@ -16,6 +16,18 @@ const navItems = [
   { to: '/program', icon: ClipboardList, label: 'Program' },
 ];
 
+function UnitToggle({ units, setUnits }) {
+  return (
+    <button
+      onClick={() => setUnits(units === 'kg' ? 'lbs' : 'kg')}
+      className="flex items-center bg-surface-light rounded-md text-xs font-medium overflow-hidden border border-surface-lighter"
+    >
+      <span className={`px-2 py-1 transition-colors ${units === 'kg' ? 'bg-primary/20 text-primary-light' : 'text-text-muted'}`}>kg</span>
+      <span className={`px-2 py-1 transition-colors ${units === 'lbs' ? 'bg-primary/20 text-primary-light' : 'text-text-muted'}`}>lbs</span>
+    </button>
+  );
+}
+
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { units, setUnits } = useApp();
@@ -48,14 +60,9 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-surface-lighter">
-          <button
-            onClick={() => setUnits(units === 'kg' ? 'lbs' : 'kg')}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-text-muted hover:bg-surface-light transition-colors"
-          >
-            <Scale size={16} />
-            Units: {units.toUpperCase()}
-          </button>
+        <div className="p-3 border-t border-surface-lighter flex items-center gap-2">
+          <Scale size={16} className="text-text-muted" />
+          <UnitToggle units={units} setUnits={setUnits} />
         </div>
       </aside>
 
@@ -64,9 +71,16 @@ export default function Layout() {
         <h1 className="text-base font-bold text-primary-light flex items-center gap-2">
           <Dumbbell size={18} /> Gym Tracker
         </h1>
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="text-text-muted">
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <UnitToggle units={units} setUnits={setUnits} />
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="text-text-muted p-2 -mr-2 touch-manipulation"
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile nav overlay */}
@@ -81,7 +95,7 @@ export default function Layout() {
                 end={to === '/'}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors touch-manipulation ${
                     isActive ? 'bg-primary/15 text-primary-light' : 'text-text-muted hover:text-text'
                   }`
                 }
@@ -95,7 +109,7 @@ export default function Layout() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 md:p-6 p-4 pt-18 md:pt-6 overflow-auto">
+      <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6 overflow-x-hidden overflow-y-auto">
         <Outlet />
       </main>
     </div>

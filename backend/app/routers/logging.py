@@ -78,10 +78,17 @@ class BulkLogRequest(BaseModel):
     sets: list[BulkSetItem]
 
 
+class PRInfo(BaseModel):
+    exercise: str
+    new_e1rm: float
+    previous_e1rm: float | None
+
+
 class BulkLogResponse(BaseModel):
     session_log_id: int
     sets_logged: int
     exercises_covered: int
+    prs: list[PRInfo] = []
 
 
 class WorkoutLogOut(BaseModel):
@@ -259,10 +266,76 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
 
     db.commit()
 
+    # ------------------------------------------------------------------
+    # PR detection: compare each exercise's best e1RM in this session
+    # against all previous logs for the same canonical exercise name.
+    # Epley formula: e1rm = weight * (1 + reps / 30)
+    # ------------------------------------------------------------------
+    prs: list[PRInfo] = []
+
+    # Build a map of pe_id -> canonical exercise name for this session
+    pe_rows = (
+        db.query(ProgramExercise)
+        .filter(ProgramExercise.id.in_(pe_ids))
+        .all()
+    )
+    pe_name_map = {pe.id: pe.exercise_name_canonical for pe in pe_rows}
+
+    # Compute best e1RM per exercise in *this* session
+    session_best: dict[str, float] = {}
+    for s in payload.sets:
+        name = pe_name_map.get(s.program_exercise_id)
+        if not name or s.load_kg <= 0 or s.reps_completed <= 0:
+            continue
+        e1rm = round(s.load_kg * (1 + s.reps_completed / 30), 2)
+        if name not in session_best or e1rm > session_best[name]:
+            session_best[name] = e1rm
+
+    # For each exercise, find the previous all-time best e1RM
+    for exercise_name, new_e1rm in session_best.items():
+        # Get all pe_ids across ALL programs that share this canonical name
+        all_pe_ids = [
+            row.id
+            for row in db.query(ProgramExercise.id)
+            .filter(ProgramExercise.exercise_name_canonical == exercise_name)
+            .all()
+        ]
+        # Query all previous workout logs for these pe_ids (excluding today's session date)
+        prev_logs = (
+            db.query(WorkoutLog.load_kg, WorkoutLog.reps_completed)
+            .filter(
+                WorkoutLog.program_exercise_id.in_(all_pe_ids),
+                WorkoutLog.date < payload.date,
+                WorkoutLog.load_kg > 0,
+                WorkoutLog.reps_completed > 0,
+            )
+            .all()
+        )
+        prev_best = 0.0
+        for log in prev_logs:
+            e1rm = round(log.load_kg * (1 + log.reps_completed / 30), 2)
+            if e1rm > prev_best:
+                prev_best = e1rm
+
+        if new_e1rm > prev_best and prev_best > 0:
+            prs.append(PRInfo(
+                exercise=exercise_name,
+                new_e1rm=round(new_e1rm, 1),
+                previous_e1rm=round(prev_best, 1),
+            ))
+        elif prev_best == 0.0:
+            # First time logging this exercise — it's a PR by default
+            prs.append(PRInfo(
+                exercise=exercise_name,
+                new_e1rm=round(new_e1rm, 1),
+                previous_e1rm=None,
+            ))
+
     return BulkLogResponse(
         session_log_id=session_log.id,
         sets_logged=len(payload.sets),
         exercises_covered=len(pe_ids),
+        prs=prs,
     )
 
 

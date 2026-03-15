@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle2, SkipForward, Circle, XCircle, Calendar as CalIcon,
-  Grid3X3, ChevronRight, Dumbbell,
+  Grid3X3, ChevronRight, Dumbbell, Download,
 } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { useApp } from '../context/AppContext';
 import { getTracker, getCalendar, getAdherence } from '../api/client';
+import { exportToCSV } from '../utils/export';
 
 const STATUS_ICONS = {
   completed: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/20' },
@@ -69,6 +70,26 @@ export default function Tracker() {
           <h2 className="text-2xl font-bold">Program Tracker</h2>
           <p className="text-text-muted text-sm mt-1">{activeProgram.name}</p>
         </div>
+        <div className="flex items-center gap-2">
+          {weeks.length > 0 && (
+            <button
+              onClick={() => {
+                const rows = weeks.flatMap((w) =>
+                  w.sessions.map((s) => ({
+                    week: w.week_number,
+                    session_name: s.session_name,
+                    status: s.status,
+                    date: s.date || '',
+                  }))
+                );
+                exportToCSV(rows, `tracker_${activeProgram.name.replace(/\s+/g, '_')}`, ['week', 'session_name', 'status', 'date']);
+              }}
+              className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+            >
+              <Download size={12} />
+              Export
+            </button>
+          )}
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
           <button
             onClick={() => setView('grid')}
@@ -86,6 +107,7 @@ export default function Tracker() {
           >
             <CalIcon size={14} />
           </button>
+        </div>
         </div>
       </div>
 

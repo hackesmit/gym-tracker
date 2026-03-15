@@ -9,21 +9,21 @@ from ..models import BodyMetric, ExerciseCatalog, ProgramExercise, User, Workout
 
 # ---------------------------------------------------------------------------
 # MRV thresholds (Maximum Recoverable Volume – weekly sets)
-# Based on Renaissance Periodization guidelines.
+# Aligned with VOLUME_LANDMARKS in volume.py for consistency.
 # ---------------------------------------------------------------------------
 MRV_THRESHOLDS: dict[str, int] = {
     "chest": 25,
     "back": 25,
-    "shoulders": 25,
-    "quads": 20,
+    "shoulders": 22,
+    "quads": 22,
     "hamstrings": 20,
     "glutes": 20,
-    "biceps": 25,
-    "triceps": 25,
+    "biceps": 20,
+    "triceps": 20,
     "calves": 20,
-    "abs": 25,
+    "abs": 18,
     "traps": 20,
-    "forearms": 25,
+    "forearms": 16,
 }
 
 
@@ -41,10 +41,16 @@ def calculate_recovery_score(
 
     Components (max 100):
         sleep:    0-30  (based on fraction of 8h target)
-        soreness: 0-25  (lower soreness = higher score)
-        stress:   0-20  (lower stress = higher score)
+        soreness: 0-25  (lower soreness = higher score; input 1-5)
+        stress:   0-20  (lower stress = higher score; input 1-5)
         rest:     0-25  (more rest days = higher score, caps at 3 days)
     """
+    # Clamp inputs to valid ranges to prevent scores exceeding component maximums
+    sleep_hours = max(0.0, sleep_hours)
+    soreness = max(1, min(5, soreness))
+    stress = max(1, min(5, stress))
+    days_since_last_session_for_muscle_group = max(0.0, days_since_last_session_for_muscle_group)
+
     sleep_score = min(sleep_hours / 8.0, 1.0) * 30
     soreness_score = (5 - soreness) / 4 * 25
     stress_score = (5 - stress) / 4 * 20

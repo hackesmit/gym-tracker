@@ -19,6 +19,7 @@ from ..models import (
 )
 
 router = APIRouter(prefix="/api/tracker", tags=["tracker"])
+workout_router = APIRouter(prefix="/api/workout", tags=["workout"])
 
 
 # ---------------------------------------------------------------------------
@@ -627,3 +628,79 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
         "sessions_per_week_avg": sessions_per_week_avg,
         "most_skipped_session": most_skipped,
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/workout/today — next prescribed workout session
+# ---------------------------------------------------------------------------
+
+@workout_router.get("/today")
+def get_workout_today(db: Session = Depends(get_db)):
+    """Return the next prescribed workout session for the active program.
+
+    Finds the most recent active program, computes the current week,
+    and returns the first uncompleted session with its full exercise list.
+    """
+    # Find the most recent active program
+    program = (
+        db.query(Program)
+        .filter(Program.status == "active")
+        .order_by(Program.created_at.desc())
+        .first()
+    )
+    if not program:
+        raise HTTPException(
+            status_code=404,
+            detail="No active program found",
+        )
+
+    today = date.today()
+    current_week = _compute_current_week(program, today)
+
+    sessions_by_week = _distinct_sessions_by_week(db, program.id)
+    logs_map = _session_logs_map(db, program.id)
+
+    # Find the first uncompleted session starting from the current week
+    for week_num in range(current_week, program.total_weeks + 1):
+        for sess in sessions_by_week.get(week_num, []):
+            key = (week_num, sess["session_name"])
+            if key not in logs_map:
+                exercises = (
+                    db.query(ProgramExercise)
+                    .filter(
+                        ProgramExercise.program_id == program.id,
+                        ProgramExercise.week == week_num,
+                        ProgramExercise.session_name == sess["session_name"],
+                    )
+                    .order_by(ProgramExercise.exercise_order)
+                    .all()
+                )
+                return {
+                    "program_id": program.id,
+                    "program_name": program.name,
+                    "week": week_num,
+                    "session_name": sess["session_name"],
+                    "exercises": [
+                        {
+                            "program_exercise_id": ex.id,
+                            "exercise_name": ex.exercise_name_canonical,
+                            "working_sets": ex.working_sets,
+                            "prescribed_reps": ex.prescribed_reps,
+                            "prescribed_rpe": ex.prescribed_rpe,
+                            "rest_period": ex.rest_period,
+                            "warm_up_sets": ex.warm_up_sets,
+                            "is_superset": ex.is_superset,
+                            "superset_group": ex.superset_group,
+                            "substitution_1": ex.substitution_1,
+                            "substitution_2": ex.substitution_2,
+                            "notes": ex.notes,
+                        }
+                        for ex in exercises
+                    ],
+                }
+
+    # All sessions completed
+    raise HTTPException(
+        status_code=404,
+        detail="All sessions in the program have been completed",
+    )

@@ -33,7 +33,7 @@ export default function ProgramUpload() {
         <Check className="text-success mx-auto mb-2" size={32} />
         <p className="text-sm font-medium">Program imported!</p>
         <p className="text-xs text-text-muted mt-1">
-          {result.total_exercises} exercises across {result.sessions_per_week} sessions/week
+          {result.total_exercises} exercises across {result.frequency}x/week
         </p>
       </div>
     );

@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(programs.router)
 app.include_router(logging.router)
 app.include_router(tracker.router)
+app.include_router(tracker.workout_router)
 app.include_router(analytics.router)
 
 

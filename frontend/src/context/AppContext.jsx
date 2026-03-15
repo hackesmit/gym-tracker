@@ -6,9 +6,16 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [programs, setPrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null);
-  const [units, setUnits] = useState('kg'); // kg | lbs
+  const [units, setUnitsState] = useState(() => localStorage.getItem('gym-units') || 'kg');
+  const setUnits = (val) => {
+    setUnitsState(val);
+    localStorage.setItem('gym-units', val);
+  };
 
-  const convert = (kg) => units === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1);
+  const convert = (kg) => {
+    if (kg == null) return 0;
+    return units === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1);
+  };
   const unitLabel = units === 'lbs' ? 'lbs' : 'kg';
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Heart, Moon, Frown, Brain, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Heart, Moon, Frown, Brain, Clock, AlertTriangle, CheckCircle2, Download } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
@@ -7,6 +7,7 @@ import {
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getRecovery, getBodyMetrics } from '../api/client';
+import { exportToCSV } from '../utils/export';
 
 const FATIGUE_STATUS = {
   green: { color: 'text-success', bg: 'bg-success/15', label: 'Fresh' },
@@ -114,7 +115,15 @@ export default function Recovery() {
 
       {/* Trends chart */}
       {trend.length > 1 && (
-        <Card title="Recovery Trends">
+        <Card title="Recovery Trends" action={
+          <button
+            onClick={() => exportToCSV(trend, 'recovery_trends', ['date', 'sleep', 'stress', 'soreness'])}
+            className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+          >
+            <Download size={12} />
+            Export
+          </button>
+        }>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={trend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#363650" />

@@ -2,29 +2,32 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, TrendingUp, Dumbbell, Heart, Trophy, Target,
-  ArrowRight, Upload, Calendar,
+  ArrowRight, Upload, Calendar, AlertTriangle,
 } from 'lucide-react';
 import Card from '../components/Card';
 import ProgramUpload from '../components/ProgramUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
-import { getSummary, getTracker } from '../api/client';
+import { getSummary, getTracker, getDeloadCheck } from '../api/client';
 
 export default function Dashboard() {
   const { activeProgram, programs, convert, unitLabel } = useApp();
   const [summary, setSummary] = useState(null);
   const [tracker, setTracker] = useState(null);
+  const [deload, setDeload] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, t] = await Promise.all([
+        const [s, t, d] = await Promise.all([
           getSummary().catch(() => null),
           activeProgram ? getTracker(activeProgram.id).catch(() => null) : null,
+          getDeloadCheck().catch(() => null),
         ]);
         setSummary(s);
         setTracker(t);
+        setDeload(d);
       } finally {
         setLoading(false);
       }
@@ -96,6 +99,33 @@ export default function Dashboard() {
           color="text-warning"
         />
       </div>
+
+      {/* Deload warning */}
+      {deload?.deload_recommended && (
+        <div className="bg-warning/10 border border-warning/30 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="text-warning mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-warning uppercase tracking-wider mb-2">
+                Deload Recommended
+              </h3>
+              <ul className="text-sm text-text-muted space-y-1 mb-3">
+                {deload.reasons?.map((r, i) => (
+                  <li key={i}>• {r}</li>
+                ))}
+              </ul>
+              {deload.stagnated_exercises?.length > 0 && (
+                <p className="text-xs text-text-muted mb-2">
+                  Stagnated: {deload.stagnated_exercises.join(', ')}
+                </p>
+              )}
+              {deload.suggestion && (
+                <p className="text-sm font-medium">{deload.suggestion}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Program progress */}
       {activeProgram && tracker && (

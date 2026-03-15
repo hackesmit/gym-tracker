@@ -18,19 +18,47 @@ def parse_range(range_str: str) -> tuple[float, float]:
     """Parse a range string into (low, high).
 
     Examples:
-        "8-10"  → (8.0, 10.0)
-        "10"    → (10.0, 10.0)
-        "7.5-9" → (7.5, 9.0)
-        ""      → (0.0, 0.0)
+        "8-10"           → (8.0, 10.0)
+        "10"             → (10.0, 10.0)
+        "7.5-9"          → (7.5, 9.0)
+        "10 (drop set)"  → (10.0, 10.0)
+        "10-12 (drop set)" → (10.0, 12.0)
+        "10,8"           → (8.0, 10.0)
+        ""               → (0.0, 0.0)
     """
     if not range_str or not range_str.strip():
         return (0.0, 0.0)
-    range_str = range_str.strip()
-    if "-" in range_str:
-        parts = range_str.split("-", maxsplit=1)
-        return (float(parts[0].strip()), float(parts[1].strip()))
-    val = float(range_str)
-    return (val, val)
+    # Strip parenthetical annotations like "(drop set)"
+    import re
+    cleaned = re.sub(r'\([^)]*\)', '', range_str).strip()
+    if not cleaned:
+        return (0.0, 0.0)
+    # Handle comma-separated values like "10,8" → treat as range (8, 10)
+    if "," in cleaned:
+        nums = []
+        for p in cleaned.split(","):
+            p = p.strip()
+            if p:
+                try:
+                    nums.append(float(p))
+                except ValueError:
+                    continue
+        if nums:
+            return (min(nums), max(nums))
+        return (0.0, 0.0)
+    # Handle ranges like "8-10"
+    if "-" in cleaned:
+        parts = cleaned.split("-", maxsplit=1)
+        try:
+            return (float(parts[0].strip()), float(parts[1].strip()))
+        except ValueError:
+            return (0.0, 0.0)
+    # Single value
+    try:
+        val = float(cleaned)
+        return (val, val)
+    except ValueError:
+        return (0.0, 0.0)
 
 
 def is_compound(db: Session, exercise_name: str) -> bool:

@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from ..models import ExerciseCatalog, ProgramExercise, WorkoutLog
@@ -242,4 +241,45 @@ def get_muscle_balance(
             "push_pull": pp_assessment,
             "quad_ham": qh_assessment,
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Weekly tonnage (load * reps)
+# ---------------------------------------------------------------------------
+
+def get_weekly_tonnage(
+    db: Session,
+    user_id: int = 1,
+    weeks_back: int = 12,
+) -> dict:
+    """Calculate weekly tonnage (sum of load_kg * reps_completed) grouped by ISO week.
+
+    Returns a list of ``{week_start, tonnage_kg}`` sorted chronologically.
+    """
+    today = date.today()
+    cutoff = _monday_of(today) - timedelta(weeks=weeks_back - 1)
+
+    logs: list[WorkoutLog] = (
+        db.query(WorkoutLog)
+        .filter(
+            WorkoutLog.user_id == user_id,
+            WorkoutLog.date >= cutoff,
+        )
+        .all()
+    )
+
+    weekly_tonnage: dict[str, float] = defaultdict(float)
+
+    for wl in logs:
+        week_start = _monday_of(wl.date).isoformat()
+        weekly_tonnage[week_start] += wl.load_kg * wl.reps_completed
+
+    weeks_sorted = sorted(weekly_tonnage.keys())
+
+    return {
+        "weeks": [
+            {"week_start": ws, "tonnage_kg": round(weekly_tonnage[ws], 1)}
+            for ws in weeks_sorted
+        ],
     }

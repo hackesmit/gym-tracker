@@ -52,6 +52,9 @@ export const advanceTracker = (pid) =>
 export const getCalendar = (pid) => request(`/tracker/${pid}/calendar`);
 export const getAdherence = (pid) => request(`/tracker/${pid}/adherence`);
 
+// Workout
+export const getWorkoutToday = () => request('/workout/today');
+
 // Analytics
 export const getProgress = (exercise) => request(`/analytics/progress/${encodeURIComponent(exercise)}`);
 export const getVolume = (weeks = 8) => request(`/analytics/volume?weeks_back=${weeks}`);
@@ -61,3 +64,6 @@ export const getRecovery = () => request('/analytics/recovery');
 export const getOverloadPlan = (programId, week, sessionName) =>
   request(`/analytics/overload-plan?program_id=${programId}&week=${week}&session_name=${encodeURIComponent(sessionName)}`);
 export const getSummary = () => request('/analytics/summary');
+export const getDeloadCheck = () => request('/analytics/deload-check');
+export const getExerciseCatalog = () => request('/analytics/exercise-catalog');
+export const getTonnage = (weeks = 12) => request(`/analytics/tonnage?weeks_back=${weeks}`);

@@ -108,10 +108,58 @@ _TIER_PERCENTILES: list[tuple[str, float]] = [
     ("elite", 95.0),
 ]
 
+# ---------------------------------------------------------------------------
+# DOTS score coefficients (official IPF formula)
+# ---------------------------------------------------------------------------
+_DOTS_MALE_COEFFS: list[float] = [
+    -307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093,
+]
+_DOTS_FEMALE_COEFFS: list[float] = [
+    -57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706,
+]
+
+# DOTS classification thresholds (approximate, based on competition data)
+_DOTS_CLASSIFICATIONS: list[tuple[str, float]] = [
+    ("Elite", 500),
+    ("Master", 400),
+    ("Class I", 350),
+    ("Class II", 300),
+    ("Class III", 250),
+    ("Untrained", 0),
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def compute_dots_score(total_kg: float, bodyweight_kg: float, is_male: bool = True) -> dict:
+    """Compute DOTS score given a powerlifting total and bodyweight.
+
+    DOTS = 500 / (a + b*bw + c*bw^2 + d*bw^3 + e*bw^4) * total
+    """
+    if bodyweight_kg <= 0 or total_kg <= 0:
+        return {"score": 0.0, "classification": "Untrained"}
+
+    coeffs = _DOTS_MALE_COEFFS if is_male else _DOTS_FEMALE_COEFFS
+    a, b, c, d, e = coeffs
+    bw = bodyweight_kg
+    denominator = a + b * bw + c * bw**2 + d * bw**3 + e * bw**4
+
+    if denominator <= 0:
+        return {"score": 0.0, "classification": "Untrained"}
+
+    score = round(500.0 / denominator * total_kg, 2)
+
+    # Classify
+    classification = "Untrained"
+    for label, threshold in _DOTS_CLASSIFICATIONS:
+        if score >= threshold:
+            classification = label
+            break
+
+    return {"score": score, "classification": classification}
+
 
 def _estimate_e1rm(weight: float, reps: int) -> float:
     """Epley formula: e1RM = weight * (1 + reps / 30)."""
@@ -287,9 +335,25 @@ def get_strength_standards(db: Session, user_id: int = 1) -> dict:
     else:
         overall = None
 
+    # Compute DOTS score from estimated powerlifting total (squat + bench + deadlift)
+    dots_result = None
+    pl_lifts = ["squat", "bench", "deadlift"]
+    pl_e1rms = {lift: best_per_category[lift][0] for lift in pl_lifts if lift in best_per_category}
+    if len(pl_e1rms) >= 2:
+        # If all three available use them; if only two, still compute a partial estimate
+        total_kg = sum(pl_e1rms.values())
+        is_male = sex != "female"
+        dots_result = compute_dots_score(total_kg, bodyweight, is_male=is_male)
+        dots_result["total_kg"] = round(total_kg, 1)
+        dots_result["lifts_included"] = list(pl_e1rms.keys())
+        if len(pl_e1rms) < 3:
+            missing = [l for l in pl_lifts if l not in pl_e1rms]
+            dots_result["note"] = f"Partial total — missing: {', '.join(missing)}"
+
     return {
         "bodyweight_kg": bodyweight,
         "sex": sex,
         "lifts": lifts,
         "overall_classification": overall,
+        "dots": dots_result,
     }

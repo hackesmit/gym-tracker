@@ -67,28 +67,6 @@ EXERCISE_CATALOG = [
         "difficulty_level": "intermediate",
     },
     {
-        # Typo variant in spreadsheet
-        "canonical_name": "INCLINE DUMBBEL PRESS",
-        "muscle_group_primary": "chest",
-        "muscle_groups_secondary": ["triceps", "shoulders"],
-        "movement_pattern": "horizontal push",
-        "equipment": "dumbbell",
-        "is_compound": True,
-        "is_unilateral": False,
-        "difficulty_level": "intermediate",
-    },
-    {
-        # Typo variant in spreadsheet
-        "canonical_name": "INCLINE DUMBELL PRESS",
-        "muscle_group_primary": "chest",
-        "muscle_groups_secondary": ["triceps", "shoulders"],
-        "movement_pattern": "horizontal push",
-        "equipment": "dumbbell",
-        "is_compound": True,
-        "is_unilateral": False,
-        "difficulty_level": "intermediate",
-    },
-    {
         "canonical_name": "SLIGHT INCLINE DB PRESS (HEAVY)",
         "muscle_group_primary": "chest",
         "muscle_groups_secondary": ["triceps", "shoulders"],
@@ -159,7 +137,7 @@ EXERCISE_CATALOG = [
         "difficulty_level": "beginner",
     },
     {
-        "canonical_name": "MACHINE PRESS (BACKOFF)",
+        "canonical_name": "MACHINE PRESS (BACK OFF)",
         "muscle_group_primary": "chest",
         "muscle_groups_secondary": ["triceps", "shoulders"],
         "movement_pattern": "horizontal push",
@@ -471,17 +449,6 @@ EXERCISE_CATALOG = [
         "difficulty_level": "beginner",
     },
     {
-        # Typo variant in spreadsheet
-        "canonical_name": "MACHINE LATTERAL RAISES",
-        "muscle_group_primary": "shoulders",
-        "muscle_groups_secondary": [],
-        "movement_pattern": "isolation upper",
-        "equipment": "machine",
-        "is_compound": False,
-        "is_unilateral": False,
-        "difficulty_level": "beginner",
-    },
-    {
         "canonical_name": "SEATED DB SHOULDER PRESS",
         "muscle_group_primary": "shoulders",
         "muscle_groups_secondary": ["triceps"],
@@ -564,28 +531,6 @@ EXERCISE_CATALOG = [
     },
     {
         "canonical_name": "HACK SQUAT (BACK OFF)",
-        "muscle_group_primary": "quads",
-        "muscle_groups_secondary": ["glutes"],
-        "movement_pattern": "squat",
-        "equipment": "machine",
-        "is_compound": True,
-        "is_unilateral": False,
-        "difficulty_level": "intermediate",
-    },
-    {
-        # Typo variant in spreadsheet
-        "canonical_name": "HAVK SQUAT (HEAVY)",
-        "muscle_group_primary": "quads",
-        "muscle_groups_secondary": ["glutes"],
-        "movement_pattern": "squat",
-        "equipment": "machine",
-        "is_compound": True,
-        "is_unilateral": False,
-        "difficulty_level": "intermediate",
-    },
-    {
-        # Typo variant in spreadsheet
-        "canonical_name": "HAVK SQUAT (BACK OFF)",
         "muscle_group_primary": "quads",
         "muscle_groups_secondary": ["glutes"],
         "movement_pattern": "squat",
@@ -837,17 +782,6 @@ EXERCISE_CATALOG = [
         "difficulty_level": "beginner",
     },
     {
-        # Typo variant in spreadsheet (plural)
-        "canonical_name": "LYING LEG CURLS",
-        "muscle_group_primary": "hamstrings",
-        "muscle_groups_secondary": [],
-        "movement_pattern": "isolation lower",
-        "equipment": "machine",
-        "is_compound": False,
-        "is_unilateral": False,
-        "difficulty_level": "beginner",
-    },
-    {
         "canonical_name": "NORDIC HAM CURL",
         "muscle_group_primary": "hamstrings",
         "muscle_groups_secondary": [],
@@ -868,7 +802,17 @@ EXERCISE_CATALOG = [
         "difficulty_level": "advanced",
     },
     {
-        "canonical_name": "45° BACK EXTENSION",
+        "canonical_name": "45-DEGREE BACK EXTENSION",
+        "muscle_group_primary": "hamstrings",
+        "muscle_groups_secondary": ["glutes", "back"],
+        "movement_pattern": "hip hinge",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "beginner",
+    },
+    {
+        "canonical_name": "45-DEGREE HYPEREXTENSION",
         "muscle_group_primary": "hamstrings",
         "muscle_groups_secondary": ["glutes", "back"],
         "movement_pattern": "hip hinge",
@@ -1122,17 +1066,6 @@ EXERCISE_CATALOG = [
         "difficulty_level": "beginner",
     },
     {
-        # Variant name in spreadsheet
-        "canonical_name": "SEATED CALF EXTENSION",
-        "muscle_group_primary": "calves",
-        "muscle_groups_secondary": [],
-        "movement_pattern": "isolation lower",
-        "equipment": "machine",
-        "is_compound": False,
-        "is_unilateral": False,
-        "difficulty_level": "beginner",
-    },
-    {
         "canonical_name": "STANDING CALF RAISE",
         "muscle_group_primary": "calves",
         "muscle_groups_secondary": [],
@@ -1164,29 +1097,7 @@ EXERCISE_CATALOG = [
         "difficulty_level": "beginner",
     },
     {
-        # Typo variant in spreadsheet
-        "canonical_name": "CABLE RUNCH",
-        "muscle_group_primary": "abs",
-        "muscle_groups_secondary": [],
-        "movement_pattern": "core",
-        "equipment": "cable",
-        "is_compound": False,
-        "is_unilateral": False,
-        "difficulty_level": "beginner",
-    },
-    {
         "canonical_name": "MACHINE CRUNCH",
-        "muscle_group_primary": "abs",
-        "muscle_groups_secondary": [],
-        "movement_pattern": "core",
-        "equipment": "machine",
-        "is_compound": False,
-        "is_unilateral": False,
-        "difficulty_level": "beginner",
-    },
-    {
-        # Typo variant in spreadsheet (no space)
-        "canonical_name": "MACHINECRUNCH",
         "muscle_group_primary": "abs",
         "muscle_groups_secondary": [],
         "movement_pattern": "core",

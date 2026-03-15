@@ -35,7 +35,7 @@ NORMALIZATION_MAP: dict[str, str] = {
 }
 
 # Regex for superset prefix, e.g. "A1: EZ BAR CURL" or "B2: CABLE CRUNCH"
-_SUPERSET_RE = re.compile(r"^([A-Z])(\d):\s*(.+)$")
+_SUPERSET_RE = re.compile(r"^([A-Z])(\d):\s*(.+)$", re.IGNORECASE)
 
 # Regex for WEEK header in column 0
 _WEEK_RE = re.compile(r"^WEEK\s+(\d+)$", re.IGNORECASE)

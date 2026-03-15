@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   Dumbbell, ChevronLeft, ChevronRight, Check, Timer,
-  Plus, Minus, Save,
+  Plus, Minus, Save, Trophy, X,
 } from 'lucide-react';
 import Card from '../components/Card';
+import RestTimer from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import {
@@ -25,7 +26,7 @@ function flattenScheduleForWeek(scheduleResponse, week) {
 }
 
 export default function Logger() {
-  const { activeProgram, convert, unitLabel, units } = useApp();
+  const { activeProgram, unitLabel, units } = useApp();
   const [sessions, setSessions] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -36,6 +37,8 @@ export default function Logger() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('workout'); // workout | metrics
   const [scheduleData, setScheduleData] = useState(null);
+  const [prList, setPrList] = useState([]);
+  const [restTimerTrigger, setRestTimerTrigger] = useState(0);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -155,8 +158,11 @@ export default function Logger() {
           is_dropset: s.is_dropset,
         })),
       };
-      await logBulkSession(payload);
+      const result = await logBulkSession(payload);
       setSaved(true);
+      if (result.prs && result.prs.length > 0) {
+        setPrList(result.prs);
+      }
     } catch (err) {
       alert(err.message);
     } finally {
@@ -239,17 +245,18 @@ export default function Logger() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Log Workout</h2>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header + tab switcher */}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold">Log Workout</h2>
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
           <button onClick={() => setTab('workout')}
-            className={`px-3 py-1.5 rounded text-xs font-medium ${tab === 'workout' ? 'bg-primary text-white' : 'text-text-muted'}`}>
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-primary text-white' : 'text-text-muted'}`}>
             Workout
           </button>
           <button onClick={() => setTab('metrics')}
-            className={`px-3 py-1.5 rounded text-xs font-medium ${tab === 'metrics' ? 'bg-primary text-white' : 'text-text-muted'}`}>
-            Body Metrics
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'metrics' ? 'bg-primary text-white' : 'text-text-muted'}`}>
+            Metrics
           </button>
         </div>
       </div>
@@ -262,7 +269,7 @@ export default function Logger() {
               <p className="text-sm">Metrics saved!</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <MetricInput label={`Bodyweight (${unitLabel})`} value={metrics.bodyweight_kg}
                 onChange={(v) => setMetrics((m) => ({ ...m, bodyweight_kg: v }))} />
               <MetricInput label="Body Fat %" value={metrics.body_fat_pct}
@@ -275,7 +282,7 @@ export default function Logger() {
                 onChange={(v) => setMetrics((m) => ({ ...m, soreness_level: v }))} />
               <button onClick={handleMetricsSave}
                 disabled={!metrics.bodyweight_kg}
-                className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors">
+                className="w-full py-3 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors touch-manipulation">
                 Save Metrics
               </button>
             </div>
@@ -288,24 +295,24 @@ export default function Logger() {
           {/* Week selector */}
           <div className="flex items-center justify-center gap-4">
             <button onClick={() => changeWeek(currentWeek - 1)} disabled={currentWeek <= 1}
-              className="p-1.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30">
-              <ChevronLeft size={16} />
+              className="p-2.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30 touch-manipulation">
+              <ChevronLeft size={20} />
             </button>
-            <span className="text-sm font-medium">Week {currentWeek}</span>
+            <span className="text-sm font-medium min-w-[5rem] text-center">Week {currentWeek}</span>
             <button onClick={() => changeWeek(currentWeek + 1)} disabled={currentWeek >= (activeProgram?.total_weeks || 12)}
-              className="p-1.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30">
-              <ChevronRight size={16} />
+              className="p-2.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30 touch-manipulation">
+              <ChevronRight size={20} />
             </button>
           </div>
 
-          {/* Session selector */}
+          {/* Session selector - horizontal scroll on mobile */}
           {sessions.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
               {sessions.map((s) => (
                 <button
                   key={s.session_name}
                   onClick={() => { setSelectedSession(s); setSaved(false); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors touch-manipulation ${
                     selectedSession?.session_name === s.session_name
                       ? 'bg-primary text-white' : 'bg-surface-light text-text-muted hover:text-text'
                   }`}
@@ -325,7 +332,7 @@ export default function Logger() {
                   {sets.filter((s) => s.load_kg > 0).length} sets recorded for Week {currentWeek}
                 </p>
                 <button onClick={() => setSaved(false)}
-                  className="mt-4 text-sm text-primary hover:text-primary-light">
+                  className="mt-4 py-2 px-4 text-sm text-primary hover:text-primary-light touch-manipulation">
                   Log another session
                 </button>
               </div>
@@ -341,52 +348,69 @@ export default function Logger() {
                       </span>
                     </div>
                   )}
-                  <div className={dg.type === 'superset' ? 'border border-primary/20 rounded-xl p-3 space-y-3' : ''}>
+                  <div className={dg.type === 'superset' ? 'border border-primary/20 rounded-xl p-2 sm:p-3 space-y-3' : ''}>
                     {dg.exercises.map((group) => (
-                      <Card key={group.name}>
+                      <Card key={group.name} className="!p-3 sm:!p-5">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <Dumbbell size={14} className="text-primary-light" />
-                          {group.name}
+                          <Dumbbell size={14} className="text-primary-light shrink-0" />
+                          <span className="truncate">{group.name}</span>
                           {group.rest_period && group.rest_period !== '0 MINS' && (
-                            <span className="ml-auto text-[10px] text-text-muted flex items-center gap-1">
+                            <span className="ml-auto text-[10px] text-text-muted flex items-center gap-1 shrink-0">
                               <Timer size={10} /> {group.rest_period}
                             </span>
                           )}
                         </h4>
                         <div className="space-y-2">
-                          <div className="grid grid-cols-[auto_1fr_1fr_80px] gap-2 text-[10px] text-text-muted uppercase tracking-wider px-1">
+                          {/* Column headers */}
+                          <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 text-[10px] text-text-muted uppercase tracking-wider px-1">
                             <span>Set</span>
                             <span>{unitLabel}</span>
                             <span>Reps</span>
                             <span>RPE</span>
                           </div>
+                          {/* Set rows */}
                           {group.sets.map((s) => (
-                            <div key={s.idx} className="grid grid-cols-[auto_1fr_1fr_80px] gap-2 items-center">
-                              <span className="text-xs text-text-muted w-6 text-center">{s.set_number}</span>
+                            <div key={s.idx} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-center">
+                              <span className="text-xs text-text-muted text-center">{s.set_number}</span>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 value={s.load_kg}
                                 onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none"
+                                className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
                                 placeholder="0"
                               />
                               <input
                                 type="number"
+                                inputMode="numeric"
                                 value={s.reps_completed}
                                 onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none"
+                                onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
                                 placeholder="0"
                               />
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 step="0.5"
                                 value={s.rpe_actual}
                                 onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
-                                className="bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none"
+                                onBlur={() => setRestTimerTrigger((t) => t + 1)}
+                                className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 py-2.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
                                 placeholder="--"
                               />
                             </div>
                           ))}
+                          {/* Rest timer */}
+                          {group.rest_period && group.rest_period !== '0 MINS' && (
+                            <div className="mt-2">
+                              <RestTimer
+                                key={`${group.name}-${restTimerTrigger}`}
+                                restPeriod={group.rest_period}
+                                autoStart={restTimerTrigger > 0}
+                              />
+                            </div>
+                          )}
                         </div>
                       </Card>
                     ))}
@@ -394,18 +418,74 @@ export default function Logger() {
                 </div>
               ))}
 
-              <button
-                onClick={handleSave}
-                disabled={saving || !sets.some((s) => s.load_kg > 0)}
-                className="w-full py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
-              >
-                <Save size={16} />
-                {saving ? 'Saving...' : 'Save Session'}
-              </button>
+              {/* Save button - sticky on mobile for easy access */}
+              <div className="sticky bottom-4 z-10">
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !sets.some((s) => s.load_kg > 0)}
+                  className="w-full py-3.5 rounded-xl bg-primary text-white font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 touch-manipulation"
+                >
+                  <Save size={18} />
+                  {saving ? 'Saving...' : 'Save Session'}
+                </button>
+              </div>
             </>
           )}
         </>
       )}
+
+      {/* PR Celebration Overlay */}
+      {prList.length > 0 && (
+        <PRCelebration prs={prList} onClose={() => setPrList([])} />
+      )}
+    </div>
+  );
+}
+
+function PRCelebration({ prs, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-surface border border-warning/30 rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl animate-in">
+        <div className="flex justify-end">
+          <button onClick={onClose} className="text-text-muted hover:text-text p-1 touch-manipulation">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="text-center mb-4">
+          <Trophy size={48} className="text-warning mx-auto mb-2" />
+          <h3 className="text-xl font-bold text-warning">New PR!</h3>
+          <p className="text-xs text-text-muted mt-1">Personal record{prs.length > 1 ? 's' : ''} set this session</p>
+        </div>
+        <div className="space-y-3">
+          {prs.map((pr, i) => (
+            <div key={i} className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+              <p className="text-sm font-semibold text-text">{pr.exercise}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-lg font-bold text-warning">{pr.new_e1rm} kg</span>
+                <span className="text-xs text-text-muted">e1RM</span>
+                {pr.previous_e1rm != null && (
+                  <span className="ml-auto text-xs text-success font-medium">
+                    +{(pr.new_e1rm - pr.previous_e1rm).toFixed(1)} kg
+                  </span>
+                )}
+                {pr.previous_e1rm == null && (
+                  <span className="ml-auto text-xs text-text-muted">First log!</span>
+                )}
+              </div>
+              {pr.previous_e1rm != null && (
+                <p className="text-[10px] text-text-muted mt-1">
+                  Previous best: {pr.previous_e1rm} kg
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -413,13 +493,14 @@ export default function Logger() {
 function MetricInput({ label, value, onChange }) {
   return (
     <div>
-      <label className="text-xs text-text-muted mb-1 block">{label}</label>
+      <label className="text-xs text-text-muted mb-1.5 block">{label}</label>
       <input
         type="number"
+        inputMode="decimal"
         step="any"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text focus:ring-1 focus:ring-primary outline-none"
+        className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-base text-text focus:ring-1 focus:ring-primary outline-none"
       />
     </div>
   );

@@ -3,15 +3,15 @@ import {
   BarChart3, Target, Activity, Scale, Download,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
-  PolarRadiusAxis, Radar, Legend,
+  PolarRadiusAxis, Radar, Legend, ReferenceLine,
 } from 'recharts';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import {
-  getVolume, getMuscleBalance, getStrengthStandards, getBodyMetrics,
+  getVolume, getMuscleBalance, getStrengthStandards, getBodyMetrics, getTonnage,
 } from '../api/client';
 import { exportToCSV } from '../utils/export';
 
@@ -28,21 +28,25 @@ export default function Analytics() {
   const [balance, setBalance] = useState(null);
   const [strength, setStrength] = useState(null);
   const [bodyMetrics, setBodyMetrics] = useState(null);
+  const [tonnage, setTonnage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [weeksBack, setWeeksBack] = useState(8);
+  const [selectedMuscle, setSelectedMuscle] = useState('all');
 
   useEffect(() => {
     const load = async () => {
-      const [v, b, s, bm] = await Promise.all([
+      const [v, b, s, bm, t] = await Promise.all([
         getVolume(weeksBack).catch(() => null),
         getMuscleBalance().catch(() => null),
         getStrengthStandards().catch(() => null),
         getBodyMetrics().catch(() => null),
+        getTonnage(weeksBack).catch(() => null),
       ]);
       setVolume(v);
       setBalance(b);
       setStrength(s);
       setBodyMetrics(bm);
+      setTonnage(t);
       setLoading(false);
     };
     load();
@@ -99,22 +103,95 @@ export default function Analytics() {
           </div>
         </div>
       }>
+        {/* Muscle group selector pills */}
+        {volumeData.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            <button
+              onClick={() => setSelectedMuscle('all')}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+                selectedMuscle === 'all'
+                  ? 'bg-primary text-white'
+                  : 'bg-surface-lighter text-text-muted hover:text-text'
+              }`}
+            >
+              All
+            </button>
+            {[...allMuscles].sort().map((muscle) => (
+              <button
+                key={muscle}
+                onClick={() => setSelectedMuscle(muscle)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-medium capitalize transition-colors ${
+                  selectedMuscle === muscle
+                    ? 'text-white'
+                    : 'bg-surface-lighter text-text-muted hover:text-text'
+                }`}
+                style={selectedMuscle === muscle ? { backgroundColor: MUSCLE_COLORS[muscle] || '#6366f1' } : undefined}
+              >
+                {muscle}
+              </button>
+            ))}
+          </div>
+        )}
+
         {volumeData.length ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={volumeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
-              <Tooltip contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 11 }} />
-              <Legend wrapperStyle={{ fontSize: 10 }} />
-              {[...allMuscles].map((muscle) => (
-                <Bar key={muscle} dataKey={muscle} stackId="a"
-                  fill={MUSCLE_COLORS[muscle] || '#6366f1'} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          selectedMuscle === 'all' ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={volumeData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
+                <Tooltip contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                {[...allMuscles].map((muscle) => (
+                  <Bar key={muscle} dataKey={muscle} stackId="a"
+                    fill={MUSCLE_COLORS[muscle] || '#6366f1'} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={volumeData} margin={{ top: 5, right: 60, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
+                <Tooltip contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 11 }} />
+                <Bar dataKey={selectedMuscle} fill={MUSCLE_COLORS[selectedMuscle] || '#6366f1'} radius={[4, 4, 0, 0]} />
+                {volume?.volume_landmarks?.[selectedMuscle] && (
+                  <>
+                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mev} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'MEV', position: 'right', fontSize: 10, fill: '#ef4444' }} />
+                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mav_low} stroke="#22c55e" strokeDasharray="6 3" label={{ value: 'MAV low', position: 'right', fontSize: 10, fill: '#22c55e' }} />
+                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mav_high} stroke="#eab308" strokeDasharray="6 3" label={{ value: 'MAV high', position: 'right', fontSize: 10, fill: '#eab308' }} />
+                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mrv} stroke="#dc2626" strokeDasharray="6 3" strokeWidth={2} label={{ value: 'MRV', position: 'right', fontSize: 10, fill: '#dc2626', fontWeight: 600 }} />
+                  </>
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          )
         ) : (
           <p className="text-text-muted text-sm text-center py-8">No volume data yet.</p>
+        )}
+      </Card>
+
+      {/* Tonnage trend */}
+      <Card title="Weekly Tonnage">
+        {tonnage?.weeks?.length ? (
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={tonnage.weeks.map((w) => ({
+              week: w.week_start,
+              tonnage: Math.round(w.tonnage_kg),
+            }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#363650" />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} label={{ value: 'kg', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
+              <Tooltip
+                contentStyle={{ background: '#1e1e2e', border: '1px solid #363650', borderRadius: 8, fontSize: 11 }}
+                formatter={(value) => [`${value.toLocaleString()} kg`, 'Tonnage']}
+              />
+              <Line type="monotone" dataKey="tonnage" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} name="Tonnage" />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-text-muted text-sm text-center py-8">No tonnage data yet.</p>
         )}
       </Card>
 
@@ -132,7 +209,7 @@ export default function Analytics() {
                 </RadarChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-1">
-                {Object.entries(strength.lifts).map(([lift, d]) => (
+                {Object.entries(strength?.lifts || {}).map(([lift, d]) => (
                   d.classification && (
                     <div key={lift} className="flex items-center justify-between text-xs">
                       <span className="text-text-muted capitalize">{lift}</span>
@@ -150,7 +227,7 @@ export default function Analytics() {
                   )
                 ))}
               </div>
-              {strength.overall_classification && (
+              {strength?.overall_classification && (
                 <p className="text-xs text-text-muted mt-3 text-center">
                   Overall: <span className="font-medium text-primary-light capitalize">{strength.overall_classification}</span>
                 </p>
@@ -162,6 +239,42 @@ export default function Analytics() {
             </p>
           )}
         </Card>
+
+        {/* DOTS Score */}
+        {strength?.dots && (
+          <Card title="DOTS Score">
+            <div className="flex flex-col items-center py-4">
+              <span className="text-4xl font-bold text-primary-light">
+                {strength.dots.score}
+              </span>
+              <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                strength.dots.classification === 'Elite' ? 'bg-yellow-500/20 text-yellow-400' :
+                strength.dots.classification === 'Master' ? 'bg-success/20 text-success' :
+                strength.dots.classification === 'Class I' ? 'bg-info/20 text-info' :
+                'bg-surface-lighter text-text-muted'
+              }`}>
+                {strength.dots.classification}
+              </span>
+              <div className="mt-4 w-full space-y-1.5 text-xs text-text-muted">
+                <div className="flex justify-between">
+                  <span>Est. Total</span>
+                  <span className="text-text">{convert(strength.dots.total_kg)} {unitLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Bodyweight</span>
+                  <span className="text-text">{convert(strength.bodyweight_kg)} {unitLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Lifts used</span>
+                  <span className="text-text capitalize">{strength.dots.lifts_included?.join(', ')}</span>
+                </div>
+              </div>
+              {strength.dots.note && (
+                <p className="mt-3 text-[10px] text-warning text-center">{strength.dots.note}</p>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Muscle balance */}
         <Card title="Muscle Balance">
@@ -194,7 +307,7 @@ export default function Analytics() {
       {bodyMetrics?.length > 0 && (
         <Card title="Bodyweight Trend">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={[...bodyMetrics].reverse().map((m) => ({
+            <BarChart data={[...(bodyMetrics || [])].reverse().map((m) => ({
               date: m.date,
               weight: convert(m.bodyweight_kg),
             }))}>

@@ -4,7 +4,11 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 function parseRestPeriod(str) {
   if (!str) return 0;
   const match = str.match(/([\d.]+)/);
-  return match ? Math.round(parseFloat(match[1]) * 60) : 0;
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  // If the string mentions SEC(S), treat value as seconds; otherwise as minutes
+  if (/sec/i.test(str)) return Math.round(value);
+  return Math.round(value * 60);
 }
 
 function formatTime(seconds) {
@@ -87,7 +91,7 @@ export default function RestTimer({ restPeriod, autoStart = false, onComplete })
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-300 ${
+      className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg transition-colors duration-300 ${
         completed
           ? 'bg-green-500/20 border border-green-500/40'
           : running
@@ -121,31 +125,31 @@ export default function RestTimer({ restPeriod, autoStart = false, onComplete })
         </span>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-1">
+      {/* Controls - larger touch targets on mobile */}
+      <div className="flex items-center gap-0.5">
         {running ? (
           <button
             onClick={handlePause}
-            className="p-1 rounded hover:bg-surface-lighter text-text-muted hover:text-text transition-colors"
+            className="p-2 rounded-lg hover:bg-surface-lighter text-text-muted hover:text-text transition-colors touch-manipulation"
             aria-label="Pause timer"
           >
-            <Pause size={14} />
+            <Pause size={16} />
           </button>
         ) : (
           <button
             onClick={handleStart}
-            className="p-1 rounded hover:bg-surface-lighter text-primary hover:text-primary transition-colors"
+            className="p-2 rounded-lg hover:bg-surface-lighter text-primary hover:text-primary transition-colors touch-manipulation"
             aria-label="Start timer"
           >
-            <Play size={14} />
+            <Play size={16} />
           </button>
         )}
         <button
           onClick={handleReset}
-          className="p-1 rounded hover:bg-surface-lighter text-text-muted hover:text-text transition-colors"
+          className="p-2 rounded-lg hover:bg-surface-lighter text-text-muted hover:text-text transition-colors touch-manipulation"
           aria-label="Reset timer"
         >
-          <RotateCcw size={14} />
+          <RotateCcw size={16} />
         </button>
       </div>
     </div>

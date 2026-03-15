@@ -8,7 +8,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { useApp } from '../context/AppContext';
-import { getProgress, getSchedule } from '../api/client';
+import { getProgress, getSchedule, getExerciseCatalog } from '../api/client';
 import { exportToCSV } from '../utils/export';
 
 export default function Progress() {
@@ -19,13 +19,17 @@ export default function Progress() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Load exercise list from schedule
+  const [muscleMap, setMuscleMap] = useState({});
+
+  // Load exercise list from schedule + catalog for muscle grouping
   useEffect(() => {
     if (!activeProgram) return;
-    getSchedule(activeProgram.id).then((res) => {
+    Promise.all([
+      getSchedule(activeProgram.id),
+      getExerciseCatalog().catch(() => []),
+    ]).then(([res, catalog]) => {
       const names = new Set();
       const schedule = res.schedule || {};
-      // schedule is { weekNum: { sessionName: [exercises] } }
       Object.values(schedule).forEach((weekSessions) => {
         Object.values(weekSessions).forEach((exercises) => {
           exercises.forEach((ex) => {
@@ -34,6 +38,14 @@ export default function Progress() {
           });
         });
       });
+
+      // Build muscle group lookup from catalog
+      const mMap = {};
+      (catalog || []).forEach((c) => {
+        mMap[c.name] = c.muscle_group;
+      });
+      setMuscleMap(mMap);
+
       const sorted = [...names].sort();
       setExercises(sorted);
       if (sorted.length) setSelected(sorted[0]);
@@ -56,8 +68,8 @@ export default function Progress() {
 
   const chartData = data?.data_points?.map((dp) => ({
     date: dp.date,
-    e1rm: convert(dp.e1rm),
-    load: convert(dp.load_kg),
+    e1rm: convert(dp.best_e1rm),
+    load: convert(dp.best_load),
   })) || [];
 
   const projections = data?.projections;
@@ -80,18 +92,39 @@ export default function Progress() {
               className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-8 pr-3 py-2 text-xs text-text focus:ring-1 focus:ring-primary outline-none"
             />
           </div>
-          <div className="space-y-0.5">
-            {filtered.map((ex) => (
-              <button
-                key={ex}
-                onClick={() => setSelected(ex)}
-                className={`w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors ${
-                  selected === ex ? 'bg-primary/15 text-primary-light font-medium' : 'text-text-muted hover:text-text hover:bg-surface-light'
-                }`}
-              >
-                {ex}
-              </button>
-            ))}
+          <div className="space-y-2">
+            {(() => {
+              // Group filtered exercises by muscle group
+              const groups = {};
+              filtered.forEach((ex) => {
+                const muscle = muscleMap[ex] || 'Other';
+                if (!groups[muscle]) groups[muscle] = [];
+                groups[muscle].push(ex);
+              });
+              const sortedGroups = Object.keys(groups).sort((a, b) =>
+                a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b)
+              );
+              return sortedGroups.map((group) => (
+                <div key={group}>
+                  <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-2.5 py-1 sticky top-0 bg-surface-dark">
+                    {group}
+                  </div>
+                  <div className="space-y-0.5">
+                    {groups[group].map((ex) => (
+                      <button
+                        key={ex}
+                        onClick={() => setSelected(ex)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors ${
+                          selected === ex ? 'bg-primary/15 text-primary-light font-medium' : 'text-text-muted hover:text-text hover:bg-surface-light'
+                        }`}
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </Card>
 
@@ -117,9 +150,9 @@ export default function Progress() {
                       </div>
                     </div>
                   </Card>
-                  {prs.recent_e1rm && (
+                  {prs.recent_4wk_e1rm && (
                     <Card>
-                      <div className="text-lg font-bold">{convert(prs.recent_e1rm)} {unitLabel}</div>
+                      <div className="text-lg font-bold">{convert(prs.recent_4wk_e1rm)} {unitLabel}</div>
                       <div className="text-[10px] text-text-muted">Recent best (4 wk)</div>
                     </Card>
                   )}
@@ -155,18 +188,18 @@ export default function Progress() {
               </Card>
 
               {/* Projections */}
-              {projections && (projections.linear_4w || projections.log_4w) && (
+              {projections?.["4_weeks"] && (
                 <Card title="Projections">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     {[
-                      { label: '4 Week', lin: projections.linear_4w, log: projections.log_4w },
-                      { label: '8 Week', lin: projections.linear_8w, log: projections.log_8w },
-                      { label: '12 Week', lin: projections.linear_12w, log: projections.log_12w },
-                    ].map(({ label, lin, log }) => (
+                      { label: '4 Week', value: projections["4_weeks"] },
+                      { label: '8 Week', value: projections["8_weeks"] },
+                      { label: '12 Week', value: projections["12_weeks"] },
+                    ].map(({ label, value }) => (
                       <div key={label}>
                         <div className="text-xs text-text-muted mb-1">{label}</div>
                         <div className="text-lg font-bold text-primary-light">
-                          {lin ? `${convert(lin)} ${unitLabel}` : '--'}
+                          {value ? `${convert(value)} ${unitLabel}` : '--'}
                         </div>
                       </div>
                     ))}
@@ -181,7 +214,7 @@ export default function Progress() {
                     onClick={() => exportToCSV(
                       data.data_points,
                       `progress_${selected.replace(/\s+/g, '_').toUpperCase()}`,
-                      ['date', 'load_kg', 'reps', 'e1rm']
+                      ['date', 'best_load', 'best_reps', 'best_e1rm']
                     )}
                     className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
                   >
@@ -204,9 +237,9 @@ export default function Progress() {
                       {data.data_points?.slice(0, 20).map((dp, i) => (
                         <tr key={i} className="border-b border-surface-lighter/50">
                           <td className="py-1.5 pr-4 text-text-muted">{dp.date}</td>
-                          <td className="py-1.5 pr-4 text-right">{convert(dp.load_kg)} {unitLabel}</td>
-                          <td className="py-1.5 pr-4 text-right">{dp.reps}</td>
-                          <td className="py-1.5 text-right font-medium">{convert(dp.e1rm)} {unitLabel}</td>
+                          <td className="py-1.5 pr-4 text-right">{convert(dp.best_load)} {unitLabel}</td>
+                          <td className="py-1.5 pr-4 text-right">{dp.best_reps}</td>
+                          <td className="py-1.5 text-right font-medium">{convert(dp.best_e1rm)} {unitLabel}</td>
                         </tr>
                       ))}
                     </tbody>

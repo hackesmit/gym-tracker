@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from datetime import date, timedelta
-from math import log
 
 import numpy as np
 from scipy.optimize import curve_fit

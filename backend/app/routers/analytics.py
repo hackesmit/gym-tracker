@@ -5,11 +5,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from ..analytics.deload import get_deload_check
 from ..analytics.overload import get_overload_plan, suggest_next_session
 from ..analytics.progress import get_exercise_progress
 from ..analytics.recovery import get_recovery_status
 from ..analytics.strength import get_strength_standards
-from ..analytics.volume import get_muscle_balance, get_weekly_volume
+from ..analytics.volume import get_muscle_balance, get_weekly_tonnage, get_weekly_volume
 from ..database import get_db
 from ..models import ExerciseCatalog, ProgramExercise, WorkoutLog
 
@@ -69,7 +70,13 @@ def strength_standards(db: Session = Depends(get_db)):
 @router.get("/recovery")
 def recovery_status(db: Session = Depends(get_db)):
     """Recovery status and per-muscle-group fatigue."""
-    return get_recovery_status(db)
+    try:
+        return get_recovery_status(db)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc) or "Log body metrics to get recovery insights.",
+        )
 
 
 @router.get("/overload-plan")
@@ -87,6 +94,31 @@ def overload_plan(
             detail=f"No exercises found for program {program_id}, week {week}, session '{session_name}'",
         )
     return plan
+
+
+@router.get("/deload-check")
+def deload_check(db: Session = Depends(get_db)):
+    """Check whether a deload week is recommended based on stagnation and recovery."""
+    return get_deload_check(db)
+
+
+@router.get("/exercise-catalog")
+def exercise_catalog(db: Session = Depends(get_db)):
+    """Return all exercises with their primary muscle group."""
+    rows = db.query(ExerciseCatalog).order_by(ExerciseCatalog.canonical_name).all()
+    return [
+        {"name": row.canonical_name, "muscle_group": row.muscle_group_primary}
+        for row in rows
+    ]
+
+
+@router.get("/tonnage")
+def tonnage(
+    weeks_back: int = Query(12, ge=1, le=52),
+    db: Session = Depends(get_db),
+):
+    """Weekly tonnage (load_kg * reps) over time."""
+    return get_weekly_tonnage(db, weeks_back=weeks_back)
 
 
 @router.get("/summary")
@@ -121,12 +153,15 @@ def dashboard_summary(db: Session = Depends(get_db)):
             )
 
     # Recovery snapshot
-    recovery = get_recovery_status(db)
+    try:
+        recovery = get_recovery_status(db)
+    except ValueError:
+        recovery = {}
 
     return {
         "total_sets_logged": total_sets,
         "unique_exercises_logged": exercise_ids,
         "recent_prs": recent_prs,
         "recovery_score": recovery.get("overall_score"),
-        "recovery_recommendation": recovery.get("recommendation"),
+        "recovery_recommendation": recovery.get("recommendation", ""),
     }

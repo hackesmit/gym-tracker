@@ -1,13 +1,13 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  ChevronDown, ChevronRight, Pause, Play, XCircle,
+  ChevronDown, ChevronRight, Pause, Play, XCircle, CheckCircle2, Eye,
   Dumbbell, Clock, Hash, Gauge, MessageSquare, ArrowLeftRight,
-  Link as LinkIcon, AlertCircle,
+  Link as LinkIcon, AlertCircle, Circle, SkipForward, Loader2,
 } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
-import { getSchedule, getTracker, updateProgramStatus } from '../api/client';
+import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
 
 const STATUS_STYLES = {
   active: 'bg-success/15 text-success',
@@ -23,6 +23,8 @@ export default function Program() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedWeeks, setExpandedWeeks] = useState({});
+  const [weekLogs, setWeekLogs] = useState({});       // { weekNum: { sessions: [...] } }
+  const [weekLogsLoading, setWeekLogsLoading] = useState({}); // { weekNum: bool }
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
@@ -40,9 +42,13 @@ export default function Program() {
         ]);
         setSchedule(s);
         setTracker(t);
-        // Auto-expand current week
+        // Auto-expand current week and fetch its logs
         if (t?.current_week) {
           setExpandedWeeks({ [t.current_week]: true });
+          // Fetch week logs for current week
+          getTrackerWeek(activeProgram.id, t.current_week)
+            .then((data) => setWeekLogs((prev) => ({ ...prev, [t.current_week]: data })))
+            .catch(() => {});
         }
       } catch (err) {
         setError(err.message || 'Failed to load program');
@@ -53,8 +59,26 @@ export default function Program() {
     load();
   }, [activeProgram]);
 
+  const fetchWeekLogs = useCallback(async (weekNum) => {
+    if (!activeProgram || weekLogs[weekNum] || weekLogsLoading[weekNum]) return;
+    setWeekLogsLoading((prev) => ({ ...prev, [weekNum]: true }));
+    try {
+      const data = await getTrackerWeek(activeProgram.id, weekNum);
+      setWeekLogs((prev) => ({ ...prev, [weekNum]: data }));
+    } catch {
+      // Silently fail — user just won't see logged data
+      setWeekLogs((prev) => ({ ...prev, [weekNum]: null }));
+    } finally {
+      setWeekLogsLoading((prev) => ({ ...prev, [weekNum]: false }));
+    }
+  }, [activeProgram, weekLogs, weekLogsLoading]);
+
   const toggleWeek = (week) => {
-    setExpandedWeeks((prev) => ({ ...prev, [week]: !prev[week] }));
+    const willExpand = !expandedWeeks[week];
+    setExpandedWeeks((prev) => ({ ...prev, [week]: willExpand }));
+    if (willExpand) {
+      fetchWeekLogs(week);
+    }
   };
 
   const handleStatusChange = async (newStatus) => {
@@ -62,6 +86,7 @@ export default function Program() {
     const confirmMsg = {
       paused: 'Pause this program?',
       active: 'Resume this program?',
+      completed: 'Complete this program? This cannot be undone.',
       abandoned: 'Abandon this program? This cannot be undone.',
     }[newStatus];
     if (!window.confirm(confirmMsg)) return;
@@ -128,6 +153,10 @@ export default function Program() {
             {schedule?.frequency || activeProgram.frequency}x per week
             {tracker && ` \u00B7 Week ${tracker.current_week} of ${tracker.total_weeks}`}
           </p>
+          <p className="text-text-muted text-[11px] mt-1.5 flex items-center gap-1.5">
+            <AlertCircle size={12} className="shrink-0 text-info" />
+            To change training frequency, re-import your program from the Dashboard with the new frequency setting.
+          </p>
         </div>
 
         {/* Lifecycle buttons */}
@@ -140,6 +169,13 @@ export default function Program() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-surface-light text-warning hover:bg-surface-lighter transition-colors disabled:opacity-50"
               >
                 <Pause size={14} /> Pause
+              </button>
+              <button
+                onClick={() => handleStatusChange('completed')}
+                disabled={updating}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-surface-light text-primary-light hover:bg-surface-lighter transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> Complete
               </button>
               <button
                 onClick={() => handleStatusChange('abandoned')}
@@ -167,6 +203,11 @@ export default function Program() {
                 <XCircle size={14} /> Abandon
               </button>
             </>
+          )}
+          {(currentStatus === 'completed' || currentStatus === 'abandoned') && (
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-surface-light text-text-muted">
+              <Eye size={14} /> View Only
+            </span>
           )}
         </div>
       </div>
@@ -197,7 +238,7 @@ export default function Program() {
         {weekNumbers.map((weekNum) => {
           const isCurrentWeek = tracker?.current_week === weekNum;
           const isExpanded = expandedWeeks[weekNum];
-          const sessions = schedule.schedule[weekNum];
+          const sessions = schedule?.schedule?.[weekNum];
 
           return (
             <div
@@ -234,13 +275,27 @@ export default function Program() {
               {/* Week content */}
               {isExpanded && (
                 <div className="px-5 pb-5 space-y-4">
-                  {Object.entries(sessions).map(([sessionName, exercises]) => (
-                    <SessionBlock
-                      key={sessionName}
-                      sessionName={sessionName}
-                      exercises={exercises}
-                    />
-                  ))}
+                  {weekLogsLoading[weekNum] && (
+                    <div className="flex items-center justify-center py-3 gap-2 text-text-muted text-sm">
+                      <Loader2 size={14} className="animate-spin" />
+                      Loading logged data...
+                    </div>
+                  )}
+                  {Object.entries(sessions).map(([sessionName, exercises]) => {
+                    // Find matching session log data
+                    const weekData = weekLogs[weekNum];
+                    const sessionLog = weekData?.sessions?.find(
+                      (s) => s.session_name === sessionName
+                    );
+                    return (
+                      <SessionBlock
+                        key={sessionName}
+                        sessionName={sessionName}
+                        exercises={exercises}
+                        sessionLog={sessionLog}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -259,13 +314,21 @@ export default function Program() {
   );
 }
 
-function SessionBlock({ sessionName, exercises }) {
+const SESSION_STATUS_CONFIG = {
+  completed: { icon: CheckCircle2, color: 'text-success', label: 'Completed' },
+  partial: { icon: CheckCircle2, color: 'text-warning', label: 'Partial' },
+  skipped: { icon: SkipForward, color: 'text-warning', label: 'Skipped' },
+  missed: { icon: XCircle, color: 'text-danger', label: 'Missed' },
+  pending: { icon: Circle, color: 'text-text-muted', label: 'Pending' },
+};
+
+function SessionBlock({ sessionName, exercises, sessionLog }) {
   // Group exercises by superset_group
   const grouped = useMemo(() => {
     const groups = [];
     let currentSuperset = null;
 
-    exercises
+    (exercises || [])
       .slice()
       .sort((a, b) => a.exercise_order - b.exercise_order)
       .forEach((ex) => {
@@ -285,13 +348,36 @@ function SessionBlock({ sessionName, exercises }) {
     return groups;
   }, [exercises]);
 
+  // Build a lookup of logged data by exercise name
+  const loggedByExercise = useMemo(() => {
+    if (!sessionLog?.exercises) return {};
+    const map = {};
+    for (const ex of sessionLog.exercises) {
+      map[ex.exercise_name] = ex.logged || [];
+    }
+    return map;
+  }, [sessionLog]);
+
+  const status = sessionLog?.status;
+  const statusConfig = SESSION_STATUS_CONFIG[status] || null;
+  const StatusIcon = statusConfig?.icon;
+
   return (
     <div className="bg-surface-light rounded-lg border border-surface-lighter">
-      <div className="px-4 py-3 border-b border-surface-lighter">
+      <div className="px-4 py-3 border-b border-surface-lighter flex items-center justify-between">
         <h4 className="text-sm font-semibold uppercase tracking-wider text-text-muted flex items-center gap-2">
           <Dumbbell size={14} />
           {sessionName}
         </h4>
+        {statusConfig && (
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${statusConfig.color}`}>
+            <StatusIcon size={14} />
+            <span>{statusConfig.label}</span>
+            {sessionLog?.date && (
+              <span className="text-text-muted ml-1">{sessionLog.date}</span>
+            )}
+          </div>
+        )}
       </div>
       <div className="divide-y divide-surface-lighter">
         {grouped.map((entry, i) => {
@@ -306,26 +392,37 @@ function SessionBlock({ sessionName, exercises }) {
                     </span>
                   </div>
                   {entry.data.items.map((ex) => (
-                    <ExerciseRow key={ex.id} exercise={ex} />
+                    <ExerciseRow
+                      key={ex.id}
+                      exercise={ex}
+                      loggedSets={loggedByExercise[ex.exercise_name_canonical || ex.exercise_name] || []}
+                    />
                   ))}
                 </div>
               </div>
             );
           }
-          return <ExerciseRow key={entry.data.id} exercise={entry.data} />;
+          return (
+            <ExerciseRow
+              key={entry.data.id}
+              exercise={entry.data}
+              loggedSets={loggedByExercise[entry.data.exercise_name_canonical || entry.data.exercise_name] || []}
+            />
+          );
         })}
       </div>
     </div>
   );
 }
 
-function ExerciseRow({ exercise }) {
+function ExerciseRow({ exercise, loggedSets = [] }) {
   const [showDetails, setShowDetails] = useState(false);
 
   const ex = exercise;
   const hasSubs = ex.substitution_1 || ex.substitution_2;
   const hasNotes = ex.notes;
-  const hasExtra = hasSubs || hasNotes;
+  const hasLogged = loggedSets.length > 0;
+  const hasExtra = hasSubs || hasNotes || hasLogged;
 
   return (
     <div className="px-4 py-3">
@@ -336,6 +433,9 @@ function ExerciseRow({ exercise }) {
               {ex.exercise_order}.
             </span>
             <span className="text-sm font-medium truncate">{ex.exercise_name}</span>
+            {hasLogged && (
+              <CheckCircle2 size={12} className="text-success shrink-0" />
+            )}
           </div>
           {/* Compact stats row */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 ml-7">
@@ -377,6 +477,41 @@ function ExerciseRow({ exercise }) {
       {/* Expandable details */}
       {showDetails && hasExtra && (
         <div className="mt-2 ml-7 space-y-1.5">
+          {/* Logged sets */}
+          {hasLogged && (
+            <div className="mt-1 mb-2">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-success mb-1.5">
+                Logged Sets
+              </div>
+              <div className="grid gap-1">
+                {loggedSets.map((set) => (
+                  <div
+                    key={set.set_number}
+                    className="flex items-center gap-3 bg-success/5 border border-success/10 rounded-md px-3 py-1.5"
+                  >
+                    <span className="text-[10px] text-text-muted font-mono w-6">
+                      S{set.set_number}
+                    </span>
+                    {set.load_kg != null && (
+                      <span className="text-xs font-medium text-text">
+                        {set.load_kg} kg
+                      </span>
+                    )}
+                    {set.reps != null && (
+                      <span className="text-xs text-text-muted">
+                        {set.reps} reps
+                      </span>
+                    )}
+                    {set.rpe != null && (
+                      <span className="text-xs text-text-muted">
+                        RPE {set.rpe}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {hasNotes && (
             <div className="flex items-start gap-1.5 text-xs text-text-muted">
               <MessageSquare size={10} className="mt-0.5 shrink-0" />

@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -12,6 +13,10 @@ from ..models import Program, ProgramExercise, ProgramProgress, User
 from ..parser import parse_program
 
 router = APIRouter(prefix="/api", tags=["programs"])
+
+
+class StatusUpdate(BaseModel):
+    status: str
 
 # Directory for uploaded spreadsheets
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "uploads"
@@ -237,9 +242,10 @@ def get_program_schedule(program_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/program/{program_id}/status")
 def update_program_status(
-    program_id: int, status: str, db: Session = Depends(get_db)
+    program_id: int, body: StatusUpdate, db: Session = Depends(get_db)
 ):
     """Update program status (active/paused/completed/abandoned)."""
+    status = body.status
     valid_statuses = {"active", "paused", "completed", "abandoned"}
     if status not in valid_statuses:
         raise HTTPException(
