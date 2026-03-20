@@ -20,6 +20,10 @@ router = APIRouter(prefix="/api", tags=["programs"])
 class StatusUpdate(BaseModel):
     status: str
 
+
+class ExerciseSwap(BaseModel):
+    new_exercise_name: str
+
 # Directory for uploaded spreadsheets
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", tempfile.gettempdir())) / "uploads"
 
@@ -265,3 +269,35 @@ def update_program_status(
     db.commit()
 
     return {"status": "updated", "program_id": program_id, "new_status": status}
+
+
+@router.patch("/program/{program_id}/exercise/{old_name}")
+def swap_exercise(
+    program_id: int,
+    old_name: str,
+    body: ExerciseSwap,
+    db: Session = Depends(get_db),
+):
+    """Swap an exercise name across all weeks of a program."""
+    exercises = (
+        db.query(ProgramExercise)
+        .filter(
+            ProgramExercise.program_id == program_id,
+            ProgramExercise.exercise_name_canonical == old_name,
+        )
+        .all()
+    )
+    if not exercises:
+        raise HTTPException(status_code=404, detail=f"Exercise '{old_name}' not found in program")
+
+    for ex in exercises:
+        ex.exercise_name_canonical = body.new_exercise_name
+        ex.exercise_name_raw = body.new_exercise_name
+    db.commit()
+
+    return {
+        "status": "swapped",
+        "old_name": old_name,
+        "new_name": body.new_exercise_name,
+        "rows_updated": len(exercises),
+    }

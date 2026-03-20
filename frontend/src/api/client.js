@@ -17,6 +17,11 @@ export const getPrograms = () => request('/programs');
 export const getSchedule = (id) => request(`/program/${id}/schedule`);
 export const updateProgramStatus = (id, status) =>
   request(`/program/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PATCH' });
+export const swapExercise = (programId, oldName, newName) =>
+  request(`/program/${programId}/exercise/${encodeURIComponent(oldName)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ new_exercise_name: newName }),
+  });
 export const importProgram = (file, frequency) => {
   const form = new FormData();
   form.append('file', file);
