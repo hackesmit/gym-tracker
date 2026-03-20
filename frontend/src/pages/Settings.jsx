@@ -1,9 +1,18 @@
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Timer } from 'lucide-react';
+
+const REST_PRESETS = [30, 60, 90, 120, 180];
+
+function formatRestLabel(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
 
 export default function Settings() {
-  const { units, setUnits } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds } = useApp();
 
   return (
     <div className="space-y-6">
@@ -40,6 +49,30 @@ export default function Settings() {
         </div>
         <p className="text-xs text-text-muted mt-3">
           Currently using: <span className="text-primary-light font-medium">{units === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}</span>
+        </p>
+      </Card>
+
+      <Card title="Rest Timer">
+        <p className="text-sm text-text-muted mb-4">
+          Default rest time between sets. Individual exercise rest periods override this.
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {REST_PRESETS.map((sec) => (
+            <button
+              key={sec}
+              onClick={() => setDefaultRestSeconds(sec)}
+              className={`py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                defaultRestSeconds === sec
+                  ? 'border-primary bg-primary/15 text-primary-light'
+                  : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+              }`}
+            >
+              {formatRestLabel(sec)}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-text-muted mt-3">
+          Currently using: <span className="text-primary-light font-medium">{formatRestLabel(defaultRestSeconds)}</span>
         </p>
       </Card>
     </div>

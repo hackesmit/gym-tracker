@@ -1,0 +1,16 @@
+{
+  "name": "Gym Tracker",
+  "short_name": "GymTracker",
+  "description": "Track workouts, progressive overload, and analytics",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#131210",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

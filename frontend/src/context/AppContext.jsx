@@ -12,6 +12,12 @@ export function AppProvider({ children }) {
     localStorage.setItem('gym-units', val);
   };
 
+  const [defaultRestSeconds, setDefaultRestSecondsState] = useState(() => parseInt(localStorage.getItem('gym-rest-seconds') || '90', 10));
+  const setDefaultRestSeconds = (val) => {
+    setDefaultRestSecondsState(val);
+    localStorage.setItem('gym-rest-seconds', String(val));
+  };
+
   const convert = (kg) => {
     if (kg == null) return 0;
     return units === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1);
@@ -41,6 +47,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       programs, activeProgram, setActiveProgram, refreshPrograms,
       units, setUnits, convert, unitLabel,
+      defaultRestSeconds, setDefaultRestSeconds,
     }}>
       {children}
     </AppContext.Provider>

@@ -68,8 +68,9 @@ export function RestTimerBar({ restPeriod, triggerKey, autoStart }) {
   );
 }
 
-export default function RestTimer({ restPeriod, autoStart = false, onComplete }) {
-  const totalSeconds = parseRestPeriod(restPeriod);
+export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = false, onComplete }) {
+  const parsed = parseRestPeriod(restPeriod);
+  const totalSeconds = parsed > 0 ? parsed : (defaultSeconds || 0);
   const [remaining, setRemaining] = useState(totalSeconds);
   const [running, setRunning] = useState(autoStart && totalSeconds > 0);
   const [completed, setCompleted] = useState(false);
@@ -84,12 +85,13 @@ export default function RestTimer({ restPeriod, autoStart = false, onComplete })
   }, []);
 
   useEffect(() => {
-    const newTotal = parseRestPeriod(restPeriod);
+    const parsedTotal = parseRestPeriod(restPeriod);
+    const newTotal = parsedTotal > 0 ? parsedTotal : (defaultSeconds || 0);
     setRemaining(newTotal);
     setRunning(autoStart && newTotal > 0);
     setCompleted(false);
     clearTimers();
-  }, [restPeriod, autoStart, clearTimers]);
+  }, [restPeriod, defaultSeconds, autoStart, clearTimers]);
 
   useEffect(() => {
     if (running && remaining > 0) {
@@ -99,6 +101,7 @@ export default function RestTimer({ restPeriod, autoStart = false, onComplete })
             clearTimers();
             setRunning(false);
             setCompleted(true);
+            navigator.vibrate?.(200);
             onComplete?.();
             return 0;
           }
@@ -168,8 +171,14 @@ export default function RestTimer({ restPeriod, autoStart = false, onComplete })
           />
         </div>
         <span
-          className={`text-sm font-mono font-semibold tabular-nums ${
-            completed ? 'text-success' : remaining <= 10 && running ? 'text-danger animate-pulse' : 'text-text'
+          className={`font-mono font-semibold tabular-nums transition-all ${
+            completed
+              ? 'text-base text-success'
+              : remaining <= 10 && running
+                ? 'text-lg text-danger animate-pulse'
+                : running
+                  ? 'text-lg text-primary-light'
+                  : 'text-sm text-text'
           }`}
         >
           {formatTime(remaining)}

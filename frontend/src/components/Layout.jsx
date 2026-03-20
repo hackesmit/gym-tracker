@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Target, Dumbbell, TrendingUp,
-  BarChart3, Heart, ClipboardList, Settings, Menu, X,
+  BarChart3, Heart, History, ClipboardList, Settings, Menu, X,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/progress', icon: TrendingUp, label: 'Progress' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/recovery', icon: Heart, label: 'Recovery' },
+  { to: '/history', icon: History, label: 'History' },
   { to: '/program', icon: ClipboardList, label: 'Program' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

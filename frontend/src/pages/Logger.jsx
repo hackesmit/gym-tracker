@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Dumbbell, ChevronLeft, ChevronRight, Check, Timer,
-  Plus, Minus, Save, Trophy, X, TrendingUp,
+  Plus, Minus, Save, Trophy, X, TrendingUp, ArrowLeftRight, Search,
 } from 'lucide-react';
 import Card from '../components/Card';
 import RestTimer from '../components/RestTimer';
@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import {
   getSchedule, getOverloadPlan, logBulkSession, logBodyMetric, getTracker,
+  swapExercise, getExerciseCatalog,
 } from '../api/client';
 
 /**
@@ -26,7 +27,7 @@ function flattenScheduleForWeek(scheduleResponse, week) {
 }
 
 export default function Logger() {
-  const { activeProgram, unitLabel, units, convert } = useApp();
+  const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
   const [sessions, setSessions] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -39,6 +40,12 @@ export default function Logger() {
   const [scheduleData, setScheduleData] = useState(null);
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
+
+  // Exercise swap state
+  const [swapTarget, setSwapTarget] = useState(null); // exercise name being swapped
+  const [swapCatalog, setSwapCatalog] = useState([]);
+  const [swapSearch, setSwapSearch] = useState('');
+  const [swapLoading, setSwapLoading] = useState(false);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -202,6 +209,50 @@ export default function Logger() {
     if (flatSessions.length) setSelectedSession(flatSessions[0]);
     setSaved(false);
   };
+
+  // Open swap modal — fetch catalog on first open
+  const openSwapModal = async (exerciseName) => {
+    setSwapTarget(exerciseName);
+    setSwapSearch('');
+    if (swapCatalog.length === 0) {
+      setSwapLoading(true);
+      try {
+        const catalog = await getExerciseCatalog();
+        setSwapCatalog(Array.isArray(catalog) ? catalog : catalog.exercises || []);
+      } catch {
+        setSwapCatalog([]);
+      } finally {
+        setSwapLoading(false);
+      }
+    }
+  };
+
+  const handleSwapSelect = async (newName) => {
+    if (!activeProgram || !swapTarget || newName === swapTarget) return;
+    try {
+      await swapExercise(activeProgram.id, swapTarget, newName);
+      // Refresh schedule data
+      const scheduleRes = await getSchedule(activeProgram.id);
+      setScheduleData(scheduleRes);
+      const flatSessions = flattenScheduleForWeek(scheduleRes, currentWeek);
+      setSessions(flatSessions);
+      // Re-select the same session by name
+      const match = flatSessions.find((s) => s.session_name === selectedSession?.session_name);
+      if (match) setSelectedSession(match);
+      else if (flatSessions.length) setSelectedSession(flatSessions[0]);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSwapTarget(null);
+      setSwapSearch('');
+    }
+  };
+
+  // Filtered catalog for swap search
+  const filteredCatalog = swapCatalog.filter((ex) => {
+    const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+    return name.toLowerCase().includes(swapSearch.toLowerCase()) && name !== swapTarget;
+  });
 
   if (loading) return <LoadingSpinner />;
 
@@ -386,6 +437,13 @@ export default function Logger() {
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Dumbbell size={14} className="text-primary-light shrink-0" />
                           <span className="truncate">{group.name}</span>
+                          <button
+                            onClick={() => openSwapModal(group.name)}
+                            title="Swap exercise"
+                            className="p-1 rounded text-text-muted hover:text-primary-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
+                          >
+                            <ArrowLeftRight size={13} />
+                          </button>
                           {group.rest_period && group.rest_period !== '0 MINS' && (
                             <span className="ml-auto text-[10px] text-text-muted flex items-center gap-1 shrink-0">
                               <Timer size={10} /> {group.rest_period}
@@ -482,11 +540,12 @@ export default function Logger() {
                             );
                           })}
                           {/* Rest timer */}
-                          {group.rest_period && group.rest_period !== '0 MINS' && (
+                          {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (
                             <div className="mt-2">
                               <RestTimer
                                 key={`${group.name}-${restTimerTriggers[group.name] || 0}`}
                                 restPeriod={group.rest_period}
+                                defaultSeconds={defaultRestSeconds}
                                 autoStart={(restTimerTriggers[group.name] || 0) > 0}
                               />
                             </div>
@@ -512,6 +571,59 @@ export default function Logger() {
             </>
           )}
         </>
+      )}
+
+      {/* Exercise Swap Modal */}
+      {swapTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setSwapTarget(null)}>
+          <div className="bg-surface border border-surface-lighter rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-text">Swap Exercise</h3>
+              <button onClick={() => setSwapTarget(null)}
+                className="text-text-muted hover:text-text p-1 touch-manipulation">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-text-muted mb-3">
+              Replacing <span className="font-semibold text-text">{swapTarget}</span>
+            </p>
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                type="text"
+                placeholder="Search exercises..."
+                value={swapSearch}
+                onChange={(e) => setSwapSearch(e.target.value)}
+                autoFocus
+                className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-9 pr-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-primary outline-none"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5">
+              {swapLoading ? (
+                <p className="text-xs text-text-muted text-center py-4">Loading catalog...</p>
+              ) : filteredCatalog.length === 0 ? (
+                <p className="text-xs text-text-muted text-center py-4">
+                  {swapSearch ? 'No matching exercises' : 'No exercises found'}
+                </p>
+              ) : (
+                filteredCatalog.map((ex) => {
+                  const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => handleSwapSelect(name)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-text hover:bg-surface-light transition-colors touch-manipulation truncate"
+                    >
+                      {name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* PR Celebration Overlay */}
