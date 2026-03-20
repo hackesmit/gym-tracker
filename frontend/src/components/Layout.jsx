@@ -1,10 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Target, Dumbbell, TrendingUp,
-  BarChart3, Heart, ClipboardList, Settings, Menu, X, Scale,
+  BarChart3, Heart, ClipboardList, Settings, Menu, X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useApp } from '../context/AppContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -14,23 +13,11 @@ const navItems = [
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/recovery', icon: Heart, label: 'Recovery' },
   { to: '/program', icon: ClipboardList, label: 'Program' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
-
-function UnitToggle({ units, setUnits }) {
-  return (
-    <button
-      onClick={() => setUnits(units === 'kg' ? 'lbs' : 'kg')}
-      className="flex items-center bg-surface-light rounded-md text-xs font-medium overflow-hidden border border-surface-lighter"
-    >
-      <span className={`px-2 py-1 transition-colors ${units === 'kg' ? 'bg-primary/20 text-primary-light' : 'text-text-muted'}`}>kg</span>
-      <span className={`px-2 py-1 transition-colors ${units === 'lbs' ? 'bg-primary/20 text-primary-light' : 'text-text-muted'}`}>lbs</span>
-    </button>
-  );
-}
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { units, setUnits } = useApp();
 
   return (
     <div className="flex min-h-screen">
@@ -60,10 +47,6 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-surface-lighter flex items-center gap-2">
-          <Scale size={16} className="text-text-muted" />
-          <UnitToggle units={units} setUnits={setUnits} />
-        </div>
       </aside>
 
       {/* Mobile header */}
@@ -72,7 +55,6 @@ export default function Layout() {
           <Dumbbell size={18} /> Gym Tracker
         </h1>
         <div className="flex items-center gap-2">
-          <UnitToggle units={units} setUnits={setUnits} />
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="text-text-muted p-2 -mr-2 touch-manipulation"

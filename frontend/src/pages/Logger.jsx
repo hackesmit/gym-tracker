@@ -26,7 +26,7 @@ function flattenScheduleForWeek(scheduleResponse, week) {
 }
 
 export default function Logger() {
-  const { activeProgram, unitLabel, units } = useApp();
+  const { activeProgram, unitLabel, units, convert } = useApp();
   const [sessions, setSessions] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -127,6 +127,8 @@ export default function Logger() {
           rest_period: ex.rest_period || '',
           is_bodyweight: false,
           is_dropset: false,
+          dropset_load_kg: '',
+          dropset_reps: '',
           is_superset: ex.is_superset || false,
           superset_group: ex.superset_group || null,
         });
@@ -156,6 +158,9 @@ export default function Logger() {
           rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
           is_bodyweight: s.is_bodyweight,
           is_dropset: s.is_dropset,
+          dropset_load_kg: s.is_dropset && s.dropset_load_kg
+            ? (units === 'lbs' ? +(s.dropset_load_kg / 2.20462).toFixed(1) : +s.dropset_load_kg)
+            : null,
         })),
       };
       const result = await logBulkSession(payload);
@@ -394,44 +399,85 @@ export default function Logger() {
                               ...prev, [group.name]: (prev[group.name] || 0) + 1,
                             }));
                             return (
-                            <div key={s.idx} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-end">
-                              <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
-                              <div className="relative">
-                                <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">{unitLabel}</label>
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  value={s.load_kg}
-                                  onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
-                                  className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                  placeholder="0"
-                                />
+                            <div key={s.idx} className="space-y-1.5">
+                              <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end">
+                                <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
+                                <div className="relative">
+                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">{unitLabel}</label>
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    value={s.load_kg}
+                                    onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div className="relative">
+                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">Reps</label>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={s.reps_completed}
+                                    onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
+                                    onBlur={triggerTimer}
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div className="relative">
+                                  <label className="absolute top-1 left-1.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">RPE</label>
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    value={s.rpe_actual}
+                                    onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
+                                    onBlur={triggerTimer}
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    placeholder="--"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => updateSet(s.idx, 'is_dropset', !s.is_dropset)}
+                                  title="Drop set"
+                                  className={`pb-1.5 pt-1 text-[10px] font-bold rounded-lg border transition-colors touch-manipulation ${
+                                    s.is_dropset
+                                      ? 'border-warning bg-warning/15 text-warning'
+                                      : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text'
+                                  }`}
+                                >
+                                  DS
+                                </button>
                               </div>
-                              <div className="relative">
-                                <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">Reps</label>
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  value={s.reps_completed}
-                                  onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
-                                  onBlur={triggerTimer}
-                                  className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                  placeholder="0"
-                                />
-                              </div>
-                              <div className="relative">
-                                <label className="absolute top-1 left-1.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">RPE</label>
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="0.5"
-                                  value={s.rpe_actual}
-                                  onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
-                                  onBlur={triggerTimer}
-                                  className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
-                                  placeholder="--"
-                                />
-                              </div>
+                              {s.is_dropset && (
+                                <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
+                                  <span className="text-[9px] text-warning text-center pb-2">↳</span>
+                                  <div className="relative">
+                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop {unitLabel}</label>
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      value={s.dropset_load_kg || ''}
+                                      onChange={(e) => updateSet(s.idx, 'dropset_load_kg', e.target.value)}
+                                      className="bg-warning/5 border border-warning/20 rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-warning outline-none min-w-0"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="relative">
+                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop Reps</label>
+                                    <input
+                                      type="number"
+                                      inputMode="numeric"
+                                      value={s.dropset_reps || ''}
+                                      onChange={(e) => updateSet(s.idx, 'dropset_reps', e.target.value)}
+                                      onBlur={triggerTimer}
+                                      className="bg-warning/5 border border-warning/20 rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-warning outline-none min-w-0"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             );
                           })}
@@ -470,13 +516,13 @@ export default function Logger() {
 
       {/* PR Celebration Overlay */}
       {prList.length > 0 && (
-        <PRCelebration prs={prList} onClose={() => setPrList([])} />
+        <PRCelebration prs={prList} onClose={() => setPrList([])} convert={convert} unitLabel={unitLabel} />
       )}
     </div>
   );
 }
 
-function PRCelebration({ prs, onClose }) {
+function PRCelebration({ prs, onClose, convert, unitLabel }) {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
@@ -500,11 +546,11 @@ function PRCelebration({ prs, onClose }) {
             <div key={i} className="bg-warning/10 border border-warning/20 rounded-lg p-3">
               <p className="text-sm font-semibold text-text">{pr.exercise}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-lg font-bold text-warning">{pr.new_e1rm} kg</span>
+                <span className="text-lg font-bold text-warning">{convert(pr.new_e1rm)} {unitLabel}</span>
                 <span className="text-xs text-text-muted">e1RM</span>
                 {pr.previous_e1rm != null && (
                   <span className="ml-auto text-xs text-success font-medium">
-                    +{(pr.new_e1rm - pr.previous_e1rm).toFixed(1)} kg
+                    +{(convert(pr.new_e1rm) - convert(pr.previous_e1rm)).toFixed(1)} {unitLabel}
                   </span>
                 )}
                 {pr.previous_e1rm == null && (
@@ -513,7 +559,7 @@ function PRCelebration({ prs, onClose }) {
               </div>
               {pr.previous_e1rm != null && (
                 <p className="text-[10px] text-text-muted mt-1">
-                  Previous best: {pr.previous_e1rm} kg
+                  Previous best: {convert(pr.previous_e1rm)} {unitLabel}
                 </p>
               )}
             </div>

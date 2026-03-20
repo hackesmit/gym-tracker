@@ -178,14 +178,14 @@ export default function Analytics() {
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={tonnage.weeks.map((w) => ({
               week: w.week_start,
-              tonnage: Math.round(w.tonnage_kg),
+              tonnage: Math.round(convert(w.tonnage_kg)),
             }))}>
               <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
               <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} label={{ value: 'kg', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#a8a28f' }} />
+              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} label={{ value: unitLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: '#a8a28f' }} />
               <Tooltip
                 contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }}
-                formatter={(value) => [`${value.toLocaleString()} kg`, 'Tonnage']}
+                formatter={(value) => [`${value.toLocaleString()} ${unitLabel}`, 'Tonnage']}
               />
               <Line type="monotone" dataKey="tonnage" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} name="Tonnage" />
             </LineChart>

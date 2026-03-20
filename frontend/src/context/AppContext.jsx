@@ -6,7 +6,7 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [programs, setPrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null);
-  const [units, setUnitsState] = useState(() => localStorage.getItem('gym-units') || 'kg');
+  const [units, setUnitsState] = useState(() => localStorage.getItem('gym-units') || 'lbs');
   const setUnits = (val) => {
     setUnitsState(val);
     localStorage.setItem('gym-units', val);

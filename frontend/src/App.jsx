@@ -8,6 +8,7 @@ import Progress from './pages/Progress';
 import Analytics from './pages/Analytics';
 import Recovery from './pages/Recovery';
 import Program from './pages/Program';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/recovery" element={<Recovery />} />
           <Route path="/program" element={<Program />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </AppProvider>
