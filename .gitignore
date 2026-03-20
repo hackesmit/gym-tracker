@@ -5,13 +5,20 @@ __pycache__/
 .venv/
 venv/
 
+# Node
+node_modules/
+dist/
+.vite/
+
 # Data
 data/gym_tracker.db
 data/uploads/
+*.xlsx
 
 # Environment
 .env
 .env.local
+.env.production
 
 # IDE
 .vscode/
@@ -20,3 +27,6 @@ data/uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude
+.claude/

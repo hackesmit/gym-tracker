@@ -1,6 +1,8 @@
 """Program CRUD and import endpoints."""
 
+import os
 import shutil
+import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -19,7 +21,7 @@ class StatusUpdate(BaseModel):
     status: str
 
 # Directory for uploaded spreadsheets
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "uploads"
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", tempfile.gettempdir())) / "uploads"
 
 # Valid sheet names by frequency
 FREQUENCY_SHEETS = {
