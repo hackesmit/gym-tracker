@@ -99,6 +99,18 @@ _DB_EXERCISES: set[str] = {
     "HELMS DB ROW",
 }
 
+# Machine/cable exercises: e1RM is multiplied by this factor to approximate
+# the free-weight barbell equivalent (machines remove stabilization demands).
+_MACHINE_FACTORS: dict[str, float] = {
+    "HACK SQUAT (HEAVY)": 0.70,
+    "MACHINE SQUAT": 0.75,
+    "LEG PRESS (HEAVY)": 0.50,
+    "SMITH MACHINE SQUAT": 0.85,
+    "MACHINE CHEST PRESS": 0.80,
+    "CABLE SHOULDER PRESS": 0.75,
+    "SEATED CABLE ROW": 0.80,
+}
+
 # Tier → approximate percentile mapping for interpolation
 _TIER_PERCENTILES: list[tuple[str, float]] = [
     ("beginner", 20.0),
@@ -216,8 +228,9 @@ def _is_db_exercise(name: str) -> bool:
 def _note_for_exercise(name: str) -> str | None:
     """Return a caveat note for machine/DB proxy exercises."""
     lower = name.lower()
-    if "machine" in lower or "smith" in lower or "hack" in lower or "leg press" in lower:
-        return "Machine-based; actual free weight equivalent may differ"
+    if name in _MACHINE_FACTORS:
+        pct = round(_MACHINE_FACTORS[name] * 100)
+        return f"Estimated from machine ({pct}% conversion to barbell)"
     if _is_db_exercise(name):
         return f"DB-to-barbell conversion applied (factor={DB_TO_BARBELL_FACTOR})"
     return None
@@ -290,6 +303,8 @@ def get_strength_standards(db: Session, user_id: int = 1) -> dict:
         e1rm = _estimate_e1rm(load_kg, reps)
         if _is_db_exercise(exercise_name):
             e1rm = load_kg * 2 * DB_TO_BARBELL_FACTOR * (1 + reps / 30) if reps > 1 else load_kg * 2 * DB_TO_BARBELL_FACTOR
+        elif exercise_name in _MACHINE_FACTORS:
+            e1rm *= _MACHINE_FACTORS[exercise_name]
         category = exercise_to_category.get(exercise_name)
         if category is None:
             continue
