@@ -73,7 +73,7 @@ export const getDeloadCheck = () => request('/analytics/deload-check');
 export const getExerciseCatalog = () => request('/analytics/exercise-catalog');
 export const getTonnage = (weeks = 12) => request(`/analytics/tonnage?weeks_back=${weeks}`);
 
-// Manual 1RM
+// Manual 1RM — shape: { lifts: { bench: { value_kg, tested_at } | null } }
 export const getManual1RM = () => request('/manual-1rm');
 export const updateManual1RM = (lifts) =>
   request('/manual-1rm', { method: 'PATCH', body: JSON.stringify({ lifts }) });

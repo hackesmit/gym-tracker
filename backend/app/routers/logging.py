@@ -432,9 +432,14 @@ def body_metrics_history(
 VALID_1RM_CATEGORIES = {"squat", "deadlift", "bench", "ohp", "row"}
 
 
+class Manual1RMEntry(BaseModel):
+    value_kg: float = Field(..., gt=0)
+    tested_at: date | None = Field(None, description="Date the 1RM was tested (null = unknown)")
+
+
 class Manual1RMPayload(BaseModel):
-    lifts: dict[str, float | None] = Field(
-        ..., description="Map of lift category to 1RM in kg (null to clear)"
+    lifts: dict[str, Manual1RMEntry | None] = Field(
+        ..., description="Map of lift category to 1RM entry (null to clear)"
     )
 
 
@@ -443,16 +448,19 @@ def update_manual_1rm(payload: Manual1RMPayload, db: Session = Depends(get_db)):
     """Set or update manual 1RM values for strength standards."""
     user = _get_default_user(db)
     current = user.manual_1rm or {}
-    for category, value in payload.lifts.items():
+    for category, entry in payload.lifts.items():
         if category not in VALID_1RM_CATEGORIES:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid lift category '{category}'. Must be one of {VALID_1RM_CATEGORIES}",
             )
-        if value is None:
+        if entry is None:
             current.pop(category, None)
         else:
-            current[category] = round(float(value), 1)
+            current[category] = {
+                "value_kg": round(entry.value_kg, 1),
+                "tested_at": entry.tested_at.isoformat() if entry.tested_at else None,
+            }
     user.manual_1rm = current
     db.commit()
     return {"manual_1rm": user.manual_1rm}

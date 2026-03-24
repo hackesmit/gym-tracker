@@ -69,12 +69,12 @@ export default function Analytics() {
   const allMuscles = new Set();
   volumeData.forEach((d) => Object.keys(d).filter((k) => k !== 'week').forEach((k) => allMuscles.add(k)));
 
-  // Strength radar data
+  // Strength radar data — null categories show as 0
   const radarData = strength?.lifts
     ? Object.entries(strength.lifts).map(([lift, d]) => ({
         lift: lift.charAt(0).toUpperCase() + lift.slice(1),
-        percentile: d.percentile_estimate || 0,
-        classification: d.classification || 'N/A',
+        percentile: d?.percentile_estimate || 0,
+        hasData: d !== null,
       }))
     : [];
 
@@ -211,23 +211,36 @@ export default function Analytics() {
                   <Radar name="Percentile" dataKey="percentile" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
                 </RadarChart>
               </ResponsiveContainer>
-              <div className="mt-3 space-y-1">
+              <div className="mt-3 space-y-1.5">
                 {Object.entries(strength?.lifts || {}).map(([lift, d]) => (
-                  d.classification && (
-                    <div key={lift} className="flex items-center justify-between text-xs">
-                      <span className="text-text-muted capitalize">{lift}</span>
-                      <span>
-                        {d.best_e1rm ? `${convert(d.best_e1rm)} ${unitLabel}` : '--'}
-                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
+                  <div key={lift} className="flex items-center justify-between text-xs">
+                    <span className="text-text-muted capitalize">{lift}</span>
+                    {d ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-text">{convert(d.e1rm_kg)} {unitLabel}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                           d.classification === 'advanced' || d.classification === 'elite' ? 'bg-success/20 text-success' :
                           d.classification === 'intermediate' ? 'bg-info/20 text-info' :
                           'bg-surface-lighter text-text-muted'
                         }`}>
                           {d.classification}
                         </span>
+                        <span className={`px-1 py-0.5 rounded text-[9px] ${
+                          d.confidence?.label === 'high' ? 'bg-success/15 text-success' :
+                          d.confidence?.label === 'moderate' ? 'bg-info/15 text-info' :
+                          'bg-warning/15 text-warning'
+                        }`}>
+                          {d.confidence?.label}
+                        </span>
+                        {d.is_stale && <span className="text-[9px] text-warning">stale</span>}
+                        <span className="text-[9px] text-text-muted">
+                          {d.source_type === 'manual' ? 'manual' : `via ${d.source_exercise}`}
+                        </span>
                       </span>
-                    </div>
-                  )
+                    ) : (
+                      <span className="text-text-muted text-[10px]">No data</span>
+                    )}
+                  </div>
                 ))}
               </div>
               {strength?.overall_classification && (
@@ -235,10 +248,15 @@ export default function Analytics() {
                   Overall: <span className="font-medium text-primary-light capitalize">{strength.overall_classification}</span>
                 </p>
               )}
+              {strength?.categories_missing?.length > 0 && (
+                <p className="text-[10px] text-warning mt-3 text-center">
+                  Missing: {strength.categories_missing.join(', ')} — add known 1RMs in Settings
+                </p>
+              )}
             </>
           ) : (
             <p className="text-text-muted text-sm text-center py-8">
-              {strength ? 'Set bodyweight in Body Metrics to see standards.' : 'Log compound lifts to see strength standards.'}
+              {strength ? 'Set bodyweight in Body Metrics to see standards.' : 'Log compound lifts or enter 1RMs in Settings.'}
             </p>
           )}
         </Card>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer, Trophy } from 'lucide-react';
+import { Settings as SettingsIcon, Timer, AlertTriangle } from 'lucide-react';
 import { getManual1RM, updateManual1RM } from '../api/client';
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -20,8 +20,15 @@ function formatRestLabel(seconds) {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
+function isStale(dateStr) {
+  if (!dateStr) return true;
+  const diff = (Date.now() - new Date(dateStr + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24 * 7);
+  return diff > 12;
+}
+
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, convert, unitLabel } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel } = useApp();
+  // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
   const toKg = (val) => units === 'lbs' ? +(val / 2.20462).toFixed(1) : +val;
@@ -32,7 +39,15 @@ export default function Settings() {
       .then((res) => {
         const display = {};
         for (const [k, v] of Object.entries(res.manual_1rm || {})) {
-          display[k] = fromKg(v);
+          // Handle both old format (bare number) and new format ({value_kg, tested_at})
+          if (typeof v === 'number') {
+            display[k] = { value: String(fromKg(v)), tested_at: '' };
+          } else if (v && typeof v === 'object') {
+            display[k] = {
+              value: v.value_kg ? String(fromKg(v.value_kg)) : '',
+              tested_at: v.tested_at || '',
+            };
+          }
         }
         setOrm(display);
       })
@@ -42,8 +57,15 @@ export default function Settings() {
   const saveOrm = async () => {
     const lifts = {};
     for (const { key } of LIFT_CATEGORIES) {
-      const val = orm[key];
-      lifts[key] = val ? toKg(val) : null;
+      const entry = orm[key];
+      if (entry && entry.value && +entry.value > 0) {
+        lifts[key] = {
+          value_kg: toKg(+entry.value),
+          tested_at: entry.tested_at || null,
+        };
+      } else {
+        lifts[key] = null;
+      }
     }
     try {
       await updateManual1RM(lifts);
@@ -52,6 +74,13 @@ export default function Settings() {
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const updateOrmField = (key, field, value) => {
+    setOrm((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || { value: '', tested_at: '' }), [field]: value },
+    }));
   };
 
   return (
@@ -118,26 +147,43 @@ export default function Settings() {
 
       <Card title="Known 1RM">
         <p className="text-sm text-text-muted mb-4">
-          Enter your known one-rep maxes. These are used for strength standards when no logged data is available.
-          Logged data overrides these if higher.
+          Enter your known one-rep maxes with the date tested. Used for strength standards when
+          no qualifying barbell lift has been logged. Logged data only overrides if it's both newer and higher confidence.
         </p>
         <div className="space-y-3">
-          {LIFT_CATEGORIES.map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="text-sm text-text-muted w-32 shrink-0">{label}</label>
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={orm[key] || ''}
-                  onChange={(e) => setOrm((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder="--"
-                  className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text focus:ring-1 focus:ring-primary outline-none"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitLabel}</span>
+          {LIFT_CATEGORIES.map(({ key, label }) => {
+            const entry = orm[key] || { value: '', tested_at: '' };
+            const stale = entry.value && isStale(entry.tested_at);
+            return (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-text-muted w-28 shrink-0">{label}</label>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={entry.value}
+                      onChange={(e) => updateOrmField(key, 'value', e.target.value)}
+                      placeholder="--"
+                      className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitLabel}</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={entry.tested_at}
+                    onChange={(e) => updateOrmField(key, 'tested_at', e.target.value)}
+                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 py-2.5 text-xs text-text focus:ring-1 focus:ring-primary outline-none w-32 shrink-0"
+                  />
+                  {stale && (
+                    <span className="text-[10px] text-warning flex items-center gap-0.5 shrink-0" title="Tested over 12 weeks ago">
+                      <AlertTriangle size={10} /> Stale
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <button
           onClick={saveOrm}
