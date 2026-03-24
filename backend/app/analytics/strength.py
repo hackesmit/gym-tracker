@@ -100,15 +100,18 @@ _DB_EXERCISES: set[str] = {
 }
 
 # Machine/cable exercises: e1RM is multiplied by this factor to approximate
-# the free-weight barbell equivalent (machines remove stabilization demands).
+# the free-weight barbell equivalent.  Only stability/balance differences —
+# the prime movers do similar work, so discounts are small.
+#
+# Calibrated against: hack squat 260×4 ≈ barbell squat 225×5 → ratio ~0.89
 _MACHINE_FACTORS: dict[str, float] = {
-    "HACK SQUAT (HEAVY)": 0.70,
-    "MACHINE SQUAT": 0.75,
-    "LEG PRESS (HEAVY)": 0.50,
-    "SMITH MACHINE SQUAT": 0.85,
-    "MACHINE CHEST PRESS": 0.80,
-    "CABLE SHOULDER PRESS": 0.75,
-    "SEATED CABLE ROW": 0.80,
+    "HACK SQUAT (HEAVY)": 0.89,       # fixed path, no bar balance
+    "MACHINE SQUAT": 0.87,             # guided track, less core
+    "LEG PRESS (HEAVY)": 0.65,         # very different load angle, people press ~1.5× squat
+    "SMITH MACHINE SQUAT": 0.92,       # nearly identical to barbell
+    "MACHINE CHEST PRESS": 0.90,       # fixed path, no stabilization
+    "CABLE SHOULDER PRESS": 0.85,      # cable resistance curve differs
+    "SEATED CABLE ROW": 0.90,          # similar to barbell row effort
 }
 
 # Tier → approximate percentile mapping for interpolation
