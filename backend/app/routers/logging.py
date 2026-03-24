@@ -323,7 +323,7 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
                 new_e1rm=round(new_e1rm, 1),
                 previous_e1rm=round(prev_best, 1),
             ))
-        elif prev_best == 0.0:
+        elif prev_best <= 0:
             # First time logging this exercise — it's a PR by default
             prs.append(PRInfo(
                 exercise=exercise_name,
@@ -425,3 +425,41 @@ def body_metrics_history(
         query = query.filter(BodyMetric.date <= to_date)
 
     return query.order_by(BodyMetric.date.desc()).all()
+
+
+# ---- Manual 1RM endpoints ---------------------------------------------------
+
+VALID_1RM_CATEGORIES = {"squat", "deadlift", "bench", "ohp", "row"}
+
+
+class Manual1RMPayload(BaseModel):
+    lifts: dict[str, float | None] = Field(
+        ..., description="Map of lift category to 1RM in kg (null to clear)"
+    )
+
+
+@router.patch("/api/manual-1rm")
+def update_manual_1rm(payload: Manual1RMPayload, db: Session = Depends(get_db)):
+    """Set or update manual 1RM values for strength standards."""
+    user = _get_default_user(db)
+    current = user.manual_1rm or {}
+    for category, value in payload.lifts.items():
+        if category not in VALID_1RM_CATEGORIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid lift category '{category}'. Must be one of {VALID_1RM_CATEGORIES}",
+            )
+        if value is None:
+            current.pop(category, None)
+        else:
+            current[category] = round(float(value), 1)
+    user.manual_1rm = current
+    db.commit()
+    return {"manual_1rm": user.manual_1rm}
+
+
+@router.get("/api/manual-1rm")
+def get_manual_1rm(db: Session = Depends(get_db)):
+    """Get current manual 1RM values."""
+    user = _get_default_user(db)
+    return {"manual_1rm": user.manual_1rm or {}}

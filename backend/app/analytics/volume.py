@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from ..models import ExerciseCatalog, ProgramExercise, WorkoutLog
 
@@ -107,6 +110,7 @@ def get_weekly_volume(
         week_start = _monday_of(wl.date).isoformat()
         entry = catalog.get(pe.exercise_name_canonical)
         if entry is None:
+            logger.warning("Exercise '%s' not found in catalog — skipped in volume analytics", pe.exercise_name_canonical)
             continue
 
         primary = entry.muscle_group_primary.lower()
@@ -193,6 +197,7 @@ def get_muscle_balance(
     for wl, pe in logs:
         entry = catalog.get(pe.exercise_name_canonical)
         if entry is None:
+            logger.warning("Exercise '%s' not found in catalog — skipped in balance analytics", pe.exercise_name_canonical)
             continue
 
         primary = entry.muscle_group_primary.lower()

@@ -297,6 +297,15 @@ def get_strength_standards(db: Session, user_id: int = 1) -> dict:
         if e1rm > current_best:
             best_per_category[category] = (e1rm, exercise_name)
 
+    # Merge manual 1RM entries (use as floor — logged data overrides if higher)
+    manual_1rm = user.manual_1rm or {}
+    for category, value in manual_1rm.items():
+        if value is None or value <= 0:
+            continue
+        current_best, _ = best_per_category.get(category, (0.0, ""))
+        if value > current_best:
+            best_per_category[category] = (value, "manual entry")
+
     lifts: dict[str, dict] = {}
     classifications: list[str] = []
 

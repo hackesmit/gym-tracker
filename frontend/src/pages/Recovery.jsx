@@ -33,6 +33,7 @@ export default function Recovery() {
   if (loading) return <LoadingSpinner />;
 
   const score = recovery?.overall_score;
+  const hasMetrics = recovery?.has_metrics_data !== false;
   const components = recovery?.components || {};
   const fatigue = recovery?.muscle_fatigue || {};
 
@@ -66,6 +67,9 @@ export default function Recovery() {
             {score != null ? Math.round(score) : '--'}
           </div>
           <p className="text-sm text-text-muted mt-2">{score != null ? scoreLabel : 'No data'}</p>
+          {!hasMetrics && score != null && (
+            <p className="text-xs text-warning mt-2">Estimated — log body metrics for accurate scores</p>
+          )}
           {recovery?.recommendation && (
             <p className="text-xs text-text-muted mt-3 max-w-md mx-auto">
               {recovery.recommendation}

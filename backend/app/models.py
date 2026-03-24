@@ -31,6 +31,7 @@ class User(Base):
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     training_age_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
     preferred_units: Mapped[str] = mapped_column(String, default="kg")
+    manual_1rm: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -73,6 +74,12 @@ class Program(Base):
 
 class ProgramExercise(Base):
     __tablename__ = "program_exercises"
+    __table_args__ = (
+        UniqueConstraint(
+            "program_id", "week", "session_name", "exercise_order",
+            name="uq_program_exercise",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     program_id: Mapped[int] = mapped_column(
@@ -143,6 +150,9 @@ class WorkoutLog(Base):
 
 class SessionLog(Base):
     __tablename__ = "session_logs"
+    __table_args__ = (
+        UniqueConstraint("program_id", "week", "session_name", name="uq_session_log"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(

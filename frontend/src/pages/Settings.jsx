@@ -1,8 +1,17 @@
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer } from 'lucide-react';
+import { Settings as SettingsIcon, Timer, Trophy } from 'lucide-react';
+import { getManual1RM, updateManual1RM } from '../api/client';
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
+const LIFT_CATEGORIES = [
+  { key: 'bench', label: 'Bench Press' },
+  { key: 'squat', label: 'Squat' },
+  { key: 'deadlift', label: 'Deadlift' },
+  { key: 'ohp', label: 'Overhead Press' },
+  { key: 'row', label: 'Row' },
+];
 
 function formatRestLabel(seconds) {
   if (seconds < 60) return `${seconds}s`;
@@ -12,7 +21,38 @@ function formatRestLabel(seconds) {
 }
 
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, convert, unitLabel } = useApp();
+  const [orm, setOrm] = useState({});
+  const [ormSaved, setOrmSaved] = useState(false);
+  const toKg = (val) => units === 'lbs' ? +(val / 2.20462).toFixed(1) : +val;
+  const fromKg = (val) => units === 'lbs' ? +(val * 2.20462).toFixed(0) : +val;
+
+  useEffect(() => {
+    getManual1RM()
+      .then((res) => {
+        const display = {};
+        for (const [k, v] of Object.entries(res.manual_1rm || {})) {
+          display[k] = fromKg(v);
+        }
+        setOrm(display);
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveOrm = async () => {
+    const lifts = {};
+    for (const { key } of LIFT_CATEGORIES) {
+      const val = orm[key];
+      lifts[key] = val ? toKg(val) : null;
+    }
+    try {
+      await updateManual1RM(lifts);
+      setOrmSaved(true);
+      setTimeout(() => setOrmSaved(false), 2000);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -74,6 +114,37 @@ export default function Settings() {
         <p className="text-xs text-text-muted mt-3">
           Currently using: <span className="text-primary-light font-medium">{formatRestLabel(defaultRestSeconds)}</span>
         </p>
+      </Card>
+
+      <Card title="Known 1RM">
+        <p className="text-sm text-text-muted mb-4">
+          Enter your known one-rep maxes. These are used for strength standards when no logged data is available.
+          Logged data overrides these if higher.
+        </p>
+        <div className="space-y-3">
+          {LIFT_CATEGORIES.map(({ key, label }) => (
+            <div key={key} className="flex items-center gap-3">
+              <label className="text-sm text-text-muted w-32 shrink-0">{label}</label>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={orm[key] || ''}
+                  onChange={(e) => setOrm((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder="--"
+                  className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text focus:ring-1 focus:ring-primary outline-none"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitLabel}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={saveOrm}
+          className="mt-4 w-full py-3 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors touch-manipulation"
+        >
+          {ormSaved ? 'Saved!' : 'Save 1RMs'}
+        </button>
       </Card>
     </div>
   );

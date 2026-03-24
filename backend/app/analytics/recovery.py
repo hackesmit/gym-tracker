@@ -236,5 +236,6 @@ def get_recovery_status(db: Session, user_id: int = 1) -> dict:
         "components": recovery["components"],
         "muscle_fatigue": muscle_fatigue,
         "latest_metrics": latest_metrics_dict,
+        "has_metrics_data": latest_metric is not None,
         "trend": trend,
     }

@@ -94,6 +94,10 @@ def import_program(
             detail=f"No exercises found in sheet '{sheet_name}'",
         )
 
+    # Derive total_weeks from parsed data and validate
+    max_week = max(ex["week"] for ex in exercises)
+    total_weeks = max(max_week, 12)
+
     # Get or create default user
     user = _get_or_create_default_user(db)
 
@@ -104,7 +108,7 @@ def import_program(
         frequency=frequency,
         start_date=date.today(),
         status="active",
-        total_weeks=12,
+        total_weeks=total_weeks,
         source_file=file.filename,
     )
     db.add(program)

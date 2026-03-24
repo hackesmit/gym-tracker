@@ -34,6 +34,7 @@ export default function Analytics() {
   const [selectedMuscle, setSelectedMuscle] = useState('all');
 
   useEffect(() => {
+    let stale = false;
     const load = async () => {
       const [v, b, s, bm, t] = await Promise.all([
         getVolume(weeksBack).catch(() => null),
@@ -42,6 +43,7 @@ export default function Analytics() {
         getBodyMetrics().catch(() => null),
         getTonnage(weeksBack).catch(() => null),
       ]);
+      if (stale) return;
       setVolume(v);
       setBalance(b);
       setStrength(s);
@@ -50,6 +52,7 @@ export default function Analytics() {
       setLoading(false);
     };
     load();
+    return () => { stale = true; };
   }, [weeksBack]);
 
   if (loading) return <LoadingSpinner />;

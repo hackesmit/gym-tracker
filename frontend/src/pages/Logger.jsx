@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dumbbell, ChevronLeft, ChevronRight, Check, Timer,
   Plus, Minus, Save, Trophy, X, TrendingUp, ArrowLeftRight, Search,
@@ -40,6 +40,9 @@ export default function Logger() {
   const [scheduleData, setScheduleData] = useState(null);
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
+
+  // Ref to skip sets re-init after exercise swap (preserves user-entered data)
+  const skipSetsInit = useRef(false);
 
   // Exercise swap state
   const [swapTarget, setSwapTarget] = useState(null); // exercise name being swapped
@@ -104,6 +107,10 @@ export default function Logger() {
 
   // Initialize sets when session or overload changes
   useEffect(() => {
+    if (skipSetsInit.current) {
+      skipSetsInit.current = false;
+      return;
+    }
     if (!selectedSession) return;
     const exercises = selectedSession.exercises || [];
     const newSets = [];
@@ -142,7 +149,7 @@ export default function Logger() {
       }
     });
     setSets(newSets);
-  }, [selectedSession, overload, units]);
+  }, [selectedSession, overload]);
 
   const updateSet = (idx, field, value) => {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
@@ -157,7 +164,7 @@ export default function Logger() {
         week: currentWeek,
         session_name: selectedSession.session_name,
         date: new Date().toISOString().split('T')[0],
-        sets: sets.filter((s) => s.load_kg > 0).map((s) => ({
+        sets: sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).map((s) => ({
           program_exercise_id: s.program_exercise_id,
           set_number: s.set_number,
           load_kg: units === 'lbs' ? +(s.load_kg / 2.20462).toFixed(1) : +s.load_kg,
@@ -236,6 +243,25 @@ export default function Logger() {
       setScheduleData(scheduleRes);
       const flatSessions = flattenScheduleForWeek(scheduleRes, currentWeek);
       setSessions(flatSessions);
+
+      // Update sets in-place: rename the swapped exercise but keep user-entered data
+      setSets((prev) => prev.map((s) => {
+        if (s.exercise_name === swapTarget) {
+          // Find the new exercise in the updated session to get its id
+          const match = flatSessions.find((fs) => fs.session_name === selectedSession?.session_name);
+          const newEx = match?.exercises?.find((e) => (e.exercise_name || e.exercise_name_canonical) === newName);
+          return {
+            ...s,
+            exercise_name: newName,
+            program_exercise_id: newEx?.id ?? s.program_exercise_id,
+          };
+        }
+        return s;
+      }));
+
+      // Skip the sets-init effect since we already updated sets manually
+      skipSetsInit.current = true;
+
       // Re-select the same session by name
       const match = flatSessions.find((s) => s.session_name === selectedSession?.session_name);
       if (match) setSelectedSession(match);
@@ -412,7 +438,7 @@ export default function Logger() {
                 <Check className="text-success mx-auto mb-3" size={40} />
                 <p className="text-lg font-medium">Session Logged!</p>
                 <p className="text-sm text-text-muted mt-1">
-                  {sets.filter((s) => s.load_kg > 0).length} sets recorded for Week {currentWeek}
+                  {sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).length} sets recorded for Week {currentWeek}
                 </p>
                 <button onClick={() => setSaved(false)}
                   className="mt-4 py-2 px-4 text-sm text-primary hover:text-primary-light touch-manipulation">
@@ -561,7 +587,7 @@ export default function Logger() {
               <div className="sticky bottom-4 z-10">
                 <button
                   onClick={handleSave}
-                  disabled={saving || !sets.some((s) => s.load_kg > 0)}
+                  disabled={saving || !sets.some((s) => s.load_kg > 0 || s.is_bodyweight)}
                   className="w-full py-3.5 rounded-xl bg-primary text-white font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 touch-manipulation"
                 >
                   <Save size={18} />
