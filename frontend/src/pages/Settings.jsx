@@ -39,14 +39,19 @@ export default function Settings() {
       .then((res) => {
         const display = {};
         for (const [k, v] of Object.entries(res.manual_1rm || {})) {
-          // Handle both old format (bare number) and new format ({value_kg, tested_at})
+          if (v == null) continue;
+          // Old format: bare number
           if (typeof v === 'number') {
             display[k] = { value: String(fromKg(v)), tested_at: '' };
-          } else if (v && typeof v === 'object') {
+          // New format: {value_kg, tested_at}
+          } else if (typeof v === 'object' && v.value_kg != null) {
             display[k] = {
-              value: v.value_kg ? String(fromKg(v.value_kg)) : '',
+              value: String(fromKg(v.value_kg)),
               tested_at: v.tested_at || '',
             };
+          // Old format stored as string somehow
+          } else if (typeof v === 'string' && !isNaN(+v)) {
+            display[k] = { value: String(fromKg(+v)), tested_at: '' };
           }
         }
         setOrm(display);
