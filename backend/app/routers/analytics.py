@@ -104,10 +104,15 @@ def deload_check(db: Session = Depends(get_db)):
 
 @router.get("/exercise-catalog")
 def exercise_catalog(db: Session = Depends(get_db)):
-    """Return all exercises with their primary muscle group."""
+    """Return all exercises with their primary muscle group, equipment, and laterality."""
     rows = db.query(ExerciseCatalog).order_by(ExerciseCatalog.canonical_name).all()
     return [
-        {"name": row.canonical_name, "muscle_group": row.muscle_group_primary}
+        {
+            "name": row.canonical_name,
+            "muscle_group": row.muscle_group_primary,
+            "equipment": row.equipment,
+            "is_unilateral": row.is_unilateral,
+        }
         for row in rows
     ]
 

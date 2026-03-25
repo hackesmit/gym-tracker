@@ -26,6 +26,18 @@ function flattenScheduleForWeek(scheduleResponse, week) {
   }));
 }
 
+function getWeightHint(exerciseName, catalog) {
+  if (!catalog || !catalog.length) return null;
+  const entry = catalog.find((ex) => {
+    const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+    return name === exerciseName;
+  });
+  if (!entry || typeof entry === 'string') return null;
+  if (entry.is_unilateral) return '/side';
+  if (entry.equipment === 'dumbbell') return '/DB';
+  return null;
+}
+
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
   const [sessions, setSessions] = useState([]);
@@ -41,14 +53,17 @@ export default function Logger() {
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
 
-  // Ref to skip sets re-init after exercise swap (preserves user-entered data)
+  // Refs to skip sets re-init after exercise swap (preserves user-entered data)
   const skipSetsInit = useRef(false);
+  const swapInProgress = useRef(false);
 
   // Exercise swap state
   const [swapTarget, setSwapTarget] = useState(null); // exercise name being swapped
   const [swapCatalog, setSwapCatalog] = useState([]);
   const [swapSearch, setSwapSearch] = useState('');
   const [swapLoading, setSwapLoading] = useState(false);
+  const [swapMuscleGroup, setSwapMuscleGroup] = useState(null);
+  const [showAllMuscleGroups, setShowAllMuscleGroups] = useState(false);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -88,6 +103,10 @@ export default function Logger() {
         } else if (flatSessions.length) {
           setSelectedSession(flatSessions[0]);
         }
+        // Pre-fetch exercise catalog for weight hints and swap modal
+        getExerciseCatalog()
+          .then((res) => setSwapCatalog(Array.isArray(res) ? res : res.exercises || []))
+          .catch(() => {});
       } catch {
         // Silently fail — user sees empty state
       } finally {
@@ -100,9 +119,20 @@ export default function Logger() {
   // Load overload suggestions when session changes
   useEffect(() => {
     if (!activeProgram || !selectedSession) return;
+    const isSwap = swapInProgress.current;
     getOverloadPlan(activeProgram.id, currentWeek, selectedSession.session_name)
-      .then(setOverload)
-      .catch(() => setOverload(null));
+      .then((data) => {
+        setOverload(data);
+        if (isSwap) {
+          // Overload updated after a swap — skip the sets-init effect it triggers
+          skipSetsInit.current = true;
+          swapInProgress.current = false;
+        }
+      })
+      .catch(() => {
+        setOverload(null);
+        swapInProgress.current = false;
+      });
   }, [activeProgram, selectedSession, currentWeek]);
 
   // Initialize sets when session or overload changes
@@ -221,17 +251,29 @@ export default function Logger() {
   const openSwapModal = async (exerciseName) => {
     setSwapTarget(exerciseName);
     setSwapSearch('');
-    if (swapCatalog.length === 0) {
+    setShowAllMuscleGroups(false);
+
+    let catalog = swapCatalog;
+    if (catalog.length === 0) {
       setSwapLoading(true);
       try {
-        const catalog = await getExerciseCatalog();
-        setSwapCatalog(Array.isArray(catalog) ? catalog : catalog.exercises || []);
+        const res = await getExerciseCatalog();
+        catalog = Array.isArray(res) ? res : res.exercises || [];
+        setSwapCatalog(catalog);
       } catch {
         setSwapCatalog([]);
+        catalog = [];
       } finally {
         setSwapLoading(false);
       }
     }
+
+    // Default-filter to same muscle group as exercise being swapped
+    const match = catalog.find((ex) => {
+      const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+      return name === exerciseName;
+    });
+    setSwapMuscleGroup(match?.muscle_group || null);
   };
 
   const handleSwapSelect = async (newName) => {
@@ -260,7 +302,9 @@ export default function Logger() {
       }));
 
       // Skip the sets-init effect since we already updated sets manually
+      // swapInProgress stays true until overload refetch completes (prevents second wipe)
       skipSetsInit.current = true;
+      swapInProgress.current = true;
 
       // Re-select the same session by name
       const match = flatSessions.find((s) => s.session_name === selectedSession?.session_name);
@@ -274,10 +318,16 @@ export default function Logger() {
     }
   };
 
-  // Filtered catalog for swap search
+  // Filtered catalog for swap search — default-filtered by muscle group
   const filteredCatalog = swapCatalog.filter((ex) => {
     const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
-    return name.toLowerCase().includes(swapSearch.toLowerCase()) && name !== swapTarget;
+    if (name === swapTarget) return false;
+    if (!name.toLowerCase().includes(swapSearch.toLowerCase())) return false;
+    if (!showAllMuscleGroups && swapMuscleGroup) {
+      const mg = typeof ex === 'string' ? '' : ex.muscle_group || '';
+      if (mg !== swapMuscleGroup) return false;
+    }
+    return true;
   });
 
   if (loading) return <LoadingSpinner />;
@@ -476,6 +526,17 @@ export default function Logger() {
                             </span>
                           )}
                         </h4>
+                        {/* Previous session numbers */}
+                        {(() => {
+                          const prev = overload?.exercises?.find((o) => o.exercise_name === group.name)?.last_performance;
+                          if (!prev) return null;
+                          const displayLoad = units === 'lbs' ? +(prev.load_kg * 2.20462).toFixed(1) : prev.load_kg;
+                          return (
+                            <p className="text-[10px] text-text-muted mb-2 ml-5">
+                              Last: {displayLoad} {unitLabel} x {prev.reps} reps{prev.rpe != null ? ` @ RPE ${prev.rpe}` : ''}
+                            </p>
+                          );
+                        })()}
                         <div className="space-y-2">
                           {/* Set rows */}
                           {group.sets.map((s) => {
@@ -487,7 +548,12 @@ export default function Logger() {
                               <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end">
                                 <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
                                 <div className="relative">
-                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">{unitLabel}</label>
+                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
+                                    {unitLabel}{(() => {
+                                      const hint = getWeightHint(s.exercise_name, swapCatalog);
+                                      return hint ? ` ${hint}` : '';
+                                    })()}
+                                  </label>
                                   <input
                                     type="number"
                                     inputMode="decimal"
@@ -626,6 +692,19 @@ export default function Logger() {
                 className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-9 pr-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-primary outline-none"
               />
             </div>
+            {swapMuscleGroup && (
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase tracking-wider text-text-muted">
+                  {showAllMuscleGroups ? 'All exercises' : `${swapMuscleGroup} exercises`}
+                </span>
+                <button
+                  onClick={() => setShowAllMuscleGroups((v) => !v)}
+                  className="text-[10px] text-primary hover:text-primary-light font-medium touch-manipulation"
+                >
+                  {showAllMuscleGroups ? 'Same muscle only' : 'Show all'}
+                </button>
+              </div>
+            )}
             <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5">
               {swapLoading ? (
                 <p className="text-xs text-text-muted text-center py-4">Loading catalog...</p>
@@ -636,13 +715,17 @@ export default function Logger() {
               ) : (
                 filteredCatalog.map((ex) => {
                   const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+                  const mg = typeof ex === 'string' ? '' : ex.muscle_group || '';
                   return (
                     <button
                       key={name}
                       onClick={() => handleSwapSelect(name)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-text hover:bg-surface-light transition-colors touch-manipulation truncate"
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-text hover:bg-surface-light transition-colors touch-manipulation flex items-center gap-2"
                     >
-                      {name}
+                      <span className="truncate">{name}</span>
+                      {showAllMuscleGroups && mg && (
+                        <span className="text-[9px] text-text-muted bg-surface-light px-1.5 py-0.5 rounded shrink-0">{mg}</span>
+                      )}
                     </button>
                   );
                 })
