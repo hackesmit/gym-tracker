@@ -381,7 +381,7 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
                         user_id=user.id,
                         type="milestone",
                         value=float(milestone),
-                        metadata={"description": f"{milestone} workouts completed"},
+                        extra={"description": f"{milestone} workouts completed"},
                         session_log_id=session_log.id,
                     )
                     db.add(ach)

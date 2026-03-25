@@ -192,7 +192,7 @@ def list_achievements(
             "tier": a.tier,
             "value": a.value,
             "previous_value": a.previous_value,
-            "metadata": a.metadata,
+            "metadata": a.extra,
             "achieved_at": a.achieved_at.isoformat() if a.achieved_at else None,
         }
         for a in achievements

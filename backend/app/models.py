@@ -235,7 +235,7 @@ class Achievement(Base):
     )  # novice, intermediate, advanced, elite
     value: Mapped[float] = mapped_column(Float, nullable=False)
     previous_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    extra: Mapped[dict | None] = mapped_column("metadata_json", JSON, nullable=True)
     session_log_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("session_logs.id", ondelete="SET NULL"), nullable=True
     )

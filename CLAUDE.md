@@ -72,7 +72,7 @@ gym-tracker/
 | `/recovery` | Recovery | Recovery metrics |
 | `/history` | History | Browse past sessions by date |
 | `/program` | Program | View program schedule |
-| `/settings` | Settings | Units (lbs/kg), rest timer defaults |
+| `/settings` | Settings | Units (lbs/kg), rest timer defaults, manual 1RM entry |
 
 ## Local Development
 ```powershell
@@ -115,6 +115,38 @@ No env vars needed locally — SQLite fallback + Vite proxy handle everything.
 `users`, `programs`, `program_exercises`, `exercise_catalog`, `workout_logs`, `session_logs`, `program_progress`, `body_metrics`
 
 All managed by SQLAlchemy ORM. Foreign keys enforce referential integrity. WorkoutLog supports `is_dropset` and `dropset_load_kg` fields.
+
+### Notable columns
+- `User.manual_1rm` — JSON column storing known 1RMs per lift category. New format: `{"bench": {"value_kg": 102.1, "tested_at": "2026-03-20"}}`. Backend handles old bare-float format for backward compat.
+- `SessionLog` has `UniqueConstraint("program_id", "week", "session_name")`
+- `ProgramExercise` has `UniqueConstraint("program_id", "week", "session_name", "exercise_order")`
+
+## Strength Standards Engine (v2)
+The spider chart in Analytics uses an honest estimation system — no machine-to-barbell conversion factors.
+
+**Category rules** (only these exercises qualify):
+- **Squat:** barbell back squat, paused back squat, front squat, safety bar squat
+- **Deadlift:** conventional, sumo, trap bar, paused deadlift. Romanian DL as low-confidence only
+- **Bench:** barbell bench, paused bench, close-grip bench. Incline barbell as low-confidence
+- **OHP:** strict press, seated barbell OHP. Seated DB shoulder press as low-confidence
+- **Row:** barbell row, Pendlay row, T-bar row. Cable row as low-confidence
+
+**Rejected** (never used for standards): hack squat, leg press, machine squat, machine chest press, DB bench press, cable shoulder press, Smith machine variants.
+
+**Confidence scoring:** `specificity × rep_range × recency`
+- Specificity: primary=1.0, close_variant=0.85, low_confidence=0.65
+- Rep range: 1-3=1.0, 4-6=0.9, 7-8=0.75, 9-10=0.6, >10=rejected
+- Recency: <2wk=1.0, 2-4wk=0.9, 4-8wk=0.75, 8-12wk=0.6, >12wk=0.4
+
+**Manual 1RM** is first-class (not a fallback). Only loses to logged data if logged is both newer AND higher confidence. Includes `tested_at` date for staleness tracking.
+
+## Known Bug Fixes Applied
+See `docs/known-bugs.md` for the original audit. Fixes applied:
+- Bodyweight exercises saving, unit change wiping sets, PR float comparison
+- History timezone shift, Analytics race condition
+- DB unique constraints on SessionLog + ProgramExercise
+- Recovery score missing-data flag, parser week validation
+- Volume analytics logging for missing catalog entries
 
 ## Current Program
 "The Essentials" by Jeff Nippard — 4x/week, 12 weeks. Imported from .xlsx spreadsheet.
