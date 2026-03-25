@@ -534,6 +534,33 @@ def update_session(session_log_id: int, new_date: date = Query(...), db: Session
 
 
 # ---------------------------------------------------------------------------
+# Update individual set
+# ---------------------------------------------------------------------------
+
+
+class SetUpdateRequest(BaseModel):
+    load_kg: Optional[float] = None
+    reps_completed: Optional[int] = None
+    rpe_actual: Optional[float] = None
+
+
+@router.patch("/api/log/set/{log_id}")
+def update_set(log_id: int, payload: SetUpdateRequest, db: Session = Depends(get_db)):
+    """Update weight, reps, or RPE on a single logged set."""
+    log = db.query(WorkoutLog).filter(WorkoutLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WorkoutLog not found")
+    if payload.load_kg is not None:
+        log.load_kg = payload.load_kg
+    if payload.reps_completed is not None:
+        log.reps_completed = payload.reps_completed
+    if payload.rpe_actual is not None:
+        log.rpe_actual = payload.rpe_actual
+    db.commit()
+    return {"updated": True, "log_id": log_id}
+
+
+# ---------------------------------------------------------------------------
 # Undo session
 # ---------------------------------------------------------------------------
 

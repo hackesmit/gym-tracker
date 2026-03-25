@@ -63,9 +63,13 @@ export const getLogs = (params = {}) => {
   return request(`/logs?${qs}`);
 };
 
-// Undo session
+// Session management
 export const undoSession = (sessionLogId) =>
   request(`/log/session/${sessionLogId}`, { method: 'DELETE' });
+export const updateSessionDate = (sessionLogId, newDate) =>
+  request(`/log/session/${sessionLogId}?new_date=${newDate}`, { method: 'PATCH' });
+export const updateSet = (logId, data) =>
+  request(`/log/set/${logId}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 // Export
 export const exportLogs = async (format = 'csv') => {

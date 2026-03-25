@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy, Trash2, Pencil, Check, X } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
-import { getCalendar, getTrackerWeek } from '../api/client';
+import { getCalendar, getTrackerWeek, undoSession, updateSessionDate, updateSet } from '../api/client';
 import { Chronicle as ChronicleIcon } from '../components/LotrIcons';
 
 const STATUS_STYLES = {
@@ -35,17 +35,33 @@ function groupByDate(sessions) {
     if (!groups[s.date]) groups[s.date] = [];
     groups[s.date].push(s);
   }
-  // Sort dates descending (most recent first)
   return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
 }
 
 export default function History() {
-  const { activeProgram, convert, unitLabel } = useApp();
+  const { activeProgram, convert, unitLabel, units } = useApp();
   const [calendar, setCalendar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState(null);
   const [sessionDetails, setSessionDetails] = useState({});
   const [detailLoading, setDetailLoading] = useState({});
+
+  // Edit state
+  const [editingDate, setEditingDate] = useState(null); // session key being date-edited
+  const [dateValue, setDateValue] = useState('');
+  const [editingSet, setEditingSet] = useState(null); // { logId, load, reps, rpe }
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // session key pending delete
+
+  const reload = () => {
+    if (!activeProgram) return;
+    setLoading(true);
+    getCalendar(activeProgram.id)
+      .then((res) => setCalendar(res))
+      .catch(() => setCalendar(null))
+      .finally(() => setLoading(false));
+    setSessionDetails({});
+    setExpandedKey(null);
+  };
 
   useEffect(() => {
     if (!activeProgram) {
@@ -65,11 +81,12 @@ export default function History() {
       return;
     }
     setExpandedKey(key);
+    setEditingSet(null);
+    setEditingDate(null);
+    setDeleteConfirm(null);
 
-    // Already fetched
     if (sessionDetails[key]) return;
 
-    // Fetch week detail to get exercises + logged sets
     setDetailLoading((prev) => ({ ...prev, [key]: true }));
     try {
       const weekData = await getTrackerWeek(activeProgram.id, session.week);
@@ -81,6 +98,61 @@ export default function History() {
       setSessionDetails((prev) => ({ ...prev, [key]: null }));
     } finally {
       setDetailLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleDateSave = async (session) => {
+    const sessionLogId = session.id || sessionDetails[`${session.date}-${session.session_name}`]?.session_log_id;
+    if (!sessionLogId || !dateValue) return;
+    try {
+      await updateSessionDate(sessionLogId, dateValue);
+      setEditingDate(null);
+      reload();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleSetSave = async () => {
+    if (!editingSet) return;
+    const loadKg = units === 'lbs'
+      ? +(editingSet.load / 2.20462).toFixed(2)
+      : +editingSet.load;
+    try {
+      await updateSet(editingSet.logId, {
+        load_kg: loadKg,
+        reps_completed: +editingSet.reps,
+        rpe_actual: editingSet.rpe ? +editingSet.rpe : null,
+      });
+      // Refresh the expanded session details
+      const key = expandedKey;
+      setSessionDetails((prev) => ({ ...prev, [key]: undefined }));
+      setEditingSet(null);
+      // Re-fetch
+      const session = calendar.calendar.find(
+        (s) => `${s.date}-${s.session_name}` === key
+      );
+      if (session) {
+        const weekData = await getTrackerWeek(activeProgram.id, session.week);
+        const match = weekData.sessions?.find(
+          (s) => s.session_name === session.session_name
+        );
+        setSessionDetails((prev) => ({ ...prev, [key]: match || null }));
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async (session) => {
+    const sessionLogId = session.id || sessionDetails[`${session.date}-${session.session_name}`]?.session_log_id;
+    if (!sessionLogId) return;
+    try {
+      await undoSession(sessionLogId);
+      setDeleteConfirm(null);
+      reload();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -152,6 +224,8 @@ export default function History() {
                 const isExpanded = expandedKey === key;
                 const detail = sessionDetails[key];
                 const isDetailLoading = detailLoading[key];
+                const isEditingThisDate = editingDate === key;
+                const isDeleteConfirm = deleteConfirm === key;
 
                 return (
                   <div key={key}>
@@ -193,6 +267,75 @@ export default function History() {
 
                     {isExpanded && (
                       <div className="mt-2 ml-3 pl-3 border-l-2 border-surface-lighter">
+                        {/* Session actions bar */}
+                        <div className="flex items-center gap-2 py-2 flex-wrap">
+                          {isEditingThisDate ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="date"
+                                value={dateValue}
+                                onChange={(e) => setDateValue(e.target.value)}
+                                className="text-xs px-2 py-1 rounded bg-surface border border-surface-lighter text-text"
+                              />
+                              <button
+                                onClick={() => handleDateSave(session)}
+                                className="p-1 rounded hover:bg-success/20 text-success"
+                                title="Save date"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                onClick={() => setEditingDate(null)}
+                                className="p-1 rounded hover:bg-error/20 text-error"
+                                title="Cancel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingDate(key);
+                                setDateValue(session.date);
+                              }}
+                              className="flex items-center gap-1 text-[10px] text-text-muted hover:text-accent px-2 py-1 rounded hover:bg-surface-light transition-colors"
+                              title="Edit date"
+                            >
+                              <Pencil size={10} /> Edit Date
+                            </button>
+                          )}
+
+                          {isDeleteConfirm ? (
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <span className="text-error">Delete this session?</span>
+                              <button
+                                onClick={() => handleDelete(session)}
+                                className="px-2 py-0.5 rounded bg-error/20 text-error hover:bg-error/30 font-medium"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="px-2 py-0.5 rounded bg-surface-lighter text-text-muted hover:bg-surface-light"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirm(key);
+                              }}
+                              className="flex items-center gap-1 text-[10px] text-text-muted hover:text-error px-2 py-1 rounded hover:bg-surface-light transition-colors"
+                              title="Delete session"
+                            >
+                              <Trash2 size={10} /> Delete
+                            </button>
+                          )}
+                        </div>
+
                         {isDetailLoading ? (
                           <div className="py-4 flex items-center gap-2 text-text-muted text-xs">
                             <div className="w-3 h-3 border-2 border-accent-light border-t-transparent rounded-full animate-spin" />
@@ -217,25 +360,87 @@ export default function History() {
                                 </div>
                                 {exercise.logged.length > 0 ? (
                                   <div className="ml-5 space-y-0.5">
-                                    {exercise.logged.map((set) => (
-                                      <div
-                                        key={set.set_number}
-                                        className="flex items-center gap-3 text-xs text-text-muted"
-                                      >
-                                        <span className="w-12 text-[10px] text-text-muted">
-                                          Set {set.set_number}
-                                        </span>
-                                        <span className="text-text font-medium">
-                                          {convert(set.load_kg)} {unitLabel}
-                                        </span>
-                                        <span>x {set.reps} reps</span>
-                                        {set.rpe != null && (
-                                          <span className="text-accent-light">
-                                            @{set.rpe}
+                                    {exercise.logged.map((set) => {
+                                      const isEditingThis = editingSet?.logId === set.id;
+                                      if (isEditingThis) {
+                                        return (
+                                          <div
+                                            key={set.set_number}
+                                            className="flex items-center gap-2 text-xs py-0.5"
+                                          >
+                                            <span className="w-12 text-[10px] text-text-muted">
+                                              Set {set.set_number}
+                                            </span>
+                                            <input
+                                              type="number"
+                                              value={editingSet.load}
+                                              onChange={(e) => setEditingSet((prev) => ({ ...prev, load: e.target.value }))}
+                                              className="w-16 px-1.5 py-0.5 rounded bg-surface border border-surface-lighter text-text text-xs"
+                                              step="any"
+                                            />
+                                            <span className="text-[10px] text-text-muted">{unitLabel}</span>
+                                            <span className="text-text-muted">x</span>
+                                            <input
+                                              type="number"
+                                              value={editingSet.reps}
+                                              onChange={(e) => setEditingSet((prev) => ({ ...prev, reps: e.target.value }))}
+                                              className="w-12 px-1.5 py-0.5 rounded bg-surface border border-surface-lighter text-text text-xs"
+                                            />
+                                            <span className="text-[10px] text-text-muted">@</span>
+                                            <input
+                                              type="number"
+                                              value={editingSet.rpe}
+                                              onChange={(e) => setEditingSet((prev) => ({ ...prev, rpe: e.target.value }))}
+                                              className="w-12 px-1.5 py-0.5 rounded bg-surface border border-surface-lighter text-text text-xs"
+                                              step="0.5"
+                                            />
+                                            <button
+                                              onClick={handleSetSave}
+                                              className="p-0.5 rounded hover:bg-success/20 text-success"
+                                            >
+                                              <Check size={12} />
+                                            </button>
+                                            <button
+                                              onClick={() => setEditingSet(null)}
+                                              className="p-0.5 rounded hover:bg-error/20 text-error"
+                                            >
+                                              <X size={12} />
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div
+                                          key={set.set_number}
+                                          className="flex items-center gap-3 text-xs text-text-muted group"
+                                        >
+                                          <span className="w-12 text-[10px] text-text-muted">
+                                            Set {set.set_number}
                                           </span>
-                                        )}
-                                      </div>
-                                    ))}
+                                          <span className="text-text font-medium">
+                                            {convert(set.load_kg)} {unitLabel}
+                                          </span>
+                                          <span>x {set.reps} reps</span>
+                                          {set.rpe != null && (
+                                            <span className="text-accent-light">
+                                              @{set.rpe}
+                                            </span>
+                                          )}
+                                          <button
+                                            onClick={() => setEditingSet({
+                                              logId: set.id,
+                                              load: convert(set.load_kg),
+                                              reps: set.reps,
+                                              rpe: set.rpe || '',
+                                            })}
+                                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-surface-lighter text-text-muted hover:text-accent transition-opacity"
+                                            title="Edit set"
+                                          >
+                                            <Pencil size={10} />
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <p className="ml-5 text-[10px] text-text-muted italic">

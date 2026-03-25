@@ -322,12 +322,15 @@ def get_week_detail(
         if log:
             status = log.status
             session_date = str(log.date)
+            session_log_id = log.id
         elif week_num < current_week:
             status = "missed"
             session_date = None
+            session_log_id = None
         else:
             status = "pending"
             session_date = None
+            session_log_id = None
 
         exercise_list: list[dict] = []
         for ex in exs:
@@ -349,6 +352,7 @@ def get_week_detail(
                     },
                     "logged": [
                         {
+                            "id": wl.id,
                             "set_number": wl.set_number,
                             "load_kg": wl.load_kg,
                             "reps": wl.reps_completed,
@@ -362,6 +366,7 @@ def get_week_detail(
         sessions_payload.append(
             {
                 "session_name": session_name,
+                "session_log_id": session_log_id,
                 "status": status,
                 "date": session_date,
                 "exercises": exercise_list,
@@ -546,6 +551,7 @@ def get_calendar(program_id: int, db: Session = Depends(get_db)):
 
     calendar = [
         {
+            "id": log.id,
             "date": str(log.date),
             "week": log.week,
             "session_name": log.session_name,
