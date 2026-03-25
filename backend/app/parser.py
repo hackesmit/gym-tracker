@@ -211,6 +211,55 @@ def parse_program(file_path: str | Path, sheet_name: str) -> list[dict]:
             )
 
     wb.close()
+
+    # Disambiguate sessions with duplicate names within the same week.
+    # E.g. two "UPPER BODY" sessions become "UPPER BODY A" and "UPPER BODY B".
+    from collections import Counter
+
+    week_session_counts: dict[int, Counter] = {}
+    for ex in exercises:
+        w = ex["week"]
+        if w not in week_session_counts:
+            week_session_counts[w] = Counter()
+        week_session_counts[w][ex["session_name"]] = max(
+            week_session_counts[w][ex["session_name"]],
+            ex["session_order_in_week"],
+        )
+
+    # Find session names that appear with multiple session_orders in a week
+    needs_rename: set[tuple[int, str]] = set()
+    for w, counts in week_session_counts.items():
+        # Group by session_name: count distinct session_orders
+        name_orders: dict[str, set[int]] = {}
+        for ex in exercises:
+            if ex["week"] == w:
+                name_orders.setdefault(ex["session_name"], set()).add(
+                    ex["session_order_in_week"]
+                )
+        for name, orders in name_orders.items():
+            if len(orders) > 1:
+                needs_rename.add((w, name))
+
+    if needs_rename:
+        # Build mapping: (week, session_name, session_order) -> new_name
+        rename_map: dict[tuple[int, str, int], str] = {}
+        for w, name in needs_rename:
+            orders = sorted(
+                {
+                    ex["session_order_in_week"]
+                    for ex in exercises
+                    if ex["week"] == w and ex["session_name"] == name
+                }
+            )
+            for idx, order in enumerate(orders):
+                suffix = chr(65 + idx)  # A, B, C...
+                rename_map[(w, name, order)] = f"{name} {suffix}"
+
+        for ex in exercises:
+            key = (ex["week"], ex["session_name"], ex["session_order_in_week"])
+            if key in rename_map:
+                ex["session_name"] = rename_map[key]
+
     return exercises
 
 

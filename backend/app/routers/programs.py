@@ -10,8 +10,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
+
 from ..database import get_db
-from ..models import Program, ProgramExercise, ProgramProgress, User
+from ..models import Program, ProgramExercise, ProgramProgress, User, WorkoutLog
 from ..parser import parse_program
 
 router = APIRouter(prefix="/api", tags=["programs"])
@@ -214,13 +216,38 @@ def get_program_schedule(program_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Group by week -> session
+    # Group by week -> session, using session_order_in_week to distinguish
+    # sessions that share the same name (e.g. two "UPPER BODY" per week).
     schedule = {}
+    _seen_sessions: dict[tuple, str] = {}  # (week, session_order) -> display_name
     for ex in exercises:
         week = ex.week
         if week not in schedule:
             schedule[week] = {}
-        session = ex.session_name
+        key = (week, ex.session_order_in_week)
+        if key not in _seen_sessions:
+            base = ex.session_name
+            # Check if this session_name already used by a different session_order this week
+            existing_names = {
+                name for (w, _), name in _seen_sessions.items() if w == week
+            }
+            if base in existing_names:
+                # Count how many times this base name has appeared
+                count = sum(1 for n in existing_names if n == base or n.startswith(base + " "))
+                display = f"{base} {chr(65 + count)}"  # A, B, C...
+                # Also rename the first occurrence
+                for k, v in _seen_sessions.items():
+                    if k[0] == week and v == base:
+                        old_name = v
+                        new_name = f"{base} A"
+                        _seen_sessions[k] = new_name
+                        if old_name in schedule[week]:
+                            schedule[week][new_name] = schedule[week].pop(old_name)
+                        break
+            else:
+                display = base
+            _seen_sessions[key] = display
+        session = _seen_sessions[key]
         if session not in schedule[week]:
             schedule[week][session] = []
         schedule[week][session].append(
@@ -304,4 +331,81 @@ def swap_exercise(
         "old_name": old_name,
         "new_name": body.new_exercise_name,
         "rows_updated": len(exercises),
+    }
+
+
+@router.post("/program/{program_id}/deduplicate")
+def deduplicate_program(program_id: int, db: Session = Depends(get_db)):
+    """Remove duplicate ProgramExercise rows and associated WorkoutLog entries.
+
+    When multiple ProgramExercise rows share the same (program_id, week,
+    session_name, exercise_order), keep the one with the lowest id and
+    delete the rest along with their WorkoutLog entries.
+    Also renames sessions with duplicate session_orders to "SESSION A/B".
+    """
+    program = db.query(Program).filter(Program.id == program_id).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    all_exercises = (
+        db.query(ProgramExercise)
+        .filter(ProgramExercise.program_id == program_id)
+        .order_by(ProgramExercise.week, ProgramExercise.session_order_in_week, ProgramExercise.id)
+        .all()
+    )
+
+    # Step 1: Rename sessions that share the same name but have different
+    # session_order_in_week values (e.g. two "UPPER BODY" → "UPPER BODY A/B")
+    from collections import defaultdict
+    week_name_orders: dict[int, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+    for ex in all_exercises:
+        orders = week_name_orders[ex.week][ex.session_name]
+        if ex.session_order_in_week not in orders:
+            orders.append(ex.session_order_in_week)
+
+    rename_map: dict[tuple[int, str, int], str] = {}
+    for week, names in week_name_orders.items():
+        for name, orders in names.items():
+            if len(orders) > 1:
+                for idx, order in enumerate(sorted(orders)):
+                    rename_map[(week, name, order)] = f"{name} {chr(65 + idx)}"
+
+    renamed_count = 0
+    for ex in all_exercises:
+        key = (ex.week, ex.session_name, ex.session_order_in_week)
+        if key in rename_map:
+            ex.session_name = rename_map[key]
+            renamed_count += 1
+
+    # Step 2: Remove true duplicates (same program_id, week, session_name,
+    # exercise_order) — keep lowest id.
+    seen: dict[tuple, int] = {}
+    dup_pe_ids: list[int] = []
+    for ex in all_exercises:
+        key = (ex.week, ex.session_name, ex.exercise_order)
+        if key in seen:
+            dup_pe_ids.append(ex.id)
+        else:
+            seen[key] = ex.id
+
+    # Delete WorkoutLog entries referencing duplicate ProgramExercises
+    deleted_logs = 0
+    if dup_pe_ids:
+        deleted_logs = (
+            db.query(WorkoutLog)
+            .filter(WorkoutLog.program_exercise_id.in_(dup_pe_ids))
+            .delete(synchronize_session="fetch")
+        )
+        db.query(ProgramExercise).filter(
+            ProgramExercise.id.in_(dup_pe_ids)
+        ).delete(synchronize_session="fetch")
+
+    db.commit()
+
+    return {
+        "status": "deduplicated",
+        "program_id": program_id,
+        "sessions_renamed": renamed_count,
+        "duplicate_exercises_removed": len(dup_pe_ids),
+        "orphaned_logs_removed": deleted_logs,
     }
