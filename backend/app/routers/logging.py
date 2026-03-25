@@ -1,9 +1,13 @@
 """Workout logging and body metrics endpoints."""
 
+import csv
+import io
+import json as json_lib
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
@@ -380,6 +384,55 @@ def list_logs(
         results.append(out)
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Export logs
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/logs/export")
+def export_logs(
+    format: str = Query("csv", description="Export format: csv or json"),
+    db: Session = Depends(get_db),
+):
+    """Export all workout logs as CSV or JSON."""
+    logs = (
+        db.query(WorkoutLog)
+        .options(joinedload(WorkoutLog.program_exercise))
+        .order_by(WorkoutLog.date.desc(), WorkoutLog.id)
+        .all()
+    )
+
+    rows = []
+    for log in logs:
+        pe = log.program_exercise
+        rows.append({
+            "date": str(log.date),
+            "exercise": pe.exercise_name_canonical if pe else "",
+            "weight_kg": log.load_kg,
+            "reps": log.reps_completed,
+            "rpe": log.rpe_actual,
+            "set_number": log.set_number,
+            "session_name": pe.session_name if pe else "",
+            "week": pe.week if pe else None,
+        })
+
+    if format == "json":
+        return rows
+
+    # CSV export
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["date", "exercise", "weight_kg", "reps", "rpe", "set_number", "session_name", "week"])
+    writer.writeheader()
+    writer.writerows(rows)
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=gym_tracker_export.csv"},
+    )
 
 
 # ---------------------------------------------------------------------------

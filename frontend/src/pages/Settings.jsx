@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer, AlertTriangle } from 'lucide-react';
-import { getManual1RM, updateManual1RM } from '../api/client';
+import { Settings as SettingsIcon, Timer, AlertTriangle, Download } from 'lucide-react';
+import { getManual1RM, updateManual1RM, exportLogs } from '../api/client';
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const LIFT_CATEGORIES = [
@@ -196,6 +196,43 @@ export default function Settings() {
         >
           {ormSaved ? 'Saved!' : 'Save 1RMs'}
         </button>
+      </Card>
+
+      {/* Export Data */}
+      <Card title="Export Data">
+        <p className="text-xs text-text-muted mb-3">Download all workout history for backup or analysis.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={async () => {
+              try {
+                const csv = await exportLogs('csv');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'gym_tracker_export.csv'; a.click();
+                URL.revokeObjectURL(url);
+              } catch { alert('Export failed'); }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-surface-light border border-surface-lighter rounded-lg text-sm text-text hover:bg-surface-lighter transition-colors touch-manipulation"
+          >
+            <Download size={14} /> CSV
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const data = await exportLogs('json');
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'gym_tracker_export.json'; a.click();
+                URL.revokeObjectURL(url);
+              } catch { alert('Export failed'); }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-surface-light border border-surface-lighter rounded-lg text-sm text-text hover:bg-surface-lighter transition-colors touch-manipulation"
+          >
+            <Download size={14} /> JSON
+          </button>
+        </div>
       </Card>
     </div>
   );

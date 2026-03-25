@@ -67,6 +67,14 @@ export const getLogs = (params = {}) => {
 export const undoSession = (sessionLogId) =>
   request(`/log/session/${sessionLogId}`, { method: 'DELETE' });
 
+// Export
+export const exportLogs = async (format = 'csv') => {
+  const res = await fetch(`${BASE}/logs/export?format=${format}`);
+  if (!res.ok) throw new Error('Export failed');
+  if (format === 'json') return res.json();
+  return res.text();
+};
+
 // Body metrics
 export const logBodyMetric = (data) => request('/body-metrics', { method: 'POST', body: JSON.stringify(data) });
 export const getBodyMetrics = (params = {}) => {

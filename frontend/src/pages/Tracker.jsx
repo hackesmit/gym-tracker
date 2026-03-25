@@ -7,6 +7,7 @@ import {
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import TrainingHeatmap from '../components/TrainingHeatmap';
 import { useApp } from '../context/AppContext';
 import { getTracker, getCalendar, getAdherence } from '../api/client';
 import { exportToCSV } from '../utils/export';
@@ -160,8 +161,22 @@ export default function Tracker() {
       {view === 'calendar' && (
         <CalendarView programId={activeProgram.id} />
       )}
+
+      {/* Training Frequency Heatmap */}
+      <Card title="Training Frequency">
+        <HeatmapSection programId={activeProgram.id} />
+      </Card>
     </div>
   );
+}
+
+function HeatmapSection({ programId }) {
+  const [cal, setCal] = useState(null);
+  useEffect(() => {
+    getCalendar(programId).then(setCal).catch(() => {});
+  }, [programId]);
+  if (!cal) return <p className="text-xs text-text-muted py-2">Loading...</p>;
+  return <TrainingHeatmap calendarData={cal} />;
 }
 
 function CalendarView({ programId }) {
