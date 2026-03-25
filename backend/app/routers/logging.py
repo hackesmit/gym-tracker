@@ -32,14 +32,14 @@ router = APIRouter(tags=["logging"])
 class SetLogRequest(BaseModel):
     program_exercise_id: int
     date: date
-    set_number: int
-    load_kg: float
-    reps_completed: int
-    rpe_actual: Optional[float] = None
+    set_number: int = Field(..., ge=1)
+    load_kg: float = Field(..., ge=0)
+    reps_completed: int = Field(..., ge=1, le=200)
+    rpe_actual: Optional[float] = Field(None, ge=1, le=10)
     notes: Optional[str] = None
     is_bodyweight: bool = False
     is_dropset: bool = False
-    dropset_load_kg: Optional[float] = None
+    dropset_load_kg: Optional[float] = Field(None, ge=0)
 
 
 class SetLogResponse(BaseModel):
@@ -61,13 +61,13 @@ class SetLogResponse(BaseModel):
 
 class BulkSetItem(BaseModel):
     program_exercise_id: int
-    set_number: int
-    load_kg: float
-    reps_completed: int
-    rpe_actual: Optional[float] = None
+    set_number: int = Field(..., ge=1)
+    load_kg: float = Field(..., ge=0)
+    reps_completed: int = Field(..., ge=1, le=200)
+    rpe_actual: Optional[float] = Field(None, ge=1, le=10)
     is_bodyweight: bool = False
     is_dropset: bool = False
-    dropset_load_kg: Optional[float] = None
+    dropset_load_kg: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
 
 
@@ -124,11 +124,11 @@ class WorkoutLogOut(BaseModel):
 
 class BodyMetricRequest(BaseModel):
     date: date
-    bodyweight_kg: float
-    body_fat_pct: Optional[float] = None
-    sleep_hours: Optional[float] = None
-    stress_level: Optional[int] = None
-    soreness_level: Optional[int] = None
+    bodyweight_kg: float = Field(..., gt=0, le=500)
+    body_fat_pct: Optional[float] = Field(None, ge=1, le=60)
+    sleep_hours: Optional[float] = Field(None, ge=0, le=24)
+    stress_level: Optional[int] = Field(None, ge=1, le=10)
+    soreness_level: Optional[int] = Field(None, ge=1, le=10)
 
 
 class BodyMetricResponse(BaseModel):
@@ -539,9 +539,9 @@ def update_session(session_log_id: int, new_date: date = Query(...), db: Session
 
 
 class SetUpdateRequest(BaseModel):
-    load_kg: Optional[float] = None
-    reps_completed: Optional[int] = None
-    rpe_actual: Optional[float] = None
+    load_kg: Optional[float] = Field(None, ge=0)
+    reps_completed: Optional[int] = Field(None, ge=1, le=200)
+    rpe_actual: Optional[float] = Field(None, ge=1, le=10)
 
 
 @router.patch("/api/log/set/{log_id}")
