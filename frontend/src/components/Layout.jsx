@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import {
-  LayoutDashboard, Target, Dumbbell, TrendingUp,
-  BarChart3, Heart, History, ClipboardList, Settings, Menu, X, Trophy,
-} from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import {
+  TodaysQuest, EyeOfSauron, Barbell, ArrowUp,
+  Mountain, Lembas, Chronicle as ChronicleIcon, MapScroll,
+  Trophy, SettingsGear, Ring,
+} from './LotrIcons';
 import { useApp } from '../context/AppContext';
 
 const REALM_META = {
@@ -15,28 +17,21 @@ const REALM_META = {
 };
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/tracker', icon: Target, label: 'Tracker' },
-  { to: '/log', icon: Dumbbell, label: 'Log Workout' },
-  { to: '/progress', icon: TrendingUp, label: 'Progress' },
-  { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/recovery', icon: Heart, label: 'Recovery' },
-  { to: '/history', icon: History, label: 'Chronicle' },
-  { to: '/program', icon: ClipboardList, label: 'Program' },
+  { to: '/', icon: TodaysQuest, label: 'Dashboard' },
+  { to: '/tracker', icon: EyeOfSauron, label: 'Tracker' },
+  { to: '/log', icon: Barbell, label: 'Log Workout' },
+  { to: '/progress', icon: ArrowUp, label: 'Progress' },
+  { to: '/analytics', icon: Mountain, label: 'Analytics' },
+  { to: '/recovery', icon: Lembas, label: 'Recovery' },
+  { to: '/history', icon: ChronicleIcon, label: 'Chronicle' },
+  { to: '/program', icon: MapScroll, label: 'Program' },
   { to: '/achievements', icon: Trophy, label: 'Achievements' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/settings', icon: SettingsGear, label: 'Settings' },
 ];
 
 function AppLogo({ size = 'md' }) {
-  const sz = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
-  return (
-    <svg className={`${sz} text-accent`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* One Ring icon */}
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="6" />
-      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeWidth="1" opacity="0.4" />
-    </svg>
-  );
+  const px = size === 'sm' ? 20 : 24;
+  return <Ring size={px} className="text-accent" />;
 }
 
 export default function Layout() {
