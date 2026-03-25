@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getPrograms } from '../api/client';
+import { kgToDisplay, getUnitLabel } from '../utils/units';
 
 const AppContext = createContext();
 
@@ -39,9 +40,9 @@ export function AppProvider({ children }) {
 
   const convert = (kg) => {
     if (kg == null) return 0;
-    return units === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1);
+    return kgToDisplay(kg, units);
   };
-  const unitLabel = units === 'lbs' ? 'lbs' : 'kg';
+  const unitLabel = getUnitLabel(units);
 
   useEffect(() => {
     getPrograms().then((res) => {

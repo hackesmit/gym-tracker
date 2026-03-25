@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { kgToDisplay, displayToKg } from '../utils/units';
 import {
   Dumbbell, ChevronLeft, ChevronRight, Check, Timer,
   Plus, Minus, Save, Trophy, X, TrendingUp, ArrowLeftRight, Search,
@@ -160,7 +161,7 @@ export default function Logger() {
       const perSetData = suggestion?.per_set_data || [];
       // Convert suggested load for display if in lbs mode
       const displayLoad = suggestedLoad != null
-        ? (units === 'lbs' ? +(suggestedLoad * 2.20462).toFixed(1) : suggestedLoad)
+        ? kgToDisplay(suggestedLoad, units)
         : '';
 
       // Parse prescribed reps — handle ranges like "8-10"
@@ -175,9 +176,7 @@ export default function Logger() {
         let setReps = defaultReps;
         let setRpe = ex.prescribed_rpe || '';
         if (prevSet) {
-          setLoad = units === 'lbs'
-            ? +(prevSet.load_kg * 2.20462).toFixed(1)
-            : prevSet.load_kg;
+          setLoad = kgToDisplay(prevSet.load_kg, units);
           setReps = prevSet.reps_completed;
           if (prevSet.rpe_actual != null) setRpe = prevSet.rpe_actual;
         }
@@ -241,13 +240,13 @@ export default function Logger() {
         sets: sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).map((s) => ({
           program_exercise_id: s.program_exercise_id,
           set_number: s.set_number,
-          load_kg: units === 'lbs' ? +(s.load_kg / 2.20462).toFixed(2) : +s.load_kg,
+          load_kg: displayToKg(s.load_kg, units),
           reps_completed: +s.reps_completed,
           rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
           is_bodyweight: s.is_bodyweight,
           is_dropset: s.is_dropset,
           dropset_load_kg: s.is_dropset && s.dropset_load_kg
-            ? (units === 'lbs' ? +(s.dropset_load_kg / 2.20462).toFixed(2) : +s.dropset_load_kg)
+            ? displayToKg(s.dropset_load_kg, units)
             : null,
         })),
       };
@@ -277,7 +276,7 @@ export default function Logger() {
   const handleMetricsSave = async () => {
     const data = {
       date: new Date().toISOString().split('T')[0],
-      bodyweight_kg: units === 'lbs' ? +(metrics.bodyweight_kg / 2.20462).toFixed(1) : +metrics.bodyweight_kg,
+      bodyweight_kg: displayToKg(metrics.bodyweight_kg, units),
     };
     if (metrics.body_fat_pct) data.body_fat_pct = +metrics.body_fat_pct;
     if (metrics.sleep_hours) data.sleep_hours = +metrics.sleep_hours;
@@ -534,7 +533,7 @@ export default function Logger() {
               <div className="space-y-1">
                 {overload.exercises.map((ex) => {
                   const displayLoad = ex.suggested_load_kg != null
-                    ? (units === 'lbs' ? +(ex.suggested_load_kg * 2.20462).toFixed(1) : ex.suggested_load_kg)
+                    ? kgToDisplay(ex.suggested_load_kg, units)
                     : null;
                   return (
                     <div key={ex.exercise_name} className="flex items-center justify-between text-xs">
@@ -618,7 +617,7 @@ export default function Logger() {
                         {(() => {
                           const prev = overload?.exercises?.find((o) => o.exercise_name === group.name)?.last_performance;
                           if (!prev) return null;
-                          const displayLoad = units === 'lbs' ? +(prev.load_kg * 2.20462).toFixed(1) : prev.load_kg;
+                          const displayLoad = kgToDisplay(prev.load_kg, units);
                           return (
                             <p className="text-[10px] text-text-muted mb-2 ml-5">
                               Last: {displayLoad} {unitLabel} x {prev.reps} reps{prev.rpe != null ? ` @ RPE ${prev.rpe}` : ''}

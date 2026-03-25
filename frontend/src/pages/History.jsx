@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { displayToKg } from '../utils/units';
 import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy, Trash2, Pencil, Check, X } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -115,9 +116,7 @@ export default function History() {
 
   const handleSetSave = async () => {
     if (!editingSet) return;
-    const loadKg = units === 'lbs'
-      ? +(editingSet.load / 2.20462).toFixed(2)
-      : +editingSet.load;
+    const loadKg = displayToKg(editingSet.load, units);
     try {
       await updateSet(editingSet.logId, {
         load_kg: loadKg,

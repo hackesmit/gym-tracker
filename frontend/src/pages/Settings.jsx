@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { kgToDisplay, displayToKg } from '../utils/units';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
 import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette } from 'lucide-react';
@@ -39,8 +40,8 @@ export default function Settings() {
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
-  const toKg = (val) => units === 'lbs' ? +(val / 2.20462).toFixed(1) : +val;
-  const fromKg = (val) => units === 'lbs' ? +(val * 2.20462).toFixed(0) : +val;
+  const toKg = (val) => displayToKg(val, units);
+  const fromKg = (val) => kgToDisplay(val, units);
 
   useEffect(() => {
     getManual1RM()
