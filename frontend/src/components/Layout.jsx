@@ -26,7 +26,7 @@ export default function Layout() {
       <aside className="hidden md:flex flex-col w-56 bg-surface border-r border-surface-lighter shrink-0">
         <div className="p-4 border-b border-surface-lighter">
           <h1 className="text-lg font-bold text-primary-light flex items-center gap-2">
-            <Dumbbell size={22} /> Gym Tracker
+            <img src="/icon.png" alt="" className="w-6 h-6" /> Gym Tracker
           </h1>
         </div>
         <nav className="flex-1 p-2 space-y-1">
@@ -53,7 +53,7 @@ export default function Layout() {
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-surface-lighter px-4 py-3 flex items-center justify-between">
         <h1 className="text-base font-bold text-primary-light flex items-center gap-2">
-          <Dumbbell size={18} /> Gym Tracker
+          <img src="/icon.png" alt="" className="w-5 h-5" /> Gym Tracker
         </h1>
         <div className="flex items-center gap-2">
           <button
