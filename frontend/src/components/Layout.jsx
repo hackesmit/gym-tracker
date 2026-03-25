@@ -21,7 +21,7 @@ const navItems = [
   { to: '/progress', icon: TrendingUp, label: 'Progress' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/recovery', icon: Heart, label: 'Recovery' },
-  { to: '/history', icon: History, label: 'History' },
+  { to: '/history', icon: History, label: 'Chronicle' },
   { to: '/program', icon: ClipboardList, label: 'Program' },
   { to: '/achievements', icon: Trophy, label: 'Achievements' },
   { to: '/settings', icon: Settings, label: 'Settings' },

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { getCalendar, getTrackerWeek } from '../api/client';
+import { Chronicle as ChronicleIcon } from '../components/LotrIcons';
 
 const STATUS_STYLES = {
   completed: 'bg-success/20 text-success',
@@ -88,7 +89,10 @@ export default function History() {
   if (!activeProgram) {
     return (
       <div className="space-y-6">
-        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
+        <div className="flex items-center gap-3">
+          <ChronicleIcon size={24} className="text-accent" />
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Chronicle</h2>
+        </div>
         <Card>
           <p className="text-text-muted text-sm text-center py-8">
             No active program found. Import a program to get started.
@@ -106,7 +110,10 @@ export default function History() {
   if (loggedSessions.length === 0) {
     return (
       <div className="space-y-6">
-        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
+        <div className="flex items-center gap-3">
+          <ChronicleIcon size={24} className="text-accent" />
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Chronicle</h2>
+        </div>
         <Card>
           <div className="text-center py-12">
             <Calendar size={40} className="mx-auto text-text-muted mb-3" />
@@ -170,6 +177,11 @@ export default function History() {
                             <Clock size={10} />
                             Week {session.week}
                           </span>
+                          {session.has_pr && (
+                            <span className="text-[10px] text-accent flex items-center gap-1">
+                              <Trophy size={10} /> A new record was forged
+                            </span>
+                          )}
                         </div>
                       </div>
                       {isExpanded ? (

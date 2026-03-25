@@ -1,14 +1,60 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, TrendingUp, Dumbbell, Heart, Trophy, Target,
-  ArrowRight, Upload, Calendar, AlertTriangle,
+  Dumbbell, Heart, Trophy, Target,
+  ArrowRight, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import Card from '../components/Card';
 import ProgramUpload from '../components/ProgramUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { getSummary, getTracker, getDeloadCheck, getWorkoutToday } from '../api/client';
+import { MapScroll, Sword, Ring, Torch, Shield, Chronicle as ChronicleIcon } from '../components/LotrIcons';
+
+/* ─── Wisdom of Middle-earth ─── */
+const QUOTES = [
+  // Epic / motivational (~60%)
+  { text: 'A day may come when the courage of men fails\u2026 but it is not this day.', author: 'Aragorn' },
+  { text: 'Deeds will not be less valiant because they are unpraised.', author: 'Aragorn' },
+  { text: 'Faithless is he that says farewell when the road darkens.', author: 'Gimli' },
+  { text: 'There is some good in this world, and it is worth fighting for.', author: 'Samwise' },
+  { text: 'Even the smallest person can change the course of the future.', author: 'Galadriel' },
+  { text: 'I would rather share one lifetime with you than face all the ages of this world alone.', author: 'Arwen' },
+  { text: 'The world is indeed full of peril, and in it there are many dark places; but still there is much that is fair.', author: 'Haldir' },
+  { text: 'It is not despair, for despair is only for those who see the end beyond all doubt. We do not.', author: 'Gandalf' },
+  { text: 'I will not say: do not weep; for not all tears are an evil.', author: 'Gandalf' },
+  { text: 'Courage is found in unlikely places.', author: 'Gildor' },
+  { text: 'The burned hand teaches best. After that advice about fire goes to the heart.', author: 'Gandalf' },
+  { text: 'It is useless to meet revenge with revenge: it will heal nothing.', author: 'Frodo' },
+  // Wisdom / reflective (~35%)
+  { text: 'All we have to decide is what to do with the time that is given us.', author: 'Gandalf' },
+  { text: 'Not all those who wander are lost.', author: 'Bilbo' },
+  { text: 'The road goes ever on and on.', author: 'Bilbo' },
+  { text: 'Many that live deserve death. And some that die deserve life. Can you give it to them?', author: 'Gandalf' },
+  { text: 'The wise speak only of what they know.', author: 'Gandalf' },
+  { text: 'It is not the strength of the body, but the strength of the spirit.', author: 'Tolkien' },
+  { text: 'Memory is not what the heart desires. That is only a mirror.', author: 'Gimli' },
+  // Rare funny (~5%)
+  { text: "Looks like meat's back on the menu, boys!", author: 'Uruk-hai' },
+];
+
+function getDailyQuote() {
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  return QUOTES[dayIndex % QUOTES.length];
+}
+
+function getRandomQuote(exclude) {
+  let q;
+  do { q = QUOTES[Math.floor(Math.random() * QUOTES.length)]; } while (q === exclude && QUOTES.length > 1);
+  return q;
+}
+
+/* ─── PR type icon ─── */
+function prIcon(type) {
+  if (type === 'e1rm_pr') return <Ring size={18} className="text-accent" />;
+  if (type === 'weight_pr') return <Sword size={18} className="text-dwarven-light" />;
+  return <Trophy size={18} className="text-accent" />;
+}
 
 export default function Dashboard() {
   const { activeProgram, programs, convert, unitLabel } = useApp();
@@ -17,6 +63,7 @@ export default function Dashboard() {
   const [deload, setDeload] = useState(null);
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [quote, setQuote] = useState(getDailyQuote);
 
   useEffect(() => {
     const load = async () => {
@@ -72,12 +119,37 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Today's Quest hero card */}
+      {/* ─── 1. Wisdom of Middle-earth ─── */}
+      <div className="text-center py-4">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-accent font-display font-semibold mb-3">
+          Wisdom of Middle-earth
+        </p>
+        <p className="text-sm sm:text-base italic text-text/90 max-w-lg mx-auto leading-relaxed">
+          &ldquo;{quote.text}&rdquo;
+        </p>
+        <p className="text-xs text-text-muted mt-2">&mdash; {quote.author}</p>
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <div className="flex-1 max-w-16 h-px bg-gradient-to-r from-transparent to-accent/30" />
+          <button
+            onClick={() => setQuote(getRandomQuote(quote))}
+            className="text-text-muted/40 hover:text-accent transition-colors"
+            title="Another quote"
+          >
+            <RefreshCw size={12} />
+          </button>
+          <div className="flex-1 max-w-16 h-px bg-gradient-to-l from-transparent to-accent/30" />
+        </div>
+      </div>
+
+      {/* ─── 2. Today's Quest ─── */}
       {todayWorkout && (
         <div className="heraldic-card gold-trim p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-accent font-semibold mb-1 font-display">Today's Quest</p>
+              <div className="flex items-center gap-2 mb-1">
+                <MapScroll size={16} className="text-accent shrink-0" />
+                <p className="text-[10px] uppercase tracking-widest text-accent font-semibold font-display">Today's Quest</p>
+              </div>
               <h3 className="text-lg font-bold text-text truncate">{todayWorkout.session_name}</h3>
               <p className="text-xs text-text-muted mt-0.5">
                 Week {todayWorkout.week} · {todayWorkout.exercises?.length || 0} exercises
@@ -100,36 +172,66 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          icon={<Dumbbell size={18} />}
-          label="Sets Logged"
-          value={summary?.total_sets_logged ?? 0}
-          color="text-accent-light"
-        />
-        <KpiCard
-          icon={<Target size={18} />}
-          label="Exercises"
-          value={summary?.unique_exercises_logged ?? 0}
-          color="text-secondary-light"
-        />
-        <KpiCard
-          icon={<Heart size={18} />}
-          label="Recovery"
-          value={summary?.recovery_score != null ? `${Math.round(summary.recovery_score)}%` : '--'}
-          color={
-            summary?.recovery_score >= 70 ? 'text-success' :
-            summary?.recovery_score >= 40 ? 'text-warning' : 'text-danger'
-          }
-        />
-        <KpiCard
-          icon={<Trophy size={18} />}
-          label="Recent PRs"
-          value={summary?.recent_prs?.length ?? 0}
-          color="text-accent"
-        />
-      </div>
+      {/* ─── 3. Hall of Records (trophy cards) ─── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sword size={16} className="text-dwarven-light" />
+            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Hall of Records</h3>
+          </div>
+          <Link to="/achievements" className="text-xs text-accent hover:text-accent-light flex items-center gap-1">
+            View all <ArrowRight size={12} />
+          </Link>
+        </div>
+        {summary?.recent_prs?.length ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {summary.recent_prs.slice(0, 8).map((pr, i) => (
+              <div key={i} className="forged-panel p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {prIcon(pr.type)}
+                  <span className="text-xs font-semibold text-text truncate">{pr.exercise}</span>
+                </div>
+                <p className="text-base font-bold text-text">
+                  {convert(pr.e1rm)} <span className="text-xs font-normal text-text-muted">{unitLabel}</span>
+                </p>
+                <p className="text-[10px] text-text-muted mt-0.5">e1RM</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card variant="dwarven">
+            <p className="text-text-muted text-sm">No recent records. Keep forging ahead.</p>
+          </Card>
+        )}
+      </section>
+
+      {/* ─── 4. This Week ─── */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Target size={16} className="text-secondary-light" />
+          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">This Week</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <KpiCard
+            icon={<Dumbbell size={16} />}
+            label="Sessions"
+            value={tracker?.completed ?? summary?.total_sets_logged ?? 0}
+            color="text-accent-light"
+          />
+          <KpiCard
+            icon={<Target size={16} />}
+            label="Exercises"
+            value={summary?.unique_exercises_logged ?? 0}
+            color="text-secondary-light"
+          />
+          <KpiCard
+            icon={<Torch size={16} className="text-dwarven-light" />}
+            label="Streak"
+            value={tracker?.current_streak ?? 0}
+            color="text-dwarven-light"
+          />
+        </div>
+      </section>
 
       {/* Deload warning */}
       {deload?.deload_recommended && (
@@ -142,7 +244,7 @@ export default function Dashboard() {
               </h3>
               <ul className="text-sm text-text-muted space-y-1 mb-3">
                 {deload.reasons?.map((r, i) => (
-                  <li key={i}>· {r}</li>
+                  <li key={i}>&middot; {r}</li>
                 ))}
               </ul>
               {deload.stagnated_exercises?.length > 0 && (
@@ -158,54 +260,33 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Program progress */}
-      {activeProgram && tracker && (
-        <Card title="Journey Progress">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm">
-              Week {tracker.current_week} of {tracker.total_weeks || activeProgram.total_weeks}
-            </span>
-            <span className="text-sm font-medium text-accent-light">{completionPct}%</span>
-          </div>
-          <div className="w-full bg-surface-lighter rounded-full h-3">
-            <div
-              className="bg-accent rounded-full h-3 transition-all"
-              style={{ width: `${Math.min(completionPct, 100)}%` }}
-            />
-          </div>
-          <div className="mt-3 flex gap-4 text-xs text-text-muted">
-            <span>{tracker.completed} sessions completed</span>
-            {tracker.current_streak > 0 && (
-              <span className="text-success">{tracker.current_streak} session streak</span>
-            )}
-          </div>
-        </Card>
-      )}
-
+      {/* ─── 5. Journey + Recovery ─── */}
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Recent PRs — Dwarven accent */}
-        <Card title="Hall of Records" variant="dwarven" action={
-          <Link to="/achievements" className="text-xs text-accent hover:text-accent-light flex items-center gap-1">
-            View all <ArrowRight size={12} />
-          </Link>
-        }>
-          {summary?.recent_prs?.length ? (
-            <div className="space-y-2">
-              {summary.recent_prs.map((pr, i) => (
-                <div key={i} className="flex items-center justify-between py-1">
-                  <span className="text-sm">{pr.exercise}</span>
-                  <span className="text-sm font-medium text-dwarven-light">
-                    {convert(pr.e1rm)} {unitLabel} e1RM
-                  </span>
-                </div>
-              ))}
+        {/* Program progress */}
+        {activeProgram && tracker && (
+          <Card title="Journey Progress">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm">
+                Week {tracker.current_week} of {tracker.total_weeks || activeProgram.total_weeks}
+              </span>
+              <span className="text-sm font-medium text-accent-light">{completionPct}%</span>
             </div>
-          ) : (
-            <p className="text-text-muted text-sm">No recent records. Keep forging ahead.</p>
-          )}
-        </Card>
+            <div className="w-full bg-surface-lighter rounded-full h-3">
+              <div
+                className="bg-accent rounded-full h-3 transition-all"
+                style={{ width: `${Math.min(completionPct, 100)}%` }}
+              />
+            </div>
+            <div className="mt-3 flex gap-4 text-xs text-text-muted">
+              <span>{tracker.completed} sessions completed</span>
+              {tracker.current_streak > 0 && (
+                <span className="text-success">{tracker.current_streak} session streak</span>
+              )}
+            </div>
+          </Card>
+        )}
 
-        {/* Recovery — Rivendell accent */}
+        {/* Recovery */}
         <Card title="Recovery Status" variant="rivendell" action={
           <Link to="/recovery" className="text-xs text-rivendell hover:text-rivendell-light flex items-center gap-1">
             Details <ArrowRight size={12} />
