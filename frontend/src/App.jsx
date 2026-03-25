@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import Tracker from './pages/Tracker';
 import Logger from './pages/Logger';
@@ -14,6 +15,7 @@ import Achievements from './pages/Achievements';
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <AppProvider>
       <Routes>
         <Route element={<Layout />}>
@@ -30,5 +32,6 @@ export default function App() {
         </Route>
       </Routes>
     </AppProvider>
+    </ErrorBoundary>
   );
 }
