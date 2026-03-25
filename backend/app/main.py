@@ -46,6 +46,17 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
 
+    # Add indexes for frequently queried columns (Postgres only; SQLite handles via ORM)
+    if not is_sqlite:
+        for stmt in [
+            "CREATE INDEX IF NOT EXISTS ix_workout_logs_user_id ON workout_logs (user_id)",
+            "CREATE INDEX IF NOT EXISTS ix_workout_logs_date ON workout_logs (date)",
+            "CREATE INDEX IF NOT EXISTS ix_program_exercises_canonical ON program_exercises (exercise_name_canonical)",
+            "CREATE INDEX IF NOT EXISTS ix_session_logs_program_id ON session_logs (program_id)",
+        ]:
+            db.execute(text(stmt))
+        db.commit()
+
     # --- One-time data fixes (idempotent) ---
 
     # Fix duplicate PUSH session_logs: delete duplicates keeping the one with lowest id

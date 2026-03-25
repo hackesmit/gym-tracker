@@ -89,7 +89,7 @@ class ProgramExercise(Base):
     session_name: Mapped[str] = mapped_column(String, nullable=False)
     session_order_in_week: Mapped[int] = mapped_column(Integer, nullable=False)
     exercise_order: Mapped[int] = mapped_column(Integer, nullable=False)
-    exercise_name_canonical: Mapped[str] = mapped_column(String, nullable=False)
+    exercise_name_canonical: Mapped[str] = mapped_column(String, nullable=False, index=True)
     exercise_name_raw: Mapped[str] = mapped_column(String, nullable=False)
     warm_up_sets: Mapped[str | None] = mapped_column(String, nullable=True)
     working_sets: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -127,12 +127,12 @@ class WorkoutLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id"), nullable=False, index=True
     )
     program_exercise_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("program_exercises.id"), nullable=False
     )
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     set_number: Mapped[int] = mapped_column(Integer, nullable=False)
     load_kg: Mapped[float] = mapped_column(Float, nullable=False)
     reps_completed: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -163,7 +163,7 @@ class SessionLog(Base):
         Integer, ForeignKey("users.id"), nullable=False
     )
     program_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("programs.id"), nullable=False
+        Integer, ForeignKey("programs.id"), nullable=False, index=True
     )
     week: Mapped[int] = mapped_column(Integer, nullable=False)
     session_name: Mapped[str] = mapped_column(String, nullable=False)
