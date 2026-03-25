@@ -241,13 +241,13 @@ export default function Logger() {
         sets: sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).map((s) => ({
           program_exercise_id: s.program_exercise_id,
           set_number: s.set_number,
-          load_kg: units === 'lbs' ? +(s.load_kg / 2.20462).toFixed(1) : +s.load_kg,
+          load_kg: units === 'lbs' ? +(s.load_kg / 2.20462).toFixed(2) : +s.load_kg,
           reps_completed: +s.reps_completed,
           rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
           is_bodyweight: s.is_bodyweight,
           is_dropset: s.is_dropset,
           dropset_load_kg: s.is_dropset && s.dropset_load_kg
-            ? (units === 'lbs' ? +(s.dropset_load_kg / 2.20462).toFixed(1) : +s.dropset_load_kg)
+            ? (units === 'lbs' ? +(s.dropset_load_kg / 2.20462).toFixed(2) : +s.dropset_load_kg)
             : null,
         })),
       };

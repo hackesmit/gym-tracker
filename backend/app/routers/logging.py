@@ -514,6 +514,26 @@ def export_logs(
 
 
 # ---------------------------------------------------------------------------
+# Update session date
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/api/log/session/{session_log_id}")
+def update_session(session_log_id: int, new_date: date = Query(...), db: Session = Depends(get_db)):
+    """Update the date of a session and all its workout logs."""
+    session_log = db.query(SessionLog).filter(SessionLog.id == session_log_id).first()
+    if not session_log:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    session_log.date = new_date
+    db.query(WorkoutLog).filter(WorkoutLog.session_log_id == session_log_id).update(
+        {"date": new_date}, synchronize_session="fetch"
+    )
+    db.commit()
+    return {"updated": True, "session_log_id": session_log_id, "new_date": str(new_date)}
+
+
+# ---------------------------------------------------------------------------
 # Undo session
 # ---------------------------------------------------------------------------
 

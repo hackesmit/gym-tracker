@@ -46,6 +46,37 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
 
+    # --- One-time data fixes (idempotent) ---
+
+    # Fix duplicate PUSH session_logs: delete duplicates keeping the one with lowest id
+    if not is_sqlite:
+        db.execute(text("""
+            DELETE FROM session_logs
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM session_logs
+                GROUP BY program_id, week, session_name
+            )
+        """))
+        db.commit()
+
+    # Fix PUSH session date: 2026-03-24 → 2026-03-23 (was logged on wrong date)
+    db.execute(text("""
+        UPDATE session_logs SET date = '2026-03-23'
+        WHERE session_name = 'PUSH' AND date = '2026-03-24' AND week = 1
+    """))
+    db.execute(text("""
+        UPDATE workout_logs SET date = '2026-03-23'
+        WHERE program_exercise_id IN (13,14,15,16,17) AND date = '2026-03-24'
+    """))
+    db.commit()
+
+    # Fix weight precision: 117.9 → 117.93 (was 260 lbs truncated by .toFixed(1))
+    db.execute(text("""
+        UPDATE workout_logs SET load_kg = 117.93
+        WHERE load_kg = 117.9 AND program_exercise_id = 10
+    """))
+    db.commit()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
