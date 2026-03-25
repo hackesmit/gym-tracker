@@ -88,7 +88,7 @@ export default function History() {
   if (!activeProgram) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Workout History</h2>
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
         <Card>
           <p className="text-text-muted text-sm text-center py-8">
             No active program found. Import a program to get started.
@@ -106,7 +106,7 @@ export default function History() {
   if (loggedSessions.length === 0) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Workout History</h2>
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
         <Card>
           <div className="text-center py-12">
             <Calendar size={40} className="mx-auto text-text-muted mb-3" />
@@ -123,7 +123,7 @@ export default function History() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Workout History</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
 
       <p className="text-sm text-text-muted">
         {loggedSessions.length} session{loggedSessions.length !== 1 ? 's' : ''} logged
@@ -133,7 +133,7 @@ export default function History() {
         {grouped.map(([date, sessions]) => (
           <Card key={date}>
             <div className="flex items-center gap-2 mb-3">
-              <Calendar size={14} className="text-primary-light" />
+              <Calendar size={14} className="text-accent-light" />
               <span className="text-sm font-semibold text-text">
                 {formatDate(date)}
               </span>
@@ -183,7 +183,7 @@ export default function History() {
                       <div className="mt-2 ml-3 pl-3 border-l-2 border-surface-lighter">
                         {isDetailLoading ? (
                           <div className="py-4 flex items-center gap-2 text-text-muted text-xs">
-                            <div className="w-3 h-3 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
+                            <div className="w-3 h-3 border-2 border-accent-light border-t-transparent rounded-full animate-spin" />
                             Loading sets...
                           </div>
                         ) : detail?.exercises?.length > 0 ? (
@@ -191,7 +191,7 @@ export default function History() {
                             {detail.exercises.map((exercise, idx) => (
                               <div key={idx}>
                                 <div className="flex items-center gap-2 mb-1.5">
-                                  <Dumbbell size={12} className="text-primary-light" />
+                                  <Dumbbell size={12} className="text-accent-light" />
                                   <span className="text-xs font-semibold text-text">
                                     {exercise.exercise_name}
                                   </span>
@@ -218,7 +218,7 @@ export default function History() {
                                         </span>
                                         <span>x {set.reps} reps</span>
                                         {set.rpe != null && (
-                                          <span className="text-primary-light">
+                                          <span className="text-accent-light">
                                             @{set.rpe}
                                           </span>
                                         )}

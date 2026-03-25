@@ -43,7 +43,7 @@ export default function ProgramUpload() {
     <div className="space-y-3">
       <div
         onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-surface-lighter rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+        className="border-2 border-dashed border-surface-lighter rounded-lg p-6 text-center cursor-pointer hover:border-accent/50 transition-colors"
       >
         <input
           ref={inputRef}
@@ -72,7 +72,7 @@ export default function ProgramUpload() {
             key={f}
             onClick={() => setFrequency(f)}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              frequency === f ? 'bg-primary text-white' : 'bg-surface-light text-text-muted hover:text-text'
+              frequency === f ? 'bg-accent text-surface-dark' : 'bg-surface-light text-text-muted hover:text-text'
             }`}
           >
             {f}x
@@ -85,7 +85,7 @@ export default function ProgramUpload() {
       <button
         onClick={handleUpload}
         disabled={!file || uploading}
-        className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors"
+        className="w-full py-2.5 rounded-lg bg-accent text-surface-dark text-sm font-medium disabled:opacity-50 hover:bg-accent-dark transition-colors"
       >
         {uploading ? 'Importing...' : 'Import Program'}
       </button>

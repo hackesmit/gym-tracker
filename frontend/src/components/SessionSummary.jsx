@@ -7,7 +7,6 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
   const weightedSets = sets.filter(s => s.load_kg > 0);
   const countedSets = sets.filter(s => s.load_kg > 0 || s.is_bodyweight);
   const exercises = new Set(sets.map(s => s.exercise_name));
-  // load_kg in Logger state is already in display units (lbs or kg)
   const displayVolume = Math.round(weightedSets.reduce((sum, s) => sum + s.load_kg * s.reps_completed, 0));
 
   const topSet = weightedSets.reduce((best, s) => {
@@ -36,49 +35,39 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
   };
 
   return (
-    <div className="bg-surface border border-surface-lighter rounded-xl p-5 space-y-4">
+    <div className="chronicle-card p-5 space-y-4">
+      {/* Chronicle header */}
       <div className="flex items-center gap-2 mb-1">
-        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-          <Check className="w-4 h-4 text-green-400" />
+        <div className="w-8 h-8 rounded-full flex items-center justify-center"
+             style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent 85%)' }}>
+          <Check className="w-4 h-4 text-accent" />
         </div>
         <div>
-          <p className="text-text font-bold text-sm">{sessionName}</p>
+          <p className="font-display text-sm font-semibold text-text tracking-wide">{sessionName}</p>
           <p className="text-text-muted text-xs">Week {week} · {dateStr}</p>
         </div>
       </div>
 
+      <p className="text-xs text-text-muted italic">The day's training is complete.</p>
+
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-surface-lighter/50 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted">Volume</p>
-          <p className="text-lg font-bold text-text">{formatVolume(displayVolume)} <span className="text-xs font-normal text-text-muted">{unitLabel}</span></p>
-        </div>
-        <div className="bg-surface-lighter/50 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted">Top Set</p>
-          <p className="text-sm font-bold text-text truncate">
-            {topSet ? `${topSet.exercise_name}` : '—'}
-          </p>
-          {topSet && <p className="text-xs text-text-muted">{Math.round(topSet.load_kg)} {unitLabel} × {topSet.reps_completed}</p>}
-        </div>
-        <div className="bg-surface-lighter/50 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted">Exercises</p>
-          <p className="text-lg font-bold text-text">{exercises.size}</p>
-        </div>
-        <div className="bg-surface-lighter/50 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted">Sets</p>
-          <p className="text-lg font-bold text-text">{countedSets.length}</p>
-        </div>
+        <StatBlock label="Volume" value={`${formatVolume(displayVolume)}`} unit={unitLabel} />
+        <StatBlock label="Top Set" value={topSet ? topSet.exercise_name : '—'} sub={topSet ? `${Math.round(topSet.load_kg)} ${unitLabel} × ${topSet.reps_completed}` : null} />
+        <StatBlock label="Exercises" value={exercises.size} />
+        <StatBlock label="Sets" value={countedSets.length} />
       </div>
 
       {prList?.length > 0 && (
         <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-accent font-semibold">Records Forged</p>
           {prList.map((pr, i) => (
-            <div key={i} className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
-              <Trophy className="w-4 h-4 text-warning shrink-0" />
+            <div key={i} className="flex items-center gap-2 forged-panel px-3 py-2">
+              <Trophy className="w-4 h-4 text-dwarven-light shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-text truncate">{pr.exercise}</p>
                 <p className="text-xs text-text-muted">
                   e1RM {Math.round(convert(pr.new_e1rm))} {unitLabel}
-                  <span className="text-green-400 ml-1">+{Math.round(convert(pr.new_e1rm - pr.previous_e1rm))} {unitLabel}</span>
+                  <span className="text-success ml-1">+{Math.round(convert(pr.new_e1rm - pr.previous_e1rm))} {unitLabel}</span>
                 </p>
               </div>
             </div>
@@ -87,14 +76,26 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
       )}
 
       <div className="flex gap-2 pt-1">
-        <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 text-sm text-primary hover:text-primary/80 transition-colors">
+        <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 text-sm text-accent hover:text-accent-light transition-colors">
           <Copy className="w-3.5 h-3.5" />
-          {copied ? 'Copied!' : 'Copy Summary'}
+          {copied ? 'Copied!' : 'Copy Chronicle'}
         </button>
-        <button onClick={onLogAnother} className="flex-1 bg-primary text-white text-sm font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors">
+        <button onClick={onLogAnother} className="flex-1 btn-gold text-sm py-2">
           Log another session
         </button>
       </div>
+    </div>
+  );
+}
+
+function StatBlock({ label, value, unit, sub }) {
+  return (
+    <div className="bg-surface-lighter/30 rounded-lg p-3">
+      <p className="text-[10px] uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="text-lg font-bold text-text truncate">
+        {value} {unit && <span className="text-xs font-normal text-text-muted">{unit}</span>}
+      </p>
+      {sub && <p className="text-xs text-text-muted">{sub}</p>}
     </div>
   );
 }

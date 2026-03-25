@@ -5,21 +5,66 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getAchievements } from '../api/client';
 import { useApp } from '../context/AppContext';
 
-const TIER_COLORS = {
-  novice: 'text-text-muted border-text-muted/30',
-  intermediate: 'text-primary border-primary/30',
-  advanced: 'text-purple-400 border-purple-400/30',
-  elite: 'text-warning border-warning/30',
-};
-
+/* ─── Icon mapping by type ─── */
 function typeIcon(type) {
-  if (type.includes('pr')) return <Trophy className="w-5 h-5 text-warning" />;
-  if (type === 'streak') return <Flame className="w-5 h-5 text-orange-400" />;
-  if (type === 'consistency') return <Target className="w-5 h-5 text-primary" />;
-  if (type === 'milestone') return <Star className="w-5 h-5 text-purple-400" />;
-  if (type === 'badge') return <Award className="w-5 h-5 text-warning" />;
+  if (type === 'e1rm_pr') return <RingIcon className="w-5 h-5 text-accent" />;
+  if (type === 'weight_pr') return <SwordIcon className="w-5 h-5 text-dwarven-light" />;
+  if (type === 'rep_pr' || type === 'volume_pr') return <Trophy className="w-5 h-5 text-accent" />;
+  if (type === 'streak') return <TorchIcon className="w-5 h-5 text-dwarven-light" />;
+  if (type === 'consistency') return <ShieldIcon className="w-5 h-5 text-secondary-light" />;
+  if (type === 'milestone') return <MountainIcon className="w-5 h-5 text-accent-light" />;
+  if (type === 'badge') return <Award className="w-5 h-5 text-accent" />;
   return <Trophy className="w-5 h-5 text-text-muted" />;
 }
+
+/* ─── Inline LOTR SVG icons (small, performant) ─── */
+function RingIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5.5" />
+    </svg>
+  );
+}
+
+function SwordIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v14M9 4l3-2 3 2M9 16l3 2 3-2M10 20h4v2h-4z" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l8 4v6c0 5.25-3.5 8.5-8 10-4.5-1.5-8-4.75-8-10V6l8-4z" /><path d="M12 6v12" />
+    </svg>
+  );
+}
+
+function TorchIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22V10M9 22h6" /><path d="M8 10h8l-1-4H9L8 10z" /><path d="M10 6c0-2 2-4 2-4s2 2 2 4" />
+    </svg>
+  );
+}
+
+function MountainIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 20L9 8l4 6 3-4 5 10H3z" />
+    </svg>
+  );
+}
+
+/* ─── Tier styling ─── */
+const TIER_STYLES = {
+  novice: { cls: 'tier-iron border', label: 'Iron' },
+  intermediate: { cls: 'tier-silver border', label: 'Silver' },
+  advanced: { cls: 'tier-gold border', label: 'Gold' },
+  elite: { cls: 'tier-elite border', label: 'Elite' },
+};
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -46,7 +91,6 @@ export default function Achievements() {
     .filter((a) => a.type.includes('pr') && now - new Date(a.achieved_at).getTime() < thirtyDays)
     .sort((a, b) => new Date(b.achieved_at) - new Date(a.achieved_at));
 
-  // Best e1rm per exercise
   const e1rmMap = {};
   achievements
     .filter((a) => a.type === 'e1rm_pr' && a.exercise_name)
@@ -61,30 +105,38 @@ export default function Achievements() {
   );
 
   const badges = achievements.filter((a) => a.type === 'badge');
-
   const fmtWeight = (kg) => `${convert(kg).toFixed(1)} ${unitLabel}`;
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-text flex items-center gap-2">
-        <Trophy className="w-6 h-6 text-warning" /> Achievements
-      </h1>
+      {/* Page header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <Trophy className="w-7 h-7 text-accent" />
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Hall of Heroes</h1>
+        </div>
+        <div className="flex items-center gap-3 mt-3">
+          <div className="flex-1 h-px bg-gradient-to-r from-accent/40 via-accent/20 to-transparent" />
+          <div className="w-1.5 h-1.5 rotate-45 bg-accent/50" />
+          <div className="flex-1 h-px bg-gradient-to-l from-accent/40 via-accent/20 to-transparent" />
+        </div>
+      </div>
 
-      {/* Recent PRs */}
-      <Card title="Recent PRs (Last 30 Days)">
+      {/* Hall of Records — Recent PRs (Dwarven) */}
+      <Card title="Hall of Records — Recent PRs" variant="dwarven">
         {recentPRs.length === 0 ? (
-          <p className="text-text-muted text-sm">No recent PRs — keep pushing!</p>
+          <p className="text-text-muted text-sm">No recent records forged — keep pushing.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentPRs.map((a) => (
-              <div key={a.id} className="bg-surface-light rounded-lg p-4 border border-surface-lighter">
+              <div key={a.id} className="forged-panel p-4">
                 <div className="flex items-center gap-2 mb-2">
                   {typeIcon(a.type)}
                   <span className="text-sm font-semibold text-text truncate">{a.exercise_name}</span>
                 </div>
                 <p className="text-lg font-bold text-text">{fmtWeight(a.value)}</p>
                 {a.previous_value != null && (
-                  <p className="text-xs text-green-400">+{fmtWeight(a.value - a.previous_value)}</p>
+                  <p className="text-xs text-success">+{fmtWeight(a.value - a.previous_value)}</p>
                 )}
                 <p className="text-xs text-text-muted mt-1">{formatDate(a.achieved_at)}</p>
               </div>
@@ -94,14 +146,14 @@ export default function Achievements() {
       </Card>
 
       {/* All-Time Records */}
-      <Card title="All-Time Records (Est. 1RM)">
+      <Card title="All-Time Records (Est. 1RM)" variant="dwarven">
         {allTimeRecords.length === 0 ? (
           <p className="text-text-muted text-sm">No records yet.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {allTimeRecords.map((a) => (
-              <div key={a.exercise_name} className="bg-surface-light rounded-lg p-4 flex items-center gap-3">
-                <Star className="w-5 h-5 text-warning shrink-0" />
+              <div key={a.exercise_name} className="forged-panel p-4 flex items-center gap-3">
+                <RingIcon className="w-5 h-5 text-accent shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text truncate">{a.exercise_name}</p>
                   <p className="text-lg font-bold text-text">{fmtWeight(a.value)}</p>
@@ -120,12 +172,12 @@ export default function Achievements() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {milestones.map((a) => (
-              <div key={a.id} className="bg-surface-light rounded-lg p-4 flex items-center gap-3">
+              <div key={a.id} className="stone-panel p-4 flex items-center gap-3">
                 {typeIcon(a.type)}
                 <div>
                   <p className="text-sm font-semibold text-text">{a.exercise_name || a.type}</p>
                   <p className="text-xs text-text-muted">
-                    {a.value} &middot; {formatDate(a.achieved_at)}
+                    {a.value} · {formatDate(a.achieved_at)}
                   </p>
                 </div>
               </div>
@@ -134,19 +186,19 @@ export default function Achievements() {
         )}
       </Card>
 
-      {/* Badges */}
-      <Card title="Badges">
+      {/* Honors (Badges) */}
+      <Card title="Honors">
         {badges.length === 0 ? (
-          <p className="text-text-muted text-sm">No badges earned yet.</p>
+          <p className="text-text-muted text-sm">No honors earned yet.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {badges.map((a) => {
-              const tierCls = TIER_COLORS[a.tier] || TIER_COLORS.novice;
+              const tier = TIER_STYLES[a.tier] || TIER_STYLES.novice;
               return (
-                <div key={a.id} className={`rounded-lg p-4 border bg-surface-light ${tierCls}`}>
+                <div key={a.id} className={`stone-panel p-4 ${tier.cls}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Award className="w-5 h-5" />
-                    <span className="text-sm font-bold uppercase tracking-wider">{a.tier || 'badge'}</span>
+                    <span className="font-display text-sm font-semibold uppercase tracking-wider">{tier.label}</span>
                   </div>
                   <p className="text-sm text-text">{a.category}: {a.exercise_name || a.value}</p>
                   <p className="text-xs text-text-muted">{formatDate(a.achieved_at)}</p>

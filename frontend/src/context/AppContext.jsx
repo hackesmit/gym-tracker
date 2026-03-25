@@ -6,19 +6,8 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [programs, setPrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null);
-  const [theme, setThemeState] = useState(() => localStorage.getItem('gym-theme') || 'dark');
-  const setTheme = (val) => {
-    setThemeState(val);
-    localStorage.setItem('gym-theme', val);
-  };
-
-  useEffect(() => {
-    if (theme === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
-  }, [theme]);
+  // LOTR theme — single realm-based dark theme (no light mode)
+  const theme = 'gondor';
 
   const [units, setUnitsState] = useState(() => localStorage.getItem('gym-units') || 'lbs');
   const setUnits = (val) => {
@@ -60,7 +49,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       programs, activeProgram, setActiveProgram, refreshPrograms,
-      theme, setTheme,
+      theme,
       units, setUnits, convert, unitLabel,
       defaultRestSeconds, setDefaultRestSeconds,
     }}>

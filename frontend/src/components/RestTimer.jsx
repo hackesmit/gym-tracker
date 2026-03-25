@@ -57,7 +57,7 @@ export function RestTimerBar({ restPeriod, triggerKey, autoStart }) {
     <div className="flex items-center gap-2 px-2 py-1">
       <div className="flex-1 h-[3px] bg-surface-lighter rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary rounded-full transition-all duration-1000 ease-linear"
+          className="h-full bg-accent rounded-full transition-all duration-1000 ease-linear"
           style={{ width: `${progress * 100}%` }}
         />
       </div>
@@ -149,7 +149,7 @@ export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = 
         completed
           ? 'bg-success/20 border border-success/40'
           : running
-            ? 'bg-primary/10 border border-primary/30'
+            ? 'bg-accent/10 border border-accent/30'
             : 'bg-surface-light border border-surface-lighter'
       }`}
     >
@@ -157,7 +157,7 @@ export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = 
       <div className="flex-1 flex items-center gap-2 min-w-0">
         <span
           className={`text-xs font-medium whitespace-nowrap ${
-            completed ? 'text-success' : running ? 'text-primary' : 'text-text-muted'
+            completed ? 'text-success' : running ? 'text-accent' : 'text-text-muted'
           }`}
         >
           Rest
@@ -165,7 +165,7 @@ export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = 
         <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-1000 ease-linear ${
-              completed ? 'bg-success' : 'bg-primary'
+              completed ? 'bg-success' : 'bg-accent'
             }`}
             style={{ width: `${progress * 100}%` }}
           />
@@ -177,7 +177,7 @@ export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = 
               : remaining <= 10 && running
                 ? 'text-lg text-danger animate-pulse'
                 : running
-                  ? 'text-lg text-primary-light'
+                  ? 'text-lg text-accent-light'
                   : 'text-sm text-text'
           }`}
         >
@@ -198,7 +198,7 @@ export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = 
         ) : (
           <button
             onClick={handleStart}
-            className="p-2 rounded-lg hover:bg-surface-lighter text-primary hover:text-primary transition-colors touch-manipulation"
+            className="p-2 rounded-lg hover:bg-surface-lighter text-accent hover:text-accent transition-colors touch-manipulation"
             aria-label="Start timer"
           >
             <Play size={16} />

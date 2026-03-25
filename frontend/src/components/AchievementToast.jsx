@@ -2,23 +2,23 @@ import { useEffect, useState } from 'react';
 import { Trophy, Award, Target, Flame, Star, X } from 'lucide-react';
 
 function typeIcon(type) {
-  if (type.includes('pr')) return <Trophy className="w-5 h-5 text-warning" />;
-  if (type === 'streak') return <Flame className="w-5 h-5 text-orange-400" />;
-  if (type === 'consistency') return <Target className="w-5 h-5 text-primary" />;
-  if (type === 'milestone') return <Star className="w-5 h-5 text-purple-400" />;
-  if (type === 'badge') return <Award className="w-5 h-5 text-warning" />;
+  if (type.includes('pr')) return <Trophy className="w-5 h-5 text-accent" />;
+  if (type === 'streak') return <Flame className="w-5 h-5 text-dwarven-light" />;
+  if (type === 'consistency') return <Target className="w-5 h-5 text-secondary-light" />;
+  if (type === 'milestone') return <Star className="w-5 h-5 text-accent-light" />;
+  if (type === 'badge') return <Award className="w-5 h-5 text-accent" />;
   return <Trophy className="w-5 h-5 text-text-muted" />;
 }
 
 function typeLabel(type) {
-  if (type === 'weight_pr') return 'Weight PR';
-  if (type === 'e1rm_pr') return 'Est. 1RM PR';
-  if (type === 'rep_pr') return 'Rep PR';
-  if (type === 'volume_pr') return 'Volume PR';
-  if (type === 'streak') return 'Streak';
-  if (type === 'consistency') return 'Consistency';
-  if (type === 'milestone') return 'Milestone';
-  if (type === 'badge') return 'Badge Earned';
+  if (type === 'weight_pr') return 'A new record is forged';
+  if (type === 'e1rm_pr') return 'A new record is forged';
+  if (type === 'rep_pr') return 'Honor earned';
+  if (type === 'volume_pr') return 'Honor earned';
+  if (type === 'streak') return 'The Watch continues';
+  if (type === 'consistency') return 'Honor earned';
+  if (type === 'milestone') return 'Milestone reached';
+  if (type === 'badge') return 'Honor earned';
   return 'Achievement';
 }
 
@@ -27,12 +27,11 @@ export default function AchievementToast({ achievements = [], onClose }) {
 
   useEffect(() => {
     if (achievements.length === 0) return;
-    // Trigger slide-in on next frame
     requestAnimationFrame(() => setVisible(true));
 
     const timer = setTimeout(() => {
       setVisible(false);
-      setTimeout(onClose, 300); // wait for slide-out animation
+      setTimeout(onClose, 300);
     }, 4000);
 
     return () => clearTimeout(timer);
@@ -48,7 +47,7 @@ export default function AchievementToast({ achievements = [], onClose }) {
       {achievements.map((a, i) => (
         <div
           key={a.id ?? i}
-          className="bg-surface-light border border-warning/30 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 pointer-events-auto"
+          className="heraldic-card gold-trim px-4 py-3 flex items-center gap-3 pointer-events-auto shadow-lg"
           style={{
             transform: visible ? 'translateY(0)' : 'translateY(100%)',
             opacity: visible ? 1 : 0,
@@ -57,7 +56,7 @@ export default function AchievementToast({ achievements = [], onClose }) {
         >
           {typeIcon(a.type)}
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-warning uppercase tracking-wider">
+            <p className="text-xs font-semibold text-accent uppercase tracking-wider font-display">
               {typeLabel(a.type)}
             </p>
             <p className="text-sm text-text font-medium truncate">

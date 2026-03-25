@@ -53,31 +53,31 @@ export default function Dashboard() {
     );
   }
 
-  // Backend returns fields flat at top level (current_week, completed, etc.)
   const completionPct = tracker?.completed != null
     ? Math.round((tracker.completed / (tracker.total_sessions || 1)) * 100)
     : 0;
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Dashboard</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Dashboard</h2>
           <p className="text-text-muted text-sm mt-1">
             {activeProgram?.name || 'No active program'}
           </p>
         </div>
-        <Link to="/log" className="flex items-center gap-2 px-4 py-2.5 bg-primary rounded-lg text-sm font-medium text-white hover:bg-primary-dark transition-colors">
+        <Link to="/log" className="flex items-center gap-2 px-4 py-2.5 btn-gold text-sm">
           <Dumbbell size={16} /> Log Workout
         </Link>
       </div>
 
-      {/* Today's Workout hero card */}
+      {/* Today's Quest hero card */}
       {todayWorkout && (
-        <div className="bg-primary/10 border border-primary/25 rounded-xl p-4 sm:p-5">
+        <div className="heraldic-card gold-trim p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-primary-light font-semibold mb-1">Today's Workout</p>
+              <p className="text-[10px] uppercase tracking-widest text-accent font-semibold mb-1 font-display">Today's Quest</p>
               <h3 className="text-lg font-bold text-text truncate">{todayWorkout.session_name}</h3>
               <p className="text-xs text-text-muted mt-0.5">
                 Week {todayWorkout.week} · {todayWorkout.exercises?.length || 0} exercises
@@ -93,7 +93,7 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <Link to="/log" className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-primary rounded-lg text-sm font-medium text-white hover:bg-primary-dark transition-colors">
+            <Link to="/log" className="shrink-0 flex items-center gap-2 px-4 py-2.5 btn-gold text-sm">
               <Dumbbell size={16} /> Start
             </Link>
           </div>
@@ -106,13 +106,13 @@ export default function Dashboard() {
           icon={<Dumbbell size={18} />}
           label="Sets Logged"
           value={summary?.total_sets_logged ?? 0}
-          color="text-primary-light"
+          color="text-accent-light"
         />
         <KpiCard
           icon={<Target size={18} />}
           label="Exercises"
           value={summary?.unique_exercises_logged ?? 0}
-          color="text-info"
+          color="text-secondary-light"
         />
         <KpiCard
           icon={<Heart size={18} />}
@@ -127,13 +127,13 @@ export default function Dashboard() {
           icon={<Trophy size={18} />}
           label="Recent PRs"
           value={summary?.recent_prs?.length ?? 0}
-          color="text-warning"
+          color="text-accent"
         />
       </div>
 
       {/* Deload warning */}
       {deload?.deload_recommended && (
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-5">
+        <div className="stone-panel accent-left-bronze p-5">
           <div className="flex items-start gap-3">
             <AlertTriangle size={20} className="text-warning mt-0.5 shrink-0" />
             <div className="min-w-0">
@@ -142,7 +142,7 @@ export default function Dashboard() {
               </h3>
               <ul className="text-sm text-text-muted space-y-1 mb-3">
                 {deload.reasons?.map((r, i) => (
-                  <li key={i}>• {r}</li>
+                  <li key={i}>· {r}</li>
                 ))}
               </ul>
               {deload.stagnated_exercises?.length > 0 && (
@@ -160,16 +160,16 @@ export default function Dashboard() {
 
       {/* Program progress */}
       {activeProgram && tracker && (
-        <Card title="Program Progress">
+        <Card title="Journey Progress">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm">
               Week {tracker.current_week} of {tracker.total_weeks || activeProgram.total_weeks}
             </span>
-            <span className="text-sm font-medium text-primary-light">{completionPct}%</span>
+            <span className="text-sm font-medium text-accent-light">{completionPct}%</span>
           </div>
           <div className="w-full bg-surface-lighter rounded-full h-3">
             <div
-              className="bg-primary rounded-full h-3 transition-all"
+              className="bg-accent rounded-full h-3 transition-all"
               style={{ width: `${Math.min(completionPct, 100)}%` }}
             />
           </div>
@@ -183,9 +183,9 @@ export default function Dashboard() {
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Recent PRs */}
-        <Card title="Recent PRs" action={
-          <Link to="/progress" className="text-xs text-primary hover:text-primary-light flex items-center gap-1">
+        {/* Recent PRs — Dwarven accent */}
+        <Card title="Hall of Records" variant="dwarven" action={
+          <Link to="/achievements" className="text-xs text-accent hover:text-accent-light flex items-center gap-1">
             View all <ArrowRight size={12} />
           </Link>
         }>
@@ -194,20 +194,20 @@ export default function Dashboard() {
               {summary.recent_prs.map((pr, i) => (
                 <div key={i} className="flex items-center justify-between py-1">
                   <span className="text-sm">{pr.exercise}</span>
-                  <span className="text-sm font-medium text-warning">
+                  <span className="text-sm font-medium text-dwarven-light">
                     {convert(pr.e1rm)} {unitLabel} e1RM
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-text-muted text-sm">No recent PRs yet. Keep training!</p>
+            <p className="text-text-muted text-sm">No recent records. Keep forging ahead.</p>
           )}
         </Card>
 
-        {/* Recovery snapshot */}
-        <Card title="Recovery Status" action={
-          <Link to="/recovery" className="text-xs text-primary hover:text-primary-light flex items-center gap-1">
+        {/* Recovery — Rivendell accent */}
+        <Card title="Recovery Status" variant="rivendell" action={
+          <Link to="/recovery" className="text-xs text-rivendell hover:text-rivendell-light flex items-center gap-1">
             Details <ArrowRight size={12} />
           </Link>
         }>
@@ -232,7 +232,7 @@ function KpiCard({ icon, label, value, color }) {
   return (
     <Card>
       <div className="flex items-center gap-3">
-        <div className={`${color} opacity-70`}>{icon}</div>
+        <div className={`${color} opacity-80`}>{icon}</div>
         <div>
           <div className="text-lg font-bold">{value}</div>
           <div className="text-xs text-text-muted">{label}</div>

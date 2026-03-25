@@ -52,7 +52,7 @@ export default function Tracker() {
   if (!activeProgram) return (
     <div className="text-center py-12">
       <p className="text-text-muted">No active program. Import one from the Dashboard.</p>
-      <Link to="/" className="text-primary text-sm mt-2 inline-block">Go to Dashboard</Link>
+      <Link to="/" className="text-accent text-sm mt-2 inline-block">Go to Dashboard</Link>
     </div>
   );
   if (error) return <ErrorMessage message={error} />;
@@ -68,7 +68,7 @@ export default function Tracker() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Program Tracker</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Program Tracker</h2>
           <p className="text-text-muted text-sm mt-1">{activeProgram.name}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -85,7 +85,7 @@ export default function Tracker() {
                 );
                 exportToCSV(rows, `tracker_${activeProgram.name.replace(/\s+/g, '_')}`, ['week', 'session_name', 'status', 'date']);
               }}
-              className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+              className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
             >
               <Download size={12} />
               Export
@@ -95,7 +95,7 @@ export default function Tracker() {
           <button
             onClick={() => setView('grid')}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              view === 'grid' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+              view === 'grid' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'
             }`}
           >
             <Grid3X3 size={14} />
@@ -103,7 +103,7 @@ export default function Tracker() {
           <button
             onClick={() => setView('calendar')}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              view === 'calendar' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+              view === 'calendar' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'
             }`}
           >
             <CalIcon size={14} />
@@ -127,13 +127,13 @@ export default function Tracker() {
         <div className="space-y-3">
           {weeks.map((week) => (
             <Card key={week.week_number} className={
-              week.week_number === currentWeek ? 'ring-1 ring-primary/50' : ''
+              week.week_number === currentWeek ? 'ring-1 ring-accent/50' : ''
             }>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold">
                   Week {week.week_number}
                   {week.week_number === currentWeek && (
-                    <span className="ml-2 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">Current</span>
+                    <span className="ml-2 text-xs text-accent bg-accent/10 px-2 py-0.5 rounded">Current</span>
                   )}
                 </h4>
               </div>

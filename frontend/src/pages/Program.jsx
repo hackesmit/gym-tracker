@@ -12,7 +12,7 @@ import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '..
 const STATUS_STYLES = {
   active: 'bg-success/15 text-success',
   paused: 'bg-warning/15 text-warning',
-  completed: 'bg-primary/15 text-primary-light',
+  completed: 'bg-accent/15 text-accent-light',
   abandoned: 'bg-danger/15 text-danger',
 };
 
@@ -144,7 +144,7 @@ export default function Program() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">{schedule?.program_name || activeProgram.name}</h2>
+            <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{schedule?.program_name || activeProgram.name}</h2>
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[currentStatus] || STATUS_STYLES.active}`}>
               {currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}
             </span>
@@ -173,7 +173,7 @@ export default function Program() {
               <button
                 onClick={() => handleStatusChange('completed')}
                 disabled={updating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-surface-light text-primary-light hover:bg-surface-lighter transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-surface-light text-accent-light hover:bg-surface-lighter transition-colors disabled:opacity-50"
               >
                 <CheckCircle2 size={14} /> Complete
               </button>
@@ -191,7 +191,7 @@ export default function Program() {
               <button
                 onClick={() => handleStatusChange('active')}
                 disabled={updating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-dark transition-colors disabled:opacity-50"
               >
                 <Play size={14} /> Resume
               </button>
@@ -217,13 +217,13 @@ export default function Program() {
         <Card>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-text-muted">Program Adherence</span>
-            <span className="text-sm font-medium text-primary-light">
+            <span className="text-sm font-medium text-accent-light">
               {tracker.adherence_pct != null ? `${Math.round(tracker.adherence_pct)}%` : '--'}
             </span>
           </div>
           <div className="w-full bg-surface-lighter rounded-full h-2.5">
             <div
-              className="bg-primary rounded-full h-2.5 transition-all"
+              className="bg-accent rounded-full h-2.5 transition-all"
               style={{ width: `${Math.min(tracker.adherence_pct || 0, 100)}%` }}
             />
           </div>
@@ -245,7 +245,7 @@ export default function Program() {
               key={weekNum}
               className={`rounded-xl border transition-colors ${
                 isCurrentWeek
-                  ? 'border-primary/40 bg-primary/5'
+                  ? 'border-accent/40 bg-accent/5'
                   : 'border-surface-lighter bg-surface'
               }`}
             >
@@ -262,7 +262,7 @@ export default function Program() {
                   )}
                   <span className="font-semibold">Week {weekNum}</span>
                   {isCurrentWeek && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary-light">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent/15 text-accent-light">
                       Current
                     </span>
                   )}
@@ -384,10 +384,10 @@ function SessionBlock({ sessionName, exercises, sessionLog }) {
           if (entry.type === 'superset') {
             return (
               <div key={i} className="relative">
-                <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-primary/30 rounded-full" />
+                <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-accent/30 rounded-full" />
                 <div className="pl-1">
                   <div className="px-4 pt-2 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-primary-light flex items-center gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-accent-light flex items-center gap-1">
                       <LinkIcon size={10} /> Superset
                     </span>
                   </div>

@@ -58,10 +58,10 @@ export default function Recovery() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Recovery</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Recovery</h2>
 
       {/* Score display */}
-      <Card>
+      <Card variant="rivendell">
         <div className="text-center py-6">
           <div className={`text-6xl font-bold ${scoreColor}`}>
             {score != null ? Math.round(score) : '--'}
@@ -122,7 +122,7 @@ export default function Recovery() {
         <Card title="Recovery Trends" action={
           <button
             onClick={() => exportToCSV(trend, 'recovery_trends', ['date', 'sleep', 'stress', 'soreness'])}
-            className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+            className="text-xs text-rivendell hover:text-rivendell-light flex items-center gap-1"
           >
             <Download size={12} />
             Export
@@ -130,10 +130,10 @@ export default function Recovery() {
         }>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} />
-              <Tooltip contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+              <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
               {trend.some((t) => t.sleep != null) && (
                 <Line type="monotone" dataKey="sleep" stroke="#60a5fa" name="Sleep (hrs)" dot={{ r: 2 }} />
               )}

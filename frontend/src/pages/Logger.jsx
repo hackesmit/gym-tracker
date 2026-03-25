@@ -449,14 +449,14 @@ export default function Logger() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header + tab switcher */}
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl sm:text-2xl font-bold">Log Workout</h2>
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Log Workout</h2>
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
           <button onClick={() => setTab('workout')}
-            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-primary text-white' : 'text-text-muted'}`}>
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-accent text-white' : 'text-text-muted'}`}>
             Workout
           </button>
           <button onClick={() => setTab('metrics')}
-            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'metrics' ? 'bg-primary text-white' : 'text-text-muted'}`}>
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'metrics' ? 'bg-accent text-white' : 'text-text-muted'}`}>
             Metrics
           </button>
         </div>
@@ -483,7 +483,7 @@ export default function Logger() {
                 onChange={(v) => setMetrics((m) => ({ ...m, soreness_level: v }))} />
               <button onClick={handleMetricsSave}
                 disabled={!metrics.bodyweight_kg}
-                className="w-full py-3 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors touch-manipulation">
+                className="w-full py-3 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50 hover:bg-accent-dark transition-colors touch-manipulation">
                 Save Metrics
               </button>
             </div>
@@ -515,7 +515,7 @@ export default function Logger() {
                   onClick={() => { setSelectedSession(s); setSaved(false); }}
                   className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors touch-manipulation ${
                     selectedSession?.session_name === s.session_name
-                      ? 'bg-primary text-white' : 'bg-surface-light text-text-muted hover:text-text'
+                      ? 'bg-accent text-white' : 'bg-surface-light text-text-muted hover:text-text'
                   }`}
                 >
                   {s.session_name}
@@ -526,10 +526,10 @@ export default function Logger() {
 
           {/* Overload suggestions banner */}
           {overload?.exercises?.length > 0 && !saved && (
-            <div className="bg-primary/10 border border-primary/25 rounded-xl p-3 sm:p-4">
+            <div className="bg-accent/10 border border-accent/25 rounded-xl p-3 sm:p-4">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp size={16} className="text-primary-light" />
-                <span className="text-xs font-semibold text-primary-light uppercase tracking-wider">Progressive Overload</span>
+                <TrendingUp size={16} className="text-accent-light" />
+                <span className="text-xs font-semibold text-accent-light uppercase tracking-wider">Progressive Overload</span>
               </div>
               <div className="space-y-1">
                 {overload.exercises.map((ex) => {
@@ -540,7 +540,7 @@ export default function Logger() {
                     <div key={ex.exercise_name} className="flex items-center justify-between text-xs">
                       <span className="text-text-muted truncate mr-2">{ex.exercise_name}</span>
                       {displayLoad != null && (
-                        <span className="text-primary-light font-medium whitespace-nowrap">
+                        <span className="text-accent-light font-medium whitespace-nowrap">
                           {displayLoad} {unitLabel} · {ex.method}
                         </span>
                       )}
@@ -589,21 +589,21 @@ export default function Logger() {
                 <div key={dgIdx}>
                   {dg.type === 'superset' && (
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] uppercase tracking-wider text-primary-light font-semibold bg-primary/10 px-2 py-0.5 rounded">
+                      <span className="text-[10px] uppercase tracking-wider text-accent-light font-semibold bg-accent/10 px-2 py-0.5 rounded">
                         Superset {dg.group}
                       </span>
                     </div>
                   )}
-                  <div className={dg.type === 'superset' ? 'border border-primary/20 rounded-xl p-2 sm:p-3 space-y-3' : ''}>
+                  <div className={dg.type === 'superset' ? 'border border-accent/20 rounded-xl p-2 sm:p-3 space-y-3' : ''}>
                     {dg.exercises.map((group) => (
                       <Card key={group.name} className="!p-3 sm:!p-5">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <Dumbbell size={14} className="text-primary-light shrink-0" />
+                          <Dumbbell size={14} className="text-accent-light shrink-0" />
                           <span className="truncate">{group.name}</span>
                           <button
                             onClick={() => openSwapModal(group.name)}
                             title="Swap exercise"
-                            className="p-1 rounded text-text-muted hover:text-primary-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
+                            className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
                           >
                             <ArrowLeftRight size={13} />
                           </button>
@@ -652,7 +652,7 @@ export default function Logger() {
                                     inputMode="decimal"
                                     value={s.load_kg}
                                     onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
                                     placeholder="0"
                                   />
                                 </div>
@@ -664,7 +664,7 @@ export default function Logger() {
                                     value={s.reps_completed}
                                     onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
                                     onBlur={triggerTimer}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
                                     placeholder="0"
                                   />
                                 </div>
@@ -677,7 +677,7 @@ export default function Logger() {
                                     value={s.rpe_actual}
                                     onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
                                     onBlur={triggerTimer}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-primary outline-none min-w-0"
+                                    className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
                                     placeholder="--"
                                   />
                                 </div>
@@ -747,7 +747,7 @@ export default function Logger() {
                 <button
                   onClick={handleSave}
                   disabled={saving || !sets.some((s) => s.load_kg > 0 || s.is_bodyweight)}
-                  className="w-full py-3.5 rounded-xl bg-primary text-white font-medium disabled:opacity-50 hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 touch-manipulation"
+                  className="w-full py-3.5 rounded-xl bg-accent text-white font-medium disabled:opacity-50 hover:bg-accent-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-accent/20 touch-manipulation"
                 >
                   <Save size={18} />
                   {saving ? 'Saving...' : 'Save Session'}
@@ -782,7 +782,7 @@ export default function Logger() {
                 value={swapSearch}
                 onChange={(e) => setSwapSearch(e.target.value)}
                 autoFocus
-                className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-9 pr-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-primary outline-none"
+                className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-9 pr-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-accent outline-none"
               />
             </div>
             {swapMuscleGroup && (
@@ -792,7 +792,7 @@ export default function Logger() {
                 </span>
                 <button
                   onClick={() => setShowAllMuscleGroups((v) => !v)}
-                  className="text-[10px] text-primary hover:text-primary-light font-medium touch-manipulation"
+                  className="text-[10px] text-accent hover:text-accent-light font-medium touch-manipulation"
                 >
                   {showAllMuscleGroups ? 'Same muscle only' : 'Show all'}
                 </button>
@@ -844,7 +844,7 @@ export default function Logger() {
           <span className="text-sm text-text">Session saved</span>
           <button
             onClick={handleUndo}
-            className="text-sm font-semibold text-primary hover:text-primary-light touch-manipulation"
+            className="text-sm font-semibold text-accent hover:text-accent-light touch-manipulation"
           >
             UNDO
           </button>
@@ -917,7 +917,7 @@ function MetricInput({ label, value, onChange }) {
         step="any"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-base text-text focus:ring-1 focus:ring-primary outline-none"
+        className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-base text-text focus:ring-1 focus:ring-accent outline-none"
       />
     </div>
   );

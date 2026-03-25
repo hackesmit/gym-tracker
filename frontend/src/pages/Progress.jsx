@@ -77,7 +77,7 @@ export default function Progress() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Progress</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Journey Progress</h2>
 
       <div className="grid md:grid-cols-[240px_1fr] gap-6">
         {/* Exercise list */}
@@ -89,7 +89,7 @@ export default function Progress() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-8 pr-3 py-2 text-xs text-text focus:ring-1 focus:ring-primary outline-none"
+              className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-8 pr-3 py-2 text-xs text-text focus:ring-1 focus:ring-accent outline-none"
             />
           </div>
           <div className="space-y-2">
@@ -115,7 +115,7 @@ export default function Progress() {
                         key={ex}
                         onClick={() => setSelected(ex)}
                         className={`w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors ${
-                          selected === ex ? 'bg-primary/15 text-primary-light font-medium' : 'text-text-muted hover:text-text hover:bg-surface-light'
+                          selected === ex ? 'bg-accent/15 text-accent-light font-medium' : 'text-text-muted hover:text-text hover:bg-surface-light'
                         }`}
                       >
                         {ex}
@@ -172,14 +172,14 @@ export default function Progress() {
                 {chartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} unit={` ${unitLabel}`} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} unit={` ${unitLabel}`} />
                       <Tooltip
-                        contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 12 }}
-                        labelStyle={{ color: '#a8a28f' }}
+                        contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: 'var(--color-text-muted)' }}
                       />
-                      <Line type="monotone" dataKey="e1rm" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} name="e1RM" />
+                      <Line type="monotone" dataKey="e1rm" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 3 }} name="e1RM" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -198,7 +198,7 @@ export default function Progress() {
                     ].map(({ label, value }) => (
                       <div key={label}>
                         <div className="text-xs text-text-muted mb-1">{label}</div>
-                        <div className="text-lg font-bold text-primary-light">
+                        <div className="text-lg font-bold text-accent-light">
                           {value ? `${convert(value)} ${unitLabel}` : '--'}
                         </div>
                       </div>
@@ -216,7 +216,7 @@ export default function Progress() {
                       `progress_${selected.replace(/\s+/g, '_').toUpperCase()}`,
                       ['date', 'best_load', 'best_reps', 'best_e1rm']
                     )}
-                    className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+                    className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
                   >
                     <Download size={12} />
                     Export CSV

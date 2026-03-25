@@ -80,7 +80,7 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Analytics</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Strength of the Age</h2>
 
       {/* Volume chart */}
       <Card title="Weekly Volume by Muscle Group" action={
@@ -88,7 +88,7 @@ export default function Analytics() {
           {volumeData.length > 0 && (
             <button
               onClick={() => exportToCSV(volumeData, `volume_${weeksBack}w`)}
-              className="text-xs text-primary hover:text-primary-light flex items-center gap-1"
+              className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
             >
               <Download size={12} />
               Export
@@ -98,7 +98,7 @@ export default function Analytics() {
             {[4, 8, 12].map((w) => (
               <button key={w} onClick={() => setWeeksBack(w)}
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
-                  weeksBack === w ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+                  weeksBack === w ? 'bg-accent text-surface-dark' : 'text-text-muted hover:text-text'
                 }`}>
                 {w}w
               </button>
@@ -113,7 +113,7 @@ export default function Analytics() {
               onClick={() => setSelectedMuscle('all')}
               className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
                 selectedMuscle === 'all'
-                  ? 'bg-primary text-white'
+                  ? 'bg-accent text-surface-dark'
                   : 'bg-surface-lighter text-text-muted hover:text-text'
               }`}
             >
@@ -140,10 +140,10 @@ export default function Analytics() {
           selectedMuscle === 'all' ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={volumeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#a8a28f' }} />
-                <Tooltip contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 {[...allMuscles].map((muscle) => (
                   <Bar key={muscle} dataKey={muscle} stackId="a"
@@ -154,16 +154,16 @@ export default function Analytics() {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={volumeData} margin={{ top: 5, right: 60, bottom: 5, left: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#a8a28f' }} />
-                <Tooltip contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
                 <Bar dataKey={selectedMuscle} fill={MUSCLE_COLORS[selectedMuscle] || '#f59e0b'} radius={[4, 4, 0, 0]} />
                 {volume?.volume_landmarks?.[selectedMuscle] && (
                   <>
                     <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mev} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'MEV', position: 'right', fontSize: 10, fill: '#ef4444' }} />
                     <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mav_low} stroke="#84cc16" strokeDasharray="6 3" label={{ value: 'MAV low', position: 'right', fontSize: 10, fill: '#84cc16' }} />
-                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mav_high} stroke="#f59e0b" strokeDasharray="6 3" label={{ value: 'MAV high', position: 'right', fontSize: 10, fill: '#f59e0b' }} />
+                    <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mav_high} stroke="var(--color-accent)" strokeDasharray="6 3" label={{ value: 'MAV high', position: 'right', fontSize: 10, fill: 'var(--color-accent)' }} />
                     <ReferenceLine y={volume.volume_landmarks[selectedMuscle].mrv} stroke="#dc2626" strokeDasharray="6 3" strokeWidth={2} label={{ value: 'MRV', position: 'right', fontSize: 10, fill: '#dc2626', fontWeight: 600 }} />
                   </>
                 )}
@@ -183,14 +183,14 @@ export default function Analytics() {
               week: w.week_start,
               tonnage: Math.round(convert(w.tonnage_kg)),
             }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} label={{ value: unitLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: '#a8a28f' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: unitLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
               <Tooltip
-                contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }}
+                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }}
                 formatter={(value) => [`${value.toLocaleString()} ${unitLabel}`, 'Tonnage']}
               />
-              <Line type="monotone" dataKey="tonnage" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} name="Tonnage" />
+              <Line type="monotone" dataKey="tonnage" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-accent)' }} name="Tonnage" />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -200,15 +200,15 @@ export default function Analytics() {
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* Strength radar */}
-        <Card title="Strength Standards">
+        <Card title="Strength Standards" variant="rivendell">
           {radarData.length ? (
             <>
               <ResponsiveContainer width="100%" height={280}>
                 <RadarChart data={radarData}>
-                  <PolarGrid stroke="#3d3b33" />
-                  <PolarAngleAxis dataKey="lift" tick={{ fontSize: 11, fill: '#a8a28f' }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9, fill: '#a8a28f' }} />
-                  <Radar name="Percentile" dataKey="percentile" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
+                  <PolarGrid stroke="var(--color-surface-lighter)" />
+                  <PolarAngleAxis dataKey="lift" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--color-text-muted)' }} />
+                  <Radar name="Percentile" dataKey="percentile" stroke="var(--color-accent)" fill="var(--color-accent)" fillOpacity={0.3} />
                 </RadarChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-1.5">
@@ -245,7 +245,7 @@ export default function Analytics() {
               </div>
               {strength?.overall_classification && (
                 <p className="text-xs text-text-muted mt-3 text-center">
-                  Overall: <span className="font-medium text-primary-light capitalize">{strength.overall_classification}</span>
+                  Overall: <span className="font-medium text-accent-light capitalize">{strength.overall_classification}</span>
                 </p>
               )}
               {strength?.categories_missing?.length > 0 && (
@@ -265,7 +265,7 @@ export default function Analytics() {
         {strength?.dots && (
           <Card title="DOTS Score">
             <div className="flex flex-col items-center py-4">
-              <span className="text-4xl font-bold text-primary-light">
+              <span className="text-4xl font-bold text-accent-light">
                 {strength.dots.score}
               </span>
               <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
@@ -332,11 +332,11 @@ export default function Analytics() {
               date: m.date,
               weight: convert(m.bodyweight_kg),
             }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3d3b33" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a28f' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#a8a28f' }} domain={['dataMin - 2', 'dataMax + 2']} unit={` ${unitLabel}`} />
-              <Tooltip contentStyle={{ background: '#1c1b18', border: '1px solid #3d3b33', borderRadius: 8, fontSize: 11 }} />
-              <Bar dataKey="weight" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} domain={['dataMin - 2', 'dataMax + 2']} unit={` ${unitLabel}`} />
+              <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
+              <Bar dataKey="weight" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>

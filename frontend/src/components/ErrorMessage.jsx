@@ -6,7 +6,7 @@ export default function ErrorMessage({ message, onRetry }) {
       <AlertTriangle className="text-danger mb-3" size={32} />
       <p className="text-text-muted text-sm mb-3">{message}</p>
       {onRetry && (
-        <button onClick={onRetry} className="text-sm text-primary hover:text-primary-light transition-colors">
+        <button onClick={onRetry} className="text-sm text-accent hover:text-accent-light transition-colors">
           Try again
         </button>
       )}

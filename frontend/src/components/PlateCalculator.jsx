@@ -32,9 +32,9 @@ export default function PlateCalculator({ targetWeight, units, unitLabel, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative bg-surface border border-surface-lighter rounded-2xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+      <div className="relative forged-panel p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-text flex items-center gap-2">
+          <h3 className="font-display text-lg font-semibold text-text flex items-center gap-2">
             <Calculator size={20} /> Plate Calculator
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-text-muted hover:text-text"><X size={20} /></button>
@@ -48,7 +48,7 @@ export default function PlateCalculator({ targetWeight, units, unitLabel, onClos
           <div className="flex-1">
             <label className="text-xs text-text-muted block mb-1">Bar Weight</label>
             <input type="number" value={barWeight} onChange={e => setBarWeight(Number(e.target.value) || 0)}
-              className="w-full bg-surface-lighter border border-surface-lighter rounded-lg px-3 py-2 text-text font-medium focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="w-full bg-surface-lighter border border-surface-lighter rounded-lg px-3 py-2 text-text font-medium focus:outline-none focus:ring-1 focus:ring-accent" />
           </div>
         </div>
 

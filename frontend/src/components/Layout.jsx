@@ -18,19 +18,31 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+function AppLogo({ size = 'md' }) {
+  const sz = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
+  return (
+    <svg className={`${sz} text-accent`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* One Ring icon */}
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="6" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeWidth="1" opacity="0.4" />
+    </svg>
+  );
+}
+
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen">
       {/* Sidebar - desktop */}
-      <aside className="hidden md:flex flex-col w-56 bg-surface border-r border-surface-lighter shrink-0">
+      <aside className="hidden md:flex flex-col w-56 nav-gondor shrink-0">
         <div className="p-4 border-b border-surface-lighter">
-          <h1 className="text-lg font-bold text-primary-light flex items-center gap-2">
-            <img src="/icon.png" alt="" className="w-6 h-6" /> Gym Tracker
+          <h1 className="font-display text-lg font-semibold text-accent-light flex items-center gap-2 tracking-wide">
+            <AppLogo /> Gym Tracker
           </h1>
         </div>
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 p-2 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -39,7 +51,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary/15 text-primary-light'
+                    ? 'nav-active'
                     : 'text-text-muted hover:bg-surface-light hover:text-text'
                 }`
               }
@@ -49,12 +61,17 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        {/* Subtle bottom ornament */}
+        <div className="p-4 border-t border-surface-lighter">
+          <p className="text-[10px] text-text-muted/40 text-center tracking-widest uppercase">Middle-earth Training</p>
+        </div>
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-surface-lighter px-4 py-3 flex items-center justify-between">
-        <h1 className="text-base font-bold text-primary-light flex items-center gap-2">
-          <img src="/icon.png" alt="" className="w-5 h-5" /> Gym Tracker
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-surface-lighter px-4 py-3 flex items-center justify-between"
+           style={{ borderBottomColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-surface-lighter) 85%)' }}>
+        <h1 className="font-display text-base font-semibold text-accent-light flex items-center gap-2 tracking-wide">
+          <AppLogo size="sm" /> Gym Tracker
         </h1>
         <div className="flex items-center gap-2">
           <button
@@ -70,7 +87,7 @@ export default function Layout() {
       {/* Mobile nav overlay */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileOpen(false)}>
-          <nav className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-1"
+          <nav className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
                onClick={(e) => e.stopPropagation()}>
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
@@ -80,7 +97,7 @@ export default function Layout() {
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors touch-manipulation ${
-                    isActive ? 'bg-primary/15 text-primary-light' : 'text-text-muted hover:text-text'
+                    isActive ? 'nav-active' : 'text-text-muted hover:text-text'
                   }`
                 }
               >
