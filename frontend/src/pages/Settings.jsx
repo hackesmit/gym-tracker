@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer, AlertTriangle, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Sun, Moon } from 'lucide-react';
 import { getManual1RM, updateManual1RM, exportLogs } from '../api/client';
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -27,7 +27,7 @@ function isStale(dateStr) {
 }
 
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, theme, setTheme } = useApp();
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
@@ -91,6 +91,39 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Settings</h2>
+
+      <Card title="Theme">
+        <p className="text-sm text-text-muted mb-4">
+          Choose your preferred color theme.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setTheme('dark')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              theme === 'dark'
+                ? 'border-primary bg-primary/15 text-primary-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            <Moon size={18} className="mx-auto mb-1" />
+            Dark
+          </button>
+          <button
+            onClick={() => setTheme('light')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              theme === 'light'
+                ? 'border-primary bg-primary/15 text-primary-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            <Sun size={18} className="mx-auto mb-1" />
+            Light
+          </button>
+        </div>
+        <p className="text-xs text-text-muted mt-3">
+          Currently using: <span className="text-primary-light font-medium">{theme === 'dark' ? 'Dark' : 'Light'} mode</span>
+        </p>
+      </Card>
 
       <Card title="Units">
         <p className="text-sm text-text-muted mb-4">

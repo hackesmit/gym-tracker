@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import (
+    Achievement,
     BodyMetric,
     ProgramExercise,
     ProgramProgress,
@@ -88,11 +89,19 @@ class PRInfo(BaseModel):
     previous_e1rm: float | None
 
 
+class AchievementInfo(BaseModel):
+    type: str
+    exercise_name: str | None = None
+    value: float
+    previous_value: float | None = None
+
+
 class BulkLogResponse(BaseModel):
     session_log_id: int
     sets_logged: int
     exercises_covered: int
     prs: list[PRInfo] = []
+    achievements: list[AchievementInfo] = []
 
 
 class WorkoutLogOut(BaseModel):
@@ -336,11 +345,58 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
                 previous_e1rm=None,
             ))
 
+    # ------------------------------------------------------------------
+    # Achievement detection: store PRs and check milestones/streaks.
+    # ------------------------------------------------------------------
+    new_achievements: list[AchievementInfo] = []
+
+    # Store each PR as an achievement
+    for pr in prs:
+        ach = Achievement(
+            user_id=user.id,
+            type="e1rm_pr",
+            exercise_name=pr.exercise,
+            value=pr.new_e1rm,
+            previous_value=pr.previous_e1rm,
+            session_log_id=session_log.id,
+        )
+        db.add(ach)
+        new_achievements.append(AchievementInfo(
+            type="e1rm_pr", exercise_name=pr.exercise,
+            value=pr.new_e1rm, previous_value=pr.previous_e1rm,
+        ))
+
+    # Check milestone achievements (session count)
+    if progress:
+        total = progress.total_sessions_completed
+        for milestone in [10, 25, 50, 100, 200, 500]:
+            if total == milestone:
+                existing = db.query(Achievement).filter(
+                    Achievement.user_id == user.id,
+                    Achievement.type == "milestone",
+                    Achievement.value == milestone,
+                ).first()
+                if not existing:
+                    ach = Achievement(
+                        user_id=user.id,
+                        type="milestone",
+                        value=float(milestone),
+                        metadata={"description": f"{milestone} workouts completed"},
+                        session_log_id=session_log.id,
+                    )
+                    db.add(ach)
+                    new_achievements.append(AchievementInfo(
+                        type="milestone", value=float(milestone),
+                    ))
+
+    db.commit()
+
     return BulkLogResponse(
         session_log_id=session_log.id,
         sets_logged=len(payload.sets),
         exercises_covered=len(pe_ids),
         prs=prs,
+        achievements=new_achievements,
     )
 
 

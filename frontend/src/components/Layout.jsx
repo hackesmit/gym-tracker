@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Target, Dumbbell, TrendingUp,
-  BarChart3, Heart, History, ClipboardList, Settings, Menu, X,
+  BarChart3, Heart, History, ClipboardList, Settings, Menu, X, Trophy,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/recovery', icon: Heart, label: 'Recovery' },
   { to: '/history', icon: History, label: 'History' },
   { to: '/program', icon: ClipboardList, label: 'Program' },
+  { to: '/achievements', icon: Trophy, label: 'Achievements' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

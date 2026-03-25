@@ -214,3 +214,31 @@ class BodyMetric(Base):
     soreness_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="body_metrics")
+
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(
+        String, nullable=False
+    )  # weight_pr, e1rm_pr, rep_pr, volume_pr, streak, consistency, milestone, badge
+    exercise_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    category: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # strength, consistency, volume (for badges)
+    tier: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # novice, intermediate, advanced, elite
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    previous_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    session_log_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("session_logs.id", ondelete="SET NULL"), nullable=True
+    )
+    achieved_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )

@@ -24,6 +24,22 @@
   --color-info: #60a5fa;
 }
 
+html.light {
+  --color-primary: #d97706;
+  --color-primary-light: #f59e0b;
+  --color-primary-dark: #b45309;
+  --color-surface: #ffffff;
+  --color-surface-light: #f5f5f4;
+  --color-surface-lighter: #e7e5e4;
+  --color-surface-dark: #fafaf9;
+  --color-text: #1c1917;
+  --color-text-muted: #78716c;
+}
+
+html.light body {
+  background: #fafaf9;
+}
+
 body {
   background: #121210;
   color: var(--color-text);

@@ -108,6 +108,12 @@ export const getDeloadCheck = () => request('/analytics/deload-check');
 export const getExerciseCatalog = () => request('/analytics/exercise-catalog');
 export const getTonnage = (weeks = 12) => request(`/analytics/tonnage?weeks_back=${weeks}`);
 
+// Achievements
+export const getAchievements = (params = {}) => {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null));
+  return request(`/analytics/achievements?${qs}`);
+};
+
 // Manual 1RM — shape: { lifts: { bench: { value_kg, tested_at } | null } }
 export const getManual1RM = () => request('/manual-1rm');
 export const updateManual1RM = (lifts) =>

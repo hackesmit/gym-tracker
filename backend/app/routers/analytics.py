@@ -12,7 +12,7 @@ from ..analytics.recovery import get_recovery_status
 from ..analytics.strength import get_strength_standards
 from ..analytics.volume import get_muscle_balance, get_weekly_tonnage, get_weekly_volume
 from ..database import get_db
-from ..models import ExerciseCatalog, ProgramExercise, WorkoutLog
+from ..models import Achievement, ExerciseCatalog, ProgramExercise, WorkoutLog
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -170,3 +170,30 @@ def dashboard_summary(db: Session = Depends(get_db)):
         "recovery_score": recovery.get("overall_score"),
         "recovery_recommendation": recovery.get("recommendation", ""),
     }
+
+
+@router.get("/achievements")
+def list_achievements(
+    type: Optional[str] = Query(None, description="Filter by achievement type"),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """List all achievements for the default user."""
+    query = db.query(Achievement).order_by(Achievement.achieved_at.desc())
+    if type:
+        query = query.filter(Achievement.type == type)
+    achievements = query.limit(limit).all()
+    return [
+        {
+            "id": a.id,
+            "type": a.type,
+            "exercise_name": a.exercise_name,
+            "category": a.category,
+            "tier": a.tier,
+            "value": a.value,
+            "previous_value": a.previous_value,
+            "metadata": a.metadata,
+            "achieved_at": a.achieved_at.isoformat() if a.achieved_at else None,
+        }
+        for a in achievements
+    ]
