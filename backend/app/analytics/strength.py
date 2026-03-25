@@ -338,7 +338,7 @@ def _parse_manual_entry(entry) -> tuple[float, date | None]:
     return 0.0, None
 
 
-def get_strength_standards(db: Session, user_id: int = 1) -> dict:
+def get_strength_standards(db: Session, user_id: int) -> dict:
     """Compare user lifts to population benchmarks with confidence scoring."""
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:

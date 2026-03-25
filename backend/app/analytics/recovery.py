@@ -102,7 +102,7 @@ def _fatigue_status(sets: int, mrv: int) -> str:
 # Full recovery status (DB-backed)
 # ---------------------------------------------------------------------------
 
-def get_recovery_status(db: Session, user_id: int = 1) -> dict:
+def get_recovery_status(db: Session, user_id: int) -> dict:
     """Build a complete recovery report for the user.
 
     1. Get latest body_metrics entry (sleep, stress, soreness).

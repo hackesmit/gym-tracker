@@ -115,7 +115,7 @@ def _avg_recovery_score(db: Session, user_id: int, days: int = 7) -> float | Non
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_deload_check(db: Session, user_id: int = 1) -> dict:
+def get_deload_check(db: Session, user_id: int) -> dict:
     """Analyse recent training data and recommend a deload if warranted.
 
     Checks:

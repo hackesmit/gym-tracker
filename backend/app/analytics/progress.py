@@ -222,7 +222,7 @@ def _compute_prs(
 # ---------------------------------------------------------------------------
 
 def get_exercise_progress(
-    db: Session, exercise_name: str, user_id: int = 1,
+    db: Session, exercise_name: str, user_id: int,
 ) -> dict:
     """Returns progress data for a single exercise.
 

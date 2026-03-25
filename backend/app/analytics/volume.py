@@ -75,7 +75,7 @@ def _build_catalog_lookup(db: Session) -> dict[str, ExerciseCatalog]:
 
 def get_weekly_volume(
     db: Session,
-    user_id: int = 1,
+    user_id: int,
     weeks_back: int = 8,
 ) -> dict:
     """Calculate weekly working sets per muscle group over the last *weeks_back* weeks.
@@ -165,7 +165,7 @@ def get_weekly_volume(
 
 def get_muscle_balance(
     db: Session,
-    user_id: int = 1,
+    user_id: int,
     weeks_back: int = 4,
 ) -> dict:
     """Calculate push:pull and quad:hamstring ratios over the last *weeks_back* weeks.
@@ -255,7 +255,7 @@ def get_muscle_balance(
 
 def get_weekly_tonnage(
     db: Session,
-    user_id: int = 1,
+    user_id: int,
     weeks_back: int = 12,
 ) -> dict:
     """Calculate weekly tonnage (sum of load_kg * reps_completed) grouped by ISO week.
