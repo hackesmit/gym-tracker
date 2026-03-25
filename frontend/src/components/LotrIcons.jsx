@@ -1,197 +1,242 @@
 /**
  * Lord of the Rings themed SVG icon components.
- * Stroke-based design consistent with lucide-react style.
+ * Converted from 128×128 illustrated SVG icon set.
  * Each icon accepts `size` (default 24) and `className` props.
+ * Uses currentColor for theme compatibility.
  */
 
 export function WhiteTree({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Trunk */}
-      <path d="M12 22v-14" />
-      {/* Main branches */}
-      <path d="M12 8c-1.5-2-4-3.5-5-5" />
-      <path d="M12 8c1.5-2 4-3.5 5-5" />
-      {/* Middle branches */}
-      <path d="M12 11c-1.2-1.2-3-2.5-4.5-2.5" />
-      <path d="M12 11c1.2-1.2 3-2.5 4.5-2.5" />
-      {/* Lower branches */}
-      <path d="M12 14c-1-0.8-2.5-1.5-3.5-1.2" />
-      <path d="M12 14c1-0.8 2.5-1.5 3.5-1.2" />
-      {/* Roots */}
-      <path d="M12 22c-0.5 0-2-0.5-3-1" />
-      <path d="M12 22c0.5 0 2-0.5 3-1" />
-      {/* Stars */}
-      <circle cx="8" cy="2" r="0.6" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="2" r="0.6" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="1" r="0.6" fill="currentColor" stroke="none" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="64" cy="64" r="44" strokeWidth="4" />
+      <path d="M64 92V56M64 56C58 54 54 48 52 42M64 56C70 54 74 48 76 42M52 42C44 44 40 38 38 32M76 42C84 44 88 38 90 32M64 68C56 68 52 74 50 80M64 68C72 68 76 74 78 80" strokeWidth="4" />
+      <path d="M50 92H78" strokeWidth="4" />
     </svg>
   );
 }
 
 export function Ring({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Outer ring */}
-      <circle cx="12" cy="12" r="9" />
-      {/* Inner ring */}
-      <circle cx="12" cy="12" r="6" />
-      {/* Elvish inscription suggestion — subtle arc marks */}
-      <path d="M6.5 8.5a9 9 0 0 1 11 0" strokeWidth="0.8" opacity="0.5" />
-      <path d="M6.5 15.5a9 9 0 0 0 11 0" strokeWidth="0.8" opacity="0.5" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <ellipse cx="64" cy="64" rx="34" ry="24" transform="rotate(-18 64 64)" strokeWidth="6" />
+      <ellipse cx="64" cy="64" rx="24" ry="14" transform="rotate(-18 64 64)" strokeWidth="3" />
+      <path d="M48 48C58 44 72 44 84 50" strokeWidth="2.5" />
     </svg>
   );
 }
 
 export function Sword({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Blade */}
-      <path d="M12 2l1.5 12h-3L12 2z" />
-      {/* Guard / crossguard */}
-      <path d="M7 14.5h10" strokeWidth="2" />
-      {/* Grip */}
-      <path d="M12 15v5" strokeWidth="2" />
-      {/* Pommel */}
-      <circle cx="12" cy="21" r="1" fill="currentColor" stroke="none" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 18L74 30L68 36L74 42L64 52L54 42L60 36L54 30Z" fill="currentColor" opacity="0.18" strokeWidth="3" />
+      <path d="M64 52V96" strokeWidth="5" />
+      <path d="M44 58H84" strokeWidth="5" />
+      <path d="M54 96L44 106M74 96L84 106" strokeWidth="5" />
     </svg>
   );
 }
 
 export function Shield({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Shield shape — heater style */}
-      <path d="M12 2L4 6v5c0 5.25 3.4 10.15 8 12 4.6-1.85 8-6.75 8-12V6l-8-4z" />
-      {/* Cross */}
-      <path d="M12 7v10" />
-      <path d="M8 12h8" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 18L100 30V58C100 82 84 100 64 110C44 100 28 82 28 58V30Z" strokeWidth="4" />
+      <path d="M64 32V94M42 52C42 40 50 34 64 34C78 34 86 40 86 52C86 66 76 74 64 94C52 74 42 66 42 52Z" strokeWidth="3.5" />
     </svg>
   );
 }
 
 export function Torch({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Flame — teardrop shape */}
-      <path d="M12 2c-1.5 2.5-3 4-3 6a3 3 0 0 0 6 0c0-2-1.5-3.5-3-6z" />
-      {/* Inner flame */}
-      <path d="M12 5c-0.7 1.2-1.3 2-1.3 3a1.3 1.3 0 0 0 2.6 0c0-1-0.6-1.8-1.3-3z" strokeWidth="1" />
-      {/* Handle top */}
-      <path d="M10 9.5h4" strokeWidth="2" />
-      {/* Handle shaft */}
-      <path d="M11 10l-1 12" strokeWidth="2" />
-      <path d="M13 10l1 12" strokeWidth="2" />
-      {/* Handle wrap marks */}
-      <path d="M10.5 14h3" strokeWidth="1" />
-      <path d="M10.3 17h3.4" strokeWidth="1" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M54 74L64 36L74 74Z" strokeWidth="4" />
+      <path d="M58 74H70L74 98H54Z" strokeWidth="4" />
+      <path d="M64 20C52 28 54 42 64 46C74 42 76 28 64 20Z" fill="currentColor" opacity="0.18" strokeWidth="3" />
+      <path d="M48 106H80" strokeWidth="4" />
     </svg>
   );
 }
 
 export function Mountain({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Main peak */}
-      <path d="M12 4L2 20h20L12 4z" />
-      {/* Snow cap / lava glow line */}
-      <path d="M12 4l-2.5 5h5L12 4z" />
-      {/* Secondary smaller peak */}
-      <path d="M18 12l4 8" />
-      <path d="M18 12l-2.5 5" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M20 92L48 42L64 62L76 50L108 92Z" strokeWidth="4" />
+      <path d="M44 92L64 62L80 92Z" fill="currentColor" opacity="0.18" stroke="none" />
+      <path d="M44 52L48 42L54 52" strokeWidth="4" />
+      <path d="M73 57L76 50L82 58" strokeWidth="4" />
     </svg>
   );
 }
 
 export function Crown({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Crown outline with 5 points */}
-      <path d="M3 18h18v2H3v-2z" />
-      <path d="M3 18l2-10 4 4 3-8 3 8 4-4 2 10" />
-      {/* Gem dots */}
-      <circle cx="8" cy="16" r="0.7" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="16" r="0.7" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="16" r="0.7" fill="currentColor" stroke="none" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M24 88H104L96 44L76 62L64 32L52 62L32 44Z" strokeWidth="4" />
+      <circle cx="32" cy="44" r="4" fill="currentColor" />
+      <circle cx="64" cy="32" r="4" fill="currentColor" />
+      <circle cx="96" cy="44" r="4" fill="currentColor" />
     </svg>
   );
 }
 
 export function MapScroll({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Top roll */}
-      <path d="M6 3a2 2 0 0 1 2-2h8a2 2 0 0 1 0 4H8a2 2 0 0 1-2-2z" />
-      {/* Scroll body */}
-      <path d="M8 5v14" />
-      <path d="M16 5v14" />
-      {/* Bottom roll */}
-      <path d="M6 21a2 2 0 0 1 2-2h8a2 2 0 0 1 0 4H8a2 2 0 0 1-2-2z" />
-      {/* Content lines — map suggestion */}
-      <path d="M10 8h4" strokeWidth="1" />
-      <path d="M10 11h4" strokeWidth="1" />
-      <path d="M10 14h2" strokeWidth="1" />
-      {/* Route dot */}
-      <circle cx="14" cy="14" r="0.6" fill="currentColor" stroke="none" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M24 34C34 28 44 30 54 36C64 42 74 44 86 38L104 30V94C92 100 82 98 72 92C62 86 52 84 40 90L24 98Z" strokeWidth="4" />
+      <path d="M40 48L50 58L42 68" strokeWidth="3" />
+      <path d="M62 72L70 50L84 64" strokeWidth="3" />
+      <circle cx="86" cy="38" r="4" fill="currentColor" />
     </svg>
   );
 }
 
 export function Chronicle({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Left page */}
-      <path d="M2 4c0-1 1-2 2-2h7v20H4c-1 0-2-1-2-2V4z" />
-      {/* Right page */}
-      <path d="M11 2h7c1 0 2 1 2 2v16c0 1-1 2-2 2h-7V2z" />
-      {/* Spine */}
-      <path d="M11 2v20" strokeWidth="2" />
-      {/* Left page lines */}
-      <path d="M5 7h4" strokeWidth="1" />
-      <path d="M5 10h4" strokeWidth="1" />
-      <path d="M5 13h3" strokeWidth="1" />
-      {/* Right page lines */}
-      <path d="M14 7h4" strokeWidth="1" />
-      <path d="M14 10h4" strokeWidth="1" />
-      <path d="M14 13h3" strokeWidth="1" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M28 28H62C72 28 78 34 78 44V100H42C34 100 28 94 28 86Z" strokeWidth="4" />
+      <path d="M100 28H66C56 28 50 34 50 44V100H86C94 100 100 94 100 86Z" strokeWidth="4" />
+      <path d="M50 44C50 34 56 28 66 28" strokeWidth="4" />
+      <path d="M40 42H44M40 54H44M40 66H44" strokeWidth="3" />
+      <path d="M64 46L72 54L64 62L56 54Z" strokeWidth="4" />
+      <path d="M58 84H70M58 92H70" strokeWidth="3" />
     </svg>
   );
 }
 
 export function Hammer({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Hammer head — blocky dwarven style */}
-      <path d="M6 2h6v5H6V2z" />
-      <path d="M5 3h1v3H5V3z" />
-      <path d="M12 3h1v3h-1V3z" />
-      {/* Handle */}
-      <path d="M9 7v14" strokeWidth="2" />
-      {/* Handle wrap */}
-      <path d="M7.5 16l3 0" strokeWidth="1" />
-      <path d="M7.5 18.5l3 0" strokeWidth="1" />
-      {/* Pommel */}
-      <path d="M7.5 21h3" strokeWidth="2" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M30 86H96" strokeWidth="4" />
+      <path d="M48 86L60 60H84L76 72H96L86 86Z" strokeWidth="4" />
+      <path d="M42 44L60 56" strokeWidth="6" />
+      <rect x="30" y="28" width="18" height="14" rx="2" strokeWidth="4" />
     </svg>
   );
 }
 
 export function GondorShield({ size = 24, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Shield shape */}
-      <path d="M12 2L3 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4z" />
-      {/* Tree trunk inside shield */}
-      <path d="M12 19v-8" strokeWidth="1.2" />
-      {/* Tree branches */}
-      <path d="M12 11c-1-1.2-2.5-2-3.5-2.5" strokeWidth="1.2" />
-      <path d="M12 11c1-1.2 2.5-2 3.5-2.5" strokeWidth="1.2" />
-      <path d="M12 13c-0.8-0.8-2-1.5-2.8-1.5" strokeWidth="1.2" />
-      <path d="M12 13c0.8-0.8 2-1.5 2.8-1.5" strokeWidth="1.2" />
-      {/* Stars above tree */}
-      <circle cx="10" cy="7" r="0.5" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="6" r="0.5" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="7" r="0.5" fill="currentColor" stroke="none" />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 18L100 30V58C100 82 84 100 64 110C44 100 28 82 28 58V30Z" strokeWidth="4" />
+      <path d="M64 32V94M42 52C42 40 50 34 64 34C78 34 86 40 86 52C86 66 76 74 64 94C52 74 42 66 42 52Z" strokeWidth="3.5" />
+    </svg>
+  );
+}
+
+// ── New icons from expanded set ──
+
+export function Barbell({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M24 64H104" strokeWidth="5" />
+      <path d="M30 48V80M38 44V84M46 50V78" strokeWidth="4" />
+      <path d="M98 48V80M90 44V84M82 50V78" strokeWidth="4" />
+      <circle cx="64" cy="64" r="8" strokeWidth="3" />
+    </svg>
+  );
+}
+
+export function Trophy({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M42 26H86V44C86 60 76 70 64 74C52 70 42 60 42 44Z" strokeWidth="4" />
+      <path d="M42 34H26C26 52 34 60 48 60" strokeWidth="4" />
+      <path d="M86 34H102C102 52 94 60 80 60" strokeWidth="4" />
+      <path d="M56 74V88H72V74" strokeWidth="4" />
+      <path d="M48 98H80" strokeWidth="4" />
+      <path d="M60 44H68M64 40V48" strokeWidth="3" />
+    </svg>
+  );
+}
+
+export function Star({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 18L72 52L106 64L72 76L64 110L56 76L22 64L56 52Z" strokeWidth="4" />
+      <circle cx="64" cy="64" r="6" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function Laurel({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M46 94C28 86 20 68 24 48C30 60 36 68 46 74" strokeWidth="4" />
+      <path d="M82 94C100 86 108 68 104 48C98 60 92 68 82 74" strokeWidth="4" />
+      <path d="M48 74L40 66M42 80L34 74M82 74L90 66M86 80L94 74" strokeWidth="3" />
+      <path d="M54 100H74" strokeWidth="4" />
+    </svg>
+  );
+}
+
+export function CompassMap({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="64" cy="64" r="44" strokeWidth="4" />
+      <circle cx="64" cy="64" r="6" strokeWidth="4" />
+      <path d="M64 20L74 54L108 64L74 74L64 108L54 74L20 64L54 54Z" strokeWidth="4" />
+      <path d="M64 28L69 59L100 64L69 69L64 100L59 69L28 64L59 59Z" fill="currentColor" opacity="0.18" stroke="none" />
+      <path d="M64 12L64 24M116 64L104 64M64 116L64 104M12 64L24 64" strokeWidth="4" />
+    </svg>
+  );
+}
+
+export function Clock({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="64" cy="64" r="42" strokeWidth="4" />
+      <path d="M64 40V66L80 78" strokeWidth="4" />
+      <path d="M64 18V26M64 102V110M18 64H26M102 64H110" strokeWidth="4" />
+    </svg>
+  );
+}
+
+export function ArrowUp({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 22L92 50H76V98H52V50H36Z" strokeWidth="4" />
+      <path d="M26 90H42M86 90H102" strokeWidth="3" />
+    </svg>
+  );
+}
+
+export function CrestNovice({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 12L100 24V58C100 82 84 100 64 112C44 100 28 82 28 58V24Z" strokeWidth="4" />
+      <path d="M64 30V74" strokeWidth="5" />
+      <path d="M46 42H82" strokeWidth="5" />
+      <path d="M40 94H88" strokeWidth="3" />
+    </svg>
+  );
+}
+
+export function CrestSteel({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 12L100 24V58C100 82 84 100 64 112C44 100 28 82 28 58V24Z" strokeWidth="4" />
+      <path d="M44 34L84 74" strokeWidth="6" />
+      <rect x="36" y="28" width="18" height="14" rx="2" strokeWidth="4" />
+      <path d="M40 94H88" strokeWidth="3" />
+    </svg>
+  );
+}
+
+export function CrestGold({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 12L100 24V58C100 82 84 100 64 112C44 100 28 82 28 58V24Z" strokeWidth="4" />
+      <path d="M64 26L72 52L98 64L72 76L64 102L56 76L30 64L56 52Z" strokeWidth="4" />
+    </svg>
+  );
+}
+
+export function CrestElite({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M64 12L100 24V58C100 82 84 100 64 112C44 100 28 82 28 58V24Z" strokeWidth="4" />
+      <path d="M64 24L70 32L64 40L58 32Z" fill="currentColor" />
+      <path d="M64 86V50M64 50C58 48 54 42 52 36M64 50C70 48 74 42 76 36M52 36C44 38 40 32 38 28M76 36C84 38 88 32 90 28M64 62C56 62 52 68 50 74M64 62C72 62 76 68 78 74" strokeWidth="3.5" />
+      <path d="M50 86H78" strokeWidth="4" />
     </svg>
   );
 }
