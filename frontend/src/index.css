@@ -56,6 +56,126 @@
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* --- Rohan Theme --- */
+[data-realm="rohan"] {
+  --color-surface-dark: #12110d;
+  --color-surface: #1c1a15;
+  --color-surface-light: #2a2720;
+  --color-surface-lighter: #3d382e;
+  --color-text: #e8e2d2;
+  --color-text-muted: #918a76;
+  --color-accent: #d4a843;
+  --color-accent-light: #e6c05a;
+  --color-accent-dark: #b08a30;
+  --color-primary: #d4a843;
+  --color-primary-light: #e6c05a;
+  --color-primary-dark: #b08a30;
+  --color-secondary: #7a9a6b;
+  --color-secondary-light: #96b488;
+  --color-rivendell: #7a9a6b;
+  --color-rivendell-light: #96b488;
+  --color-rivendell-dark: #5c7a50;
+  --color-dwarven: #b87333;
+  --color-dwarven-light: #d4955c;
+  --color-dwarven-dark: #8c5626;
+  --color-success: #7a9a6b;
+  --color-warning: #d4a843;
+  --color-danger: #c45252;
+  --color-info: #8aafcf;
+  --shadow-glow: 0 0 20px rgba(212, 168, 67, 0.08);
+  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* --- Rivendell Theme --- */
+[data-realm="rivendell"] {
+  --color-surface-dark: #0d151a;
+  --color-surface: #151d22;
+  --color-surface-light: #1e2a32;
+  --color-surface-lighter: #2a3a44;
+  --color-text: #dce8ee;
+  --color-text-muted: #7a9aaa;
+  --color-accent: #5ba3a0;
+  --color-accent-light: #7bbfbc;
+  --color-accent-dark: #3d7d7a;
+  --color-primary: #5ba3a0;
+  --color-primary-light: #7bbfbc;
+  --color-primary-dark: #3d7d7a;
+  --color-secondary: #a8b5c4;
+  --color-secondary-light: #c4cdd8;
+  --color-rivendell: #5ba3a0;
+  --color-rivendell-light: #7bbfbc;
+  --color-rivendell-dark: #3d7d7a;
+  --color-dwarven: #8aa0b8;
+  --color-dwarven-light: #a8b8cc;
+  --color-dwarven-dark: #6c849c;
+  --color-success: #5ba88e;
+  --color-warning: #c4a95a;
+  --color-danger: #b85c5c;
+  --color-info: #5ba3a0;
+  --shadow-glow: 0 0 20px rgba(91, 163, 160, 0.08);
+  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Mordor Theme --- */
+[data-realm="mordor"] {
+  --color-surface-dark: #0a0808;
+  --color-surface: #121010;
+  --color-surface-light: #1e1a1a;
+  --color-surface-lighter: #2e2828;
+  --color-text: #e0d6d0;
+  --color-text-muted: #7a6e68;
+  --color-accent: #c44a2b;
+  --color-accent-light: #e06040;
+  --color-accent-dark: #a03820;
+  --color-primary: #c44a2b;
+  --color-primary-light: #e06040;
+  --color-primary-dark: #a03820;
+  --color-secondary: #6b6565;
+  --color-secondary-light: #8a8282;
+  --color-rivendell: #6b6565;
+  --color-rivendell-light: #8a8282;
+  --color-rivendell-dark: #504a4a;
+  --color-dwarven: #c44a2b;
+  --color-dwarven-light: #e06040;
+  --color-dwarven-dark: #a03820;
+  --color-success: #6dba5e;
+  --color-warning: #d4943a;
+  --color-danger: #c44a2b;
+  --color-info: #8a7a6e;
+  --shadow-glow: 0 0 20px rgba(196, 74, 43, 0.12);
+  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Shire Theme --- */
+[data-realm="shire"] {
+  --color-surface-dark: #100e0b;
+  --color-surface: #1a1714;
+  --color-surface-light: #262220;
+  --color-surface-lighter: #36302c;
+  --color-text: #e8e0d4;
+  --color-text-muted: #8e8474;
+  --color-accent: #6d9b4a;
+  --color-accent-light: #88b462;
+  --color-accent-dark: #558038;
+  --color-primary: #6d9b4a;
+  --color-primary-light: #88b462;
+  --color-primary-dark: #558038;
+  --color-secondary: #c49a5c;
+  --color-secondary-light: #d8b47a;
+  --color-rivendell: #6d9b4a;
+  --color-rivendell-light: #88b462;
+  --color-rivendell-dark: #558038;
+  --color-dwarven: #c49a5c;
+  --color-dwarven-light: #d8b47a;
+  --color-dwarven-dark: #a07c44;
+  --color-success: #6d9b4a;
+  --color-warning: #c49a5c;
+  --color-danger: #c45252;
+  --color-info: #7aaa8e;
+  --shadow-glow: 0 0 20px rgba(109, 155, 74, 0.08);
+  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
 /* ============================================================
    BASE STYLES
    ============================================================ */
@@ -130,8 +250,8 @@ html, body, #root {
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(201, 168, 76, 0.15); }
-  50% { box-shadow: 0 0 16px rgba(201, 168, 76, 0.3); }
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 15%, transparent 85%); }
+  50% { box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent 70%); }
 }
 
 @keyframes subtle-shine {
@@ -325,7 +445,7 @@ html, body, #root {
 }
 .btn-gold:hover {
   background: var(--color-accent-light);
-  box-shadow: 0 0 12px rgba(201, 168, 76, 0.2);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 20%, transparent 80%);
 }
 
 .btn-stone {

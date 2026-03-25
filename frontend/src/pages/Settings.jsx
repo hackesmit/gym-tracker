@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer, AlertTriangle, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette } from 'lucide-react';
 import { getManual1RM, updateManual1RM, exportLogs } from '../api/client';
+
+const REALM_INFO = [
+  { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
+  { key: 'rohan',     label: 'Rohan',     icon: '🐴', desc: 'Earthy straw & green',   colors: ['#d4a843', '#1c1a15', '#7a9a6b'] },
+  { key: 'rivendell', label: 'Rivendell', icon: '🌿', desc: 'Silver-teal moonlight',  colors: ['#5ba3a0', '#151d22', '#a8b5c4'] },
+  { key: 'mordor',    label: 'Mordor',    icon: '🔥', desc: 'Ember red & shadow',     colors: ['#c44a2b', '#121010', '#6b6565'] },
+  { key: 'shire',     label: 'Shire',     icon: '🍺', desc: 'Hobbit green & amber',   colors: ['#6d9b4a', '#1a1714', '#c49a5c'] },
+];
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const LIFT_CATEGORIES = [
@@ -27,7 +35,7 @@ function isStale(dateStr) {
 }
 
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm } = useApp();
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
@@ -91,6 +99,42 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Settings</h2>
+
+      <Card title="Realm Theme">
+        <p className="text-sm text-text-muted mb-4">
+          Choose your realm. Each brings its own colors to Middle-earth.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {REALM_INFO.map(({ key, label, icon, desc, colors }) => (
+            <button
+              key={key}
+              onClick={() => setRealm(key)}
+              className={`flex flex-col items-start p-3 rounded-lg border text-left transition-all touch-manipulation ${
+                realm === key
+                  ? 'border-accent bg-accent/10 ring-1 ring-accent/30'
+                  : 'border-surface-lighter bg-surface-light hover:border-text-muted'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{icon}</span>
+                <span className={`text-sm font-semibold ${realm === key ? 'text-accent-light' : 'text-text'}`}>
+                  {label}
+                </span>
+              </div>
+              <div className="flex gap-1 mb-1.5">
+                {colors.map((c, i) => (
+                  <div
+                    key={i}
+                    className="w-5 h-5 rounded-full border border-white/10"
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] text-text-muted leading-tight">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <Card title="Units">
         <p className="text-sm text-text-muted mb-4">

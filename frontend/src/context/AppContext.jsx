@@ -6,8 +6,24 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [programs, setPrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null);
-  // LOTR theme — single realm-based dark theme (no light mode)
-  const theme = 'gondor';
+  // LOTR realm themes
+  const REALMS = ['gondor', 'rohan', 'rivendell', 'mordor', 'shire'];
+  const [realm, setRealmState] = useState(() => localStorage.getItem('gym-realm') || 'gondor');
+  const setRealm = (val) => {
+    setRealmState(val);
+    localStorage.setItem('gym-realm', val);
+    document.documentElement.setAttribute('data-realm', val);
+  };
+  const cycleRealm = () => {
+    const idx = REALMS.indexOf(realm);
+    setRealm(REALMS[(idx + 1) % REALMS.length]);
+  };
+  // Apply realm on mount
+  useEffect(() => {
+    document.documentElement.setAttribute('data-realm', realm);
+  }, []);
+  // Keep backward compat — theme maps to realm
+  const theme = realm;
 
   const [units, setUnitsState] = useState(() => localStorage.getItem('gym-units') || 'lbs');
   const setUnits = (val) => {
@@ -49,7 +65,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       programs, activeProgram, setActiveProgram, refreshPrograms,
-      theme,
+      theme, realm, setRealm, cycleRealm, REALMS,
       units, setUnits, convert, unitLabel,
       defaultRestSeconds, setDefaultRestSeconds,
     }}>

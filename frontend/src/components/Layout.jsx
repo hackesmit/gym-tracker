@@ -4,6 +4,15 @@ import {
   BarChart3, Heart, History, ClipboardList, Settings, Menu, X, Trophy,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useApp } from '../context/AppContext';
+
+const REALM_META = {
+  gondor:    { label: 'Gondor',    icon: '🏰' },
+  rohan:     { label: 'Rohan',     icon: '🐴' },
+  rivendell: { label: 'Rivendell', icon: '🌿' },
+  mordor:    { label: 'Mordor',    icon: '🔥' },
+  shire:     { label: 'Shire',     icon: '🍺' },
+};
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -32,6 +41,8 @@ function AppLogo({ size = 'md' }) {
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { realm, cycleRealm } = useApp();
+  const meta = REALM_META[realm] || REALM_META.gondor;
 
   return (
     <div className="flex min-h-screen">
@@ -61,9 +72,16 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        {/* Subtle bottom ornament */}
-        <div className="p-4 border-t border-surface-lighter">
-          <p className="text-[10px] text-text-muted/40 text-center tracking-widest uppercase">Middle-earth Training</p>
+        {/* Realm toggle */}
+        <div className="p-3 border-t border-surface-lighter">
+          <button
+            onClick={cycleRealm}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-surface-light text-text-muted hover:text-text touch-manipulation"
+            title={`Switch realm (current: ${meta.label})`}
+          >
+            <span className="text-base">{meta.icon}</span>
+            <span className="text-xs tracking-wide">{meta.label}</span>
+          </button>
         </div>
       </aside>
 
@@ -73,7 +91,14 @@ export default function Layout() {
         <h1 className="font-display text-base font-semibold text-accent-light flex items-center gap-2 tracking-wide">
           <AppLogo size="sm" /> Gym Tracker
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={cycleRealm}
+            className="text-base p-2 touch-manipulation"
+            title={`Switch realm (current: ${meta.label})`}
+          >
+            {meta.icon}
+          </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="text-text-muted p-2 -mr-2 touch-manipulation"
