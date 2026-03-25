@@ -141,11 +141,15 @@ class WorkoutLog(Base):
     is_bodyweight: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dropset: Mapped[bool] = mapped_column(Boolean, default=False)
     dropset_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    session_log_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("session_logs.id", ondelete="CASCADE"), nullable=True
+    )
 
     user: Mapped["User"] = relationship(back_populates="workout_logs")
     program_exercise: Mapped["ProgramExercise"] = relationship(
         back_populates="workout_logs"
     )
+    session_log: Mapped["SessionLog | None"] = relationship()
 
 
 class SessionLog(Base):

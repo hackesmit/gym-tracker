@@ -8,10 +8,11 @@ import RestTimer from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import WarmUpPyramid from '../components/WarmUpPyramid';
 import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator';
+import SessionSummary from '../components/SessionSummary';
 import { useApp } from '../context/AppContext';
 import {
   getSchedule, getOverloadPlan, logBulkSession, logBodyMetric, getTracker,
-  swapExercise, getExerciseCatalog,
+  swapExercise, getExerciseCatalog, undoSession,
 } from '../api/client';
 
 /**
@@ -56,6 +57,8 @@ export default function Logger() {
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
   const [pendingRestore, setPendingRestore] = useState(null);
   const [plateCalcWeight, setPlateCalcWeight] = useState(null);
+  const [undoInfo, setUndoInfo] = useState(null); // { sessionLogId, savedSets, timer }
+  const undoTimerRef = useRef(null);
 
   // Refs to skip sets re-init after exercise swap (preserves user-entered data)
   const skipSetsInit = useRef(false);
@@ -257,6 +260,13 @@ export default function Logger() {
       if (result.prs && result.prs.length > 0) {
         setPrList(result.prs);
       }
+      // Start undo timer
+      if (result.session_log_id) {
+        clearTimeout(undoTimerRef.current);
+        const savedCopy = [...sets];
+        setUndoInfo({ sessionLogId: result.session_log_id, savedSets: savedCopy });
+        undoTimerRef.current = setTimeout(() => setUndoInfo(null), 10000);
+      }
     } catch (err) {
       alert(err.message);
     } finally {
@@ -279,6 +289,20 @@ export default function Logger() {
       setMetricsSaved(true);
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!undoInfo) return;
+    try {
+      await undoSession(undoInfo.sessionLogId);
+      clearTimeout(undoTimerRef.current);
+      setSets(undoInfo.savedSets);
+      setSaved(false);
+      setPrList([]);
+      setUndoInfo(null);
+    } catch (err) {
+      alert('Undo failed: ' + err.message);
     }
   };
 
@@ -549,19 +573,16 @@ export default function Logger() {
           )}
 
           {saved ? (
-            <Card>
-              <div className="text-center py-8">
-                <Check className="text-success mx-auto mb-3" size={40} />
-                <p className="text-lg font-medium">Session Logged!</p>
-                <p className="text-sm text-text-muted mt-1">
-                  {sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).length} sets recorded for Week {currentWeek}
-                </p>
-                <button onClick={() => setSaved(false)}
-                  className="mt-4 py-2 px-4 text-sm text-primary hover:text-primary-light touch-manipulation">
-                  Log another session
-                </button>
-              </div>
-            </Card>
+            <SessionSummary
+              sets={sets}
+              prList={prList}
+              sessionName={selectedSession?.session_name || ''}
+              week={currentWeek}
+              units={units}
+              convert={convert}
+              unitLabel={unitLabel}
+              onLogAnother={() => { setSaved(false); setUndoInfo(null); }}
+            />
           ) : (
             <>
               {displayGroups.map((dg, dgIdx) => (
@@ -815,6 +836,19 @@ export default function Logger() {
           unitLabel={unitLabel}
           onClose={() => setPlateCalcWeight(null)}
         />
+      )}
+
+      {/* Undo Snackbar */}
+      {undoInfo && (
+        <div className="fixed bottom-6 left-4 right-4 z-40 flex items-center justify-between bg-surface-light border border-surface-lighter rounded-xl px-4 py-3 shadow-lg max-w-md mx-auto">
+          <span className="text-sm text-text">Session saved</span>
+          <button
+            onClick={handleUndo}
+            className="text-sm font-semibold text-primary hover:text-primary-light touch-manipulation"
+          >
+            UNDO
+          </button>
+        </div>
       )}
 
       {/* PR Celebration Overlay */}

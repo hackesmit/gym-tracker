@@ -63,6 +63,10 @@ export const getLogs = (params = {}) => {
   return request(`/logs?${qs}`);
 };
 
+// Undo session
+export const undoSession = (sessionLogId) =>
+  request(`/log/session/${sessionLogId}`, { method: 'DELETE' });
+
 // Body metrics
 export const logBodyMetric = (data) => request('/body-metrics', { method: 'POST', body: JSON.stringify(data) });
 export const getBodyMetrics = (params = {}) => {

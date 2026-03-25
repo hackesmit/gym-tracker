@@ -8,26 +8,29 @@ import Card from '../components/Card';
 import ProgramUpload from '../components/ProgramUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
-import { getSummary, getTracker, getDeloadCheck } from '../api/client';
+import { getSummary, getTracker, getDeloadCheck, getWorkoutToday } from '../api/client';
 
 export default function Dashboard() {
   const { activeProgram, programs, convert, unitLabel } = useApp();
   const [summary, setSummary] = useState(null);
   const [tracker, setTracker] = useState(null);
   const [deload, setDeload] = useState(null);
+  const [todayWorkout, setTodayWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, t, d] = await Promise.all([
+        const [s, t, d, tw] = await Promise.all([
           getSummary().catch(() => null),
           activeProgram ? getTracker(activeProgram.id).catch(() => null) : null,
           getDeloadCheck().catch(() => null),
+          getWorkoutToday().catch(() => null),
         ]);
         setSummary(s);
         setTracker(t);
         setDeload(d);
+        setTodayWorkout(tw);
       } finally {
         setLoading(false);
       }
@@ -68,6 +71,34 @@ export default function Dashboard() {
           <Dumbbell size={16} /> Log Workout
         </Link>
       </div>
+
+      {/* Today's Workout hero card */}
+      {todayWorkout && (
+        <div className="bg-primary/10 border border-primary/25 rounded-xl p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-primary-light font-semibold mb-1">Today's Workout</p>
+              <h3 className="text-lg font-bold text-text truncate">{todayWorkout.session_name}</h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Week {todayWorkout.week} · {todayWorkout.exercises?.length || 0} exercises
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {todayWorkout.exercises?.slice(0, 5).map((ex, i) => (
+                  <span key={i} className="text-[10px] bg-surface-light px-2 py-0.5 rounded text-text-muted">
+                    {ex.exercise_name || ex.exercise_name_canonical}
+                  </span>
+                ))}
+                {todayWorkout.exercises?.length > 5 && (
+                  <span className="text-[10px] text-text-muted">+{todayWorkout.exercises.length - 5} more</span>
+                )}
+              </div>
+            </div>
+            <Link to="/log" className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-primary rounded-lg text-sm font-medium text-white hover:bg-primary-dark transition-colors">
+              <Dumbbell size={16} /> Start
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

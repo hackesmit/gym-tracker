@@ -241,6 +241,7 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
             is_bodyweight=s.is_bodyweight,
             is_dropset=s.is_dropset,
             dropset_load_kg=s.dropset_load_kg,
+            session_log_id=session_log.id,
         )
         db.add(log)
 
@@ -379,6 +380,45 @@ def list_logs(
         results.append(out)
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Undo session
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/api/log/session/{session_log_id}")
+def undo_session(session_log_id: int, db: Session = Depends(get_db)):
+    """Delete a session and all its workout logs (undo last save)."""
+    session_log = (
+        db.query(SessionLog).filter(SessionLog.id == session_log_id).first()
+    )
+    if not session_log:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    # Delete workout logs linked to this session
+    deleted_count = (
+        db.query(WorkoutLog)
+        .filter(WorkoutLog.session_log_id == session_log_id)
+        .delete(synchronize_session="fetch")
+    )
+
+    # Decrement program progress
+    progress = (
+        db.query(ProgramProgress)
+        .filter(ProgramProgress.program_id == session_log.program_id)
+        .first()
+    )
+    if progress and progress.total_sessions_completed > 0:
+        progress.total_sessions_completed -= 1
+
+    db.delete(session_log)
+    db.commit()
+
+    return {"undone": True, "sets_deleted": deleted_count}
 
 
 # ---------------------------------------------------------------------------
