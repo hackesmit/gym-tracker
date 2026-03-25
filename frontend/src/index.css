@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Deutsch Gothic';
+  src: url('/fonts/Deutsch.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --color-primary: #f59e0b;
   --color-primary-light: #fbbf24;
@@ -20,7 +28,7 @@ body {
   background: #121210;
   color: var(--color-text);
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Deutsch Gothic', 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   -webkit-text-size-adjust: 100%;
 }
