@@ -6,6 +6,8 @@ import {
 import Card from '../components/Card';
 import RestTimer from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
+import WarmUpPyramid from '../components/WarmUpPyramid';
+import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator';
 import { useApp } from '../context/AppContext';
 import {
   getSchedule, getOverloadPlan, logBulkSession, logBodyMetric, getTracker,
@@ -52,6 +54,8 @@ export default function Logger() {
   const [scheduleData, setScheduleData] = useState(null);
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const [plateCalcWeight, setPlateCalcWeight] = useState(null);
 
   // Refs to skip sets re-init after exercise swap (preserves user-entered data)
   const skipSetsInit = useRef(false);
@@ -150,6 +154,7 @@ export default function Logger() {
         (o) => o.exercise_name === exName
       );
       const suggestedLoad = suggestion?.suggested_load_kg;
+      const perSetData = suggestion?.per_set_data || [];
       // Convert suggested load for display if in lbs mode
       const displayLoad = suggestedLoad != null
         ? (units === 'lbs' ? +(suggestedLoad * 2.20462).toFixed(1) : suggestedLoad)
@@ -161,13 +166,26 @@ export default function Logger() {
       const defaultReps = repsMatch ? parseInt(repsMatch[1], 10) : 8;
 
       for (let s = 1; s <= (ex.working_sets || 3); s++) {
+        // Auto-fill: use exact per-set data from last session if available
+        const prevSet = perSetData.find((p) => p.set_number === s);
+        let setLoad = displayLoad;
+        let setReps = defaultReps;
+        let setRpe = ex.prescribed_rpe || '';
+        if (prevSet) {
+          setLoad = units === 'lbs'
+            ? +(prevSet.load_kg * 2.20462).toFixed(1)
+            : prevSet.load_kg;
+          setReps = prevSet.reps_completed;
+          if (prevSet.rpe_actual != null) setRpe = prevSet.rpe_actual;
+        }
+
         newSets.push({
           program_exercise_id: ex.id,
           exercise_name: exName,
           set_number: s,
-          load_kg: displayLoad,
-          reps_completed: defaultReps,
-          rpe_actual: ex.prescribed_rpe || '',
+          load_kg: setLoad,
+          reps_completed: setReps,
+          rpe_actual: setRpe,
           rest_period: ex.rest_period || '',
           is_bodyweight: false,
           is_dropset: false,
@@ -178,8 +196,31 @@ export default function Logger() {
         });
       }
     });
+    // Check localStorage for pending sets from a previous session
+    const storageKey = `gym-pending-${activeProgram?.id}-${currentWeek}-${selectedSession?.session_name}`;
+    try {
+      const pending = localStorage.getItem(storageKey);
+      if (pending) {
+        const parsed = JSON.parse(pending);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPendingRestore({ key: storageKey, sets: parsed });
+          setSets(newSets); // still set defaults so UI isn't empty
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     setSets(newSets);
   }, [selectedSession, overload]);
+
+  // Save in-progress sets to localStorage on every change
+  useEffect(() => {
+    if (!activeProgram || !selectedSession || saved || sets.length === 0) return;
+    const storageKey = `gym-pending-${activeProgram.id}-${currentWeek}-${selectedSession.session_name}`;
+    const hasData = sets.some((s) => s.load_kg && +s.load_kg > 0);
+    if (hasData) {
+      localStorage.setItem(storageKey, JSON.stringify(sets));
+    }
+  }, [sets, activeProgram, currentWeek, selectedSession, saved]);
 
   const updateSet = (idx, field, value) => {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
@@ -209,6 +250,10 @@ export default function Logger() {
       };
       const result = await logBulkSession(payload);
       setSaved(true);
+      // Clear localStorage backup on successful save
+      const storageKey = `gym-pending-${activeProgram.id}-${currentWeek}-${selectedSession.session_name}`;
+      localStorage.removeItem(storageKey);
+      setPendingRestore(null);
       if (result.prs && result.prs.length > 0) {
         setPrList(result.prs);
       }
@@ -482,6 +527,27 @@ export default function Logger() {
             </div>
           )}
 
+          {/* Restore pending sets prompt */}
+          {pendingRestore && !saved && (
+            <div className="bg-info/10 border border-info/25 rounded-xl p-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-info">Unsaved workout found. Restore?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setSets(pendingRestore.sets); setPendingRestore(null); }}
+                  className="px-3 py-1.5 text-xs font-medium bg-info text-white rounded-lg touch-manipulation"
+                >
+                  Restore
+                </button>
+                <button
+                  onClick={() => { localStorage.removeItem(pendingRestore.key); setPendingRestore(null); }}
+                  className="px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text touch-manipulation"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+
           {saved ? (
             <Card>
               <div className="text-center py-8">
@@ -520,6 +586,7 @@ export default function Logger() {
                           >
                             <ArrowLeftRight size={13} />
                           </button>
+                          <PlateCalcButton onClick={() => setPlateCalcWeight(group.sets[0]?.load_kg ? +group.sets[0].load_kg : 0)} />
                           {group.rest_period && group.rest_period !== '0 MINS' && (
                             <span className="ml-auto text-[10px] text-text-muted flex items-center gap-1 shrink-0">
                               <Timer size={10} /> {group.rest_period}
@@ -537,6 +604,11 @@ export default function Logger() {
                             </p>
                           );
                         })()}
+                        <WarmUpPyramid
+                          workingWeight={group.sets[0]?.load_kg ? +group.sets[0].load_kg : 0}
+                          units={units}
+                          unitLabel={unitLabel}
+                        />
                         <div className="space-y-2">
                           {/* Set rows */}
                           {group.sets.map((s) => {
@@ -545,7 +617,7 @@ export default function Logger() {
                             }));
                             return (
                             <div key={s.idx} className="space-y-1.5">
-                              <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end">
+                              <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end relative">
                                 <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
                                 <div className="relative">
                                   <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
@@ -733,6 +805,16 @@ export default function Logger() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Plate Calculator Modal */}
+      {plateCalcWeight != null && plateCalcWeight > 0 && (
+        <PlateCalculator
+          targetWeight={plateCalcWeight}
+          units={units}
+          unitLabel={unitLabel}
+          onClose={() => setPlateCalcWeight(null)}
+        />
       )}
 
       {/* PR Celebration Overlay */}

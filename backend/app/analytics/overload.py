@@ -119,6 +119,17 @@ def suggest_next_session(db: Session, program_exercise_id: int) -> dict:
     latest_date = latest_logs[0].date
     latest_logs = [lg for lg in latest_logs if lg.date == latest_date]
 
+    # Per-set breakdown for auto-fill (exact values from last session).
+    per_set_data = [
+        {
+            "set_number": lg.set_number,
+            "load_kg": round(lg.load_kg, 2),
+            "reps_completed": lg.reps_completed,
+            "rpe_actual": round(lg.rpe_actual, 1) if lg.rpe_actual else None,
+        }
+        for lg in sorted(latest_logs, key=lambda x: x.set_number)
+    ]
+
     # Aggregate last performance across sets.
     loads = [lg.load_kg for lg in latest_logs]
     reps = [lg.reps_completed for lg in latest_logs]
@@ -159,6 +170,7 @@ def suggest_next_session(db: Session, program_exercise_id: int) -> dict:
         "program_exercise_id": pe.id,
         "exercise_name": pe.exercise_name_canonical,
         "last_performance": last_perf,
+        "per_set_data": per_set_data,
         "prescribed": prescribed,
         "suggestion": suggestion,
         "suggested_load_kg": suggested_load,
@@ -319,6 +331,7 @@ def _no_history_response(pe: ProgramExercise) -> dict:
         "program_exercise_id": pe.id,
         "exercise_name": pe.exercise_name_canonical,
         "last_performance": None,
+        "per_set_data": [],
         "prescribed": {
             "reps_range": pe.prescribed_reps,
             "rpe_range": pe.prescribed_rpe or "",

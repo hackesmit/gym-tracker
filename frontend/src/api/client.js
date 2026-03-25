@@ -1,15 +1,38 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `API error ${res.status}`);
+  const maxRetries = options.method && options.method !== 'GET' ? 3 : 1;
+  let lastError;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${BASE}${path}`, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = new Error(body.detail || `API error ${res.status}`);
+        err.status = res.status;
+        // Only retry on 5xx, not 4xx
+        if (res.status >= 500 && attempt < maxRetries - 1) {
+          lastError = err;
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+          continue;
+        }
+        throw err;
+      }
+      return res.json();
+    } catch (err) {
+      lastError = err;
+      // Retry on network errors (no status = fetch failed)
+      if (!err.status && attempt < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+        continue;
+      }
+      throw err;
+    }
   }
-  return res.json();
+  throw lastError;
 }
 
 // Programs
