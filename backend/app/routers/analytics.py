@@ -12,9 +12,15 @@ from ..analytics.recovery import get_recovery_status
 from ..analytics.strength import get_strength_standards
 from ..analytics.volume import get_muscle_balance, get_weekly_tonnage, get_weekly_volume
 from ..database import get_db
-from ..models import Achievement, ExerciseCatalog, ProgramExercise, WorkoutLog
+from ..models import Achievement, ExerciseCatalog, ProgramExercise, User, WorkoutLog
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+def _default_user_id(db: Session) -> int:
+    """Return the first user's ID — mirrors logging._get_default_user."""
+    user = db.query(User).first()
+    return user.id if user else 1
 
 
 @router.get("/progress/{exercise}")
@@ -31,7 +37,7 @@ def exercise_progress(
     )
     exercise_name = catalog.canonical_name if catalog else exercise.upper()
 
-    result = get_exercise_progress(db, exercise_name)
+    result = get_exercise_progress(db, exercise_name, user_id=_default_user_id(db))
     if not result["data_points"]:
         raise HTTPException(
             status_code=404,
@@ -46,7 +52,7 @@ def volume_analytics(
     db: Session = Depends(get_db),
 ):
     """Weekly volume per muscle group over time with MEV/MAV/MRV reference."""
-    return get_weekly_volume(db, weeks_back=weeks_back)
+    return get_weekly_volume(db, user_id=_default_user_id(db), weeks_back=weeks_back)
 
 
 @router.get("/muscle-balance")
@@ -55,14 +61,14 @@ def muscle_balance(
     db: Session = Depends(get_db),
 ):
     """Push:Pull and Quad:Ham ratios."""
-    return get_muscle_balance(db, weeks_back=weeks_back)
+    return get_muscle_balance(db, user_id=_default_user_id(db), weeks_back=weeks_back)
 
 
 @router.get("/strength-standards")
 def strength_standards(db: Session = Depends(get_db)):
     """Compare lifts to population-based strength percentiles."""
     try:
-        return get_strength_standards(db)
+        return get_strength_standards(db, user_id=_default_user_id(db))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -71,7 +77,7 @@ def strength_standards(db: Session = Depends(get_db)):
 def recovery_status(db: Session = Depends(get_db)):
     """Recovery status and per-muscle-group fatigue."""
     try:
-        return get_recovery_status(db)
+        return get_recovery_status(db, user_id=_default_user_id(db))
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
@@ -99,7 +105,7 @@ def overload_plan(
 @router.get("/deload-check")
 def deload_check(db: Session = Depends(get_db)):
     """Check whether a deload week is recommended based on stagnation and recovery."""
-    return get_deload_check(db)
+    return get_deload_check(db, user_id=_default_user_id(db))
 
 
 @router.get("/exercise-catalog")
@@ -123,18 +129,23 @@ def tonnage(
     db: Session = Depends(get_db),
 ):
     """Weekly tonnage (load_kg * reps) over time."""
-    return get_weekly_tonnage(db, weeks_back=weeks_back)
+    return get_weekly_tonnage(db, user_id=_default_user_id(db), weeks_back=weeks_back)
 
 
 @router.get("/summary")
 def dashboard_summary(db: Session = Depends(get_db)):
     """Dashboard summary stats."""
+    uid = _default_user_id(db)
+
     # Total sets logged
-    total_sets = db.query(WorkoutLog).count()
+    total_sets = db.query(WorkoutLog).filter(WorkoutLog.user_id == uid).count()
 
     # Total unique exercises logged
     exercise_ids = (
-        db.query(WorkoutLog.program_exercise_id).distinct().count()
+        db.query(WorkoutLog.program_exercise_id)
+        .filter(WorkoutLog.user_id == uid)
+        .distinct()
+        .count()
     )
 
     # Recent PRs (exercises with new all-time best in last 4 weeks)
@@ -142,13 +153,14 @@ def dashboard_summary(db: Session = Depends(get_db)):
     logged_exercises = (
         db.query(ProgramExercise.exercise_name_canonical)
         .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(WorkoutLog.user_id == uid)
         .distinct()
         .all()
     )
 
     recent_prs = []
     for (name,) in logged_exercises:
-        progress = get_exercise_progress(db, name)
+        progress = get_exercise_progress(db, name, user_id=uid)
         if progress["prs"] and progress["prs"]["is_recent_pr"]:
             recent_prs.append(
                 {
@@ -159,7 +171,7 @@ def dashboard_summary(db: Session = Depends(get_db)):
 
     # Recovery snapshot
     try:
-        recovery = get_recovery_status(db)
+        recovery = get_recovery_status(db, user_id=uid)
     except ValueError:
         recovery = {}
 
@@ -179,7 +191,8 @@ def list_achievements(
     db: Session = Depends(get_db),
 ):
     """List all achievements for the default user."""
-    query = db.query(Achievement).order_by(Achievement.achieved_at.desc())
+    uid = _default_user_id(db)
+    query = db.query(Achievement).filter(Achievement.user_id == uid).order_by(Achievement.achieved_at.desc())
     if type:
         query = query.filter(Achievement.type == type)
     achievements = query.limit(limit).all()
