@@ -36,27 +36,42 @@ gym-tracker/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/client.js     # All API calls (single file)
-│   │   ├── components/       # Card, LoadingSpinner (skeleton), RestTimer
+│   │   ├── components/
+│   │   │   ├── Card.jsx              # Panel with 6 variants (stone, parchment, forged, heraldic, chronicle, rivendell)
+│   │   │   ├── Layout.jsx            # App shell: sidebar nav + mobile header + realm toggle
+│   │   │   ├── LoadingSpinner.jsx    # Skeleton loader ("Waking up server...")
+│   │   │   ├── ErrorMessage.jsx      # Error display
+│   │   │   ├── PlateCalculator.jsx   # Plate loading calculator modal
+│   │   │   ├── ProgramUpload.jsx     # Excel file uploader
+│   │   │   ├── RestTimer.jsx         # Countdown timer + compact bar variant
+│   │   │   ├── SessionSummary.jsx    # Post-session chronicle card
+│   │   │   ├── AchievementToast.jsx  # Toast notifications for achievements
+│   │   │   ├── LotrIcons.jsx         # 11 LOTR SVG icons (Ring, Sword, Shield, Torch, etc.)
+│   │   │   └── RealmBorder.jsx       # Decorative dividers (Gondor, Elven) + PageHeader
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx # Overview + program import
-│   │   │   ├── Tracker.jsx   # Guided workout tracker
-│   │   │   ├── Logger.jsx    # Log sets with dropset + exercise swap UI
-│   │   │   ├── Progress.jsx  # Exercise progress charts
-│   │   │   ├── Analytics.jsx # Volume, tonnage, strength, balance
-│   │   │   ├── Recovery.jsx  # Recovery metrics
-│   │   │   ├── History.jsx   # Past workout sessions browser
-│   │   │   ├── Program.jsx   # Program schedule view
-│   │   │   └── Settings.jsx  # Units (lbs/kg) + rest timer config
-│   │   ├── context/AppContext.jsx  # Global state: programs, units, rest timer
+│   │   │   ├── Dashboard.jsx  # Wisdom quote, Today's Quest, Hall of Records, This Week, Recovery
+│   │   │   ├── Tracker.jsx    # Grid/calendar views, heatmap, adherence stats
+│   │   │   ├── Logger.jsx     # Log sets: auto-fill, warm-up pyramid, plate calc, dropsets, exercise swap
+│   │   │   ├── Progress.jsx   # Per-exercise e1RM charts, projections, PR badges
+│   │   │   ├── Analytics.jsx  # Volume, tonnage, strength spider, DOTS, muscle balance, bodyweight
+│   │   │   ├── Recovery.jsx   # Recovery score, component breakdown, muscle fatigue, trends
+│   │   │   ├── History.jsx    # Chronicle: session browser with expandable details + PR indicator
+│   │   │   ├── Program.jsx    # Program schedule, status lifecycle, exercise details
+│   │   │   ├── Achievements.jsx # Hall of Heroes: PRs, all-time records, milestones, tiered badges
+│   │   │   └── Settings.jsx   # Realm theme picker, units, rest timer, manual 1RM, data export
+│   │   ├── context/AppContext.jsx  # Global state: programs, units, rest timer, realm theme
 │   │   └── hooks/
 │   ├── public/
 │   │   ├── manifest.json     # PWA manifest
+│   │   ├── fonts/Deutsch.ttf # LOTR display font
 │   │   ├── icon.svg          # App icon (dumbbell)
 │   │   └── sw.js             # Service worker (offline caching)
 │   ├── vercel.json           # SPA rewrites
 │   ├── vite.config.js
 │   └── package.json
-├── docs/                     # Design docs
+├── docs/
+│   ├── ideas.md              # Feature roadmap / brainstorm
+│   └── known-bugs.md         # Bug audit and fixes
 ├── data/                     # Local SQLite DB (gitignored)
 └── start-dev.ps1             # Local dev launcher
 ```
@@ -64,15 +79,63 @@ gym-tracker/
 ## Pages / Routes
 | Route | Page | Purpose |
 |---|---|---|
-| `/` | Dashboard | Overview, program import |
-| `/tracker` | Tracker | Guided session tracking |
-| `/log` | Logger | Log sets/reps/weight, dropsets, exercise swap |
-| `/progress` | Progress | Per-exercise progress charts |
-| `/analytics` | Analytics | Volume, tonnage, strength standards, balance |
-| `/recovery` | Recovery | Recovery metrics |
-| `/history` | History | Browse past sessions by date |
-| `/program` | Program | View program schedule |
-| `/settings` | Settings | Units (lbs/kg), rest timer defaults, manual 1RM entry |
+| `/` | Dashboard | Wisdom quote, Today's Quest hero, Hall of Records, This Week stats, Recovery |
+| `/tracker` | Tracker | Grid/calendar session views, training heatmap, adherence stats |
+| `/log` | Logger | Log sets/reps/weight, auto-fill, warm-up pyramid, plate calc, dropsets, exercise swap |
+| `/progress` | Progress | Per-exercise e1RM charts, PR badges, projections |
+| `/analytics` | Analytics | Volume, tonnage, strength standards spider, DOTS, muscle balance |
+| `/recovery` | Recovery | Recovery score, component breakdown, muscle fatigue map |
+| `/history` | Chronicle | Browse past sessions by date, expandable details, PR indicators |
+| `/program` | Program | View program schedule, status lifecycle |
+| `/achievements` | Achievements | Hall of Heroes: recent PRs, all-time records, milestones, tiered badges |
+| `/settings` | Settings | Realm theme picker, units (lbs/kg), rest timer, manual 1RM, data export |
+
+## LOTR Theme System
+Modern fitness tracker with subtle Tolkien atmosphere. Professional visual hierarchy, heraldic iconography, motivational feedback.
+
+### 5 Switchable Realm Themes
+| Realm | Accent | Surfaces | Vibe |
+|---|---|---|---|
+| **Gondor** (default) | Antique gold `#c9a84c` | Dark slate `#1a1d2e` | Noble, regal stone |
+| **Rohan** | Straw gold `#d4a843` | Warm brown `#1c1a15` | Earthy, windswept plains |
+| **Rivendell** | Silver-teal `#5ba3a0` | Deep blue-grey `#151d22` | Ethereal, elven calm |
+| **Mordor** | Ember red `#c44a2b` | Near-black `#121010` | Dark, volcanic menace |
+| **Shire** | Hobbit green `#6d9b4a` | Warm earth `#1a1714` | Cozy, pastoral comfort |
+
+Theme is applied via `data-realm` attribute on `<html>`. Selection persists in localStorage (`gym-realm`). Quick-toggle in nav + full picker in Settings.
+
+### Panel Variants
+- `stone-panel` — default elevated surface
+- `parchment-panel` — warm chronicle-like
+- `forged-panel` — dwarven dark granite + bronze
+- `heraldic-card` — gold-trimmed noble card
+- `rivendell-card` — teal-accented elven surface
+- `chronicle-card` — session summary treatment
+
+### Heraldic Icon System (LotrIcons.jsx)
+| Icon | Usage |
+|---|---|
+| Ring | Estimated 1RM PR |
+| Sword | Strength / weight PR |
+| Shield | Consistency |
+| Torch | Streak |
+| Mountain | Lifetime volume / milestone |
+| Crown | Elite achievement |
+| WhiteTree | Special honor |
+| MapScroll | Program / journey |
+| Chronicle | Session summary / history |
+| Hammer | Dwarven / forging |
+| GondorShield | Gondor realm crest |
+
+### Microcopy
+- PR achieved → "A new record is forged."
+- Session complete → "The day's training is complete."
+- Achievement unlocked → "Honor earned."
+- Streak → "The Watch continues."
+- Primary actions remain clear: Start Workout, Save, Undo, Settings
+
+### Wisdom of Middle-earth (Dashboard)
+Daily Tolkien quote system. 19 quotes (60% epic, 35% wisdom, 5% funny). Deterministic day-index selection with optional refresh button.
 
 ## Local Development
 ```powershell
@@ -99,8 +162,9 @@ No env vars needed locally — SQLite fallback + Vite proxy handle everything.
 - Exercise catalog auto-seeds on startup
 - Excel uploads are parsed immediately and stored in DB — files are ephemeral on Render
 - Default units are **lbs** (stored internally as kg, converted on display)
-- User settings (units, rest timer) persist in localStorage
+- User settings (units, rest timer, realm theme) persist in localStorage
 - Render free tier has ~30s cold starts — skeleton loader handles this with "Waking up server..." message
+- Analytics router uses `_default_user_id(db)` to resolve the actual user — never hardcode `user_id=1`
 
 ## File Responsibilities
 - Database queries/config → `database.py` only
@@ -110,6 +174,9 @@ No env vars needed locally — SQLite fallback + Vite proxy handle everything.
 - New UI components → `components/`
 - New pages → `pages/`
 - Global state/settings → `context/AppContext.jsx`
+- LOTR icons → `components/LotrIcons.jsx`
+- Decorative borders → `components/RealmBorder.jsx`
+- Theme palettes → `index.css` via `[data-realm]` attribute selectors
 
 ## Database Schema (8 tables)
 `users`, `programs`, `program_exercises`, `exercise_catalog`, `workout_logs`, `session_logs`, `program_progress`, `body_metrics`
@@ -147,6 +214,7 @@ See `docs/known-bugs.md` for the original audit. Fixes applied:
 - DB unique constraints on SessionLog + ProgramExercise
 - Recovery score missing-data flag, parser week validation
 - Volume analytics logging for missing catalog entries
+- **Analytics empty data bug** — all analytics functions hardcoded `user_id=1` but logging used `User.first()`. Fixed by adding `_default_user_id()` helper to analytics router.
 
 ## Current Program
 "The Essentials" by Jeff Nippard — 4x/week, 12 weeks. Imported from .xlsx spreadsheet.
