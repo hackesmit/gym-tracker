@@ -400,6 +400,32 @@ def deduplicate_program(program_id: int, db: Session = Depends(get_db)):
             ProgramExercise.id.in_(dup_pe_ids)
         ).delete(synchronize_session="fetch")
 
+    # Step 3: Remove duplicate WorkoutLog entries (same program_exercise_id,
+    # date, set_number). Keep the lowest id.
+    pe_ids_in_program = {ex.id for ex in all_exercises}
+    all_logs = (
+        db.query(WorkoutLog)
+        .filter(WorkoutLog.program_exercise_id.in_(pe_ids_in_program))
+        .order_by(WorkoutLog.id)
+        .all()
+    )
+    log_seen: dict[tuple, int] = {}
+    dup_log_ids: list[int] = []
+    for log in all_logs:
+        key = (log.program_exercise_id, str(log.date), log.set_number)
+        if key in log_seen:
+            dup_log_ids.append(log.id)
+        else:
+            log_seen[key] = log.id
+
+    deleted_dup_logs = 0
+    if dup_log_ids:
+        deleted_dup_logs = (
+            db.query(WorkoutLog)
+            .filter(WorkoutLog.id.in_(dup_log_ids))
+            .delete(synchronize_session="fetch")
+        )
+
     db.commit()
 
     return {
@@ -408,4 +434,5 @@ def deduplicate_program(program_id: int, db: Session = Depends(get_db)):
         "sessions_renamed": renamed_count,
         "duplicate_exercises_removed": len(dup_pe_ids),
         "orphaned_logs_removed": deleted_logs,
+        "duplicate_logs_removed": deleted_dup_logs,
     }
