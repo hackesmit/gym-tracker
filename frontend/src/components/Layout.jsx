@@ -31,7 +31,7 @@ const navItems = [
 
 function AppLogo({ size = 'md' }) {
   const px = size === 'sm' ? 20 : 24;
-  return <Ring size={px} className="text-accent" />;
+  return <img src="/app-logo.png" alt="Logo" width={px} height={px} className="object-contain" />;
 }
 
 export default function Layout() {
@@ -45,7 +45,7 @@ export default function Layout() {
       <aside className="hidden md:flex flex-col w-56 nav-gondor shrink-0">
         <div className="p-4 border-b border-surface-lighter">
           <h1 className="font-display text-lg font-semibold text-accent-light flex items-center gap-2 tracking-wide">
-            <AppLogo /> Gym Tracker
+            <AppLogo /> Anabolic Analyzer
           </h1>
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
@@ -84,7 +84,7 @@ export default function Layout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-surface-lighter px-4 py-3 flex items-center justify-between"
            style={{ borderBottomColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-surface-lighter) 85%)' }}>
         <h1 className="font-display text-base font-semibold text-accent-light flex items-center gap-2 tracking-wide">
-          <AppLogo size="sm" /> Gym Tracker
+          <AppLogo size="sm" /> Anabolic Analyzer
         </h1>
         <div className="flex items-center gap-1">
           <button

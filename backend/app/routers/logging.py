@@ -225,6 +225,28 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
             detail=f"ProgramExercise ids not found: {sorted(missing)}",
         )
 
+    # Check for existing session (same program/week/session_name) and replace
+    existing_session = (
+        db.query(SessionLog)
+        .filter(
+            SessionLog.program_id == payload.program_id,
+            SessionLog.week == payload.week,
+            SessionLog.session_name == payload.session_name,
+        )
+        .first()
+    )
+    is_relog = existing_session is not None
+    if existing_session:
+        # Delete old workout logs and achievements tied to this session
+        db.query(WorkoutLog).filter(
+            WorkoutLog.session_log_id == existing_session.id
+        ).delete(synchronize_session="fetch")
+        db.query(Achievement).filter(
+            Achievement.session_log_id == existing_session.id
+        ).delete(synchronize_session="fetch")
+        db.delete(existing_session)
+        db.flush()
+
     # Create session log
     session_log = SessionLog(
         user_id=user.id,
@@ -258,17 +280,17 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
         )
         db.add(log)
 
-    # Update program progress
+    # Update program progress (only increment if this is a new session, not a relog)
     progress = (
         db.query(ProgramProgress)
         .filter(ProgramProgress.program_id == payload.program_id)
         .first()
     )
     if progress:
-        progress.total_sessions_completed += 1
+        if not is_relog:
+            progress.total_sessions_completed += 1
         progress.last_session_date = payload.date
     else:
-        # Create progress row if it doesn't exist yet
         progress = ProgramProgress(
             program_id=payload.program_id,
             current_week=payload.week,

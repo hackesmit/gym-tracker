@@ -1,6 +1,6 @@
 {
-  "name": "Gym Tracker",
-  "short_name": "GymTracker",
+  "name": "Anabolic Analyzer",
+  "short_name": "AnabolicAnalyzer",
   "description": "Track workouts, progressive overload, and analytics",
   "start_url": "/",
   "display": "standalone",

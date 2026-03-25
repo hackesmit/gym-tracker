@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gym-tracker-v1';
+const CACHE_NAME = 'anabolic-analyzer-v1';
 const STATIC_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
