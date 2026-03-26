@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..analytics.deload import get_deload_check
@@ -12,7 +13,7 @@ from ..analytics.recovery import get_recovery_status
 from ..analytics.strength import get_strength_standards
 from ..analytics.volume import get_muscle_balance, get_weekly_tonnage, get_weekly_volume
 from ..database import get_db
-from ..models import Achievement, ExerciseCatalog, ProgramExercise, User, WorkoutLog
+from ..models import Achievement, ExerciseCatalog, ProgramExercise, SessionLog, User, WorkoutLog
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -169,6 +170,16 @@ def dashboard_summary(db: Session = Depends(get_db)):
                 }
             )
 
+    # Total volume (load_kg * reps_completed) across all logged sets
+    total_vol = db.query(
+        func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed)
+    ).filter(WorkoutLog.user_id == uid).scalar()
+
+    # Total completed sessions
+    total_sessions = db.query(func.count(SessionLog.id)).filter(
+        SessionLog.status == 'completed'
+    ).scalar()
+
     # Recovery snapshot
     try:
         recovery = get_recovery_status(db, user_id=uid)
@@ -181,6 +192,8 @@ def dashboard_summary(db: Session = Depends(get_db)):
         "recent_prs": recent_prs,
         "recovery_score": recovery.get("overall_score"),
         "recovery_recommendation": recovery.get("recommendation", ""),
+        "total_volume_kg": round(total_vol or 0, 1),
+        "total_sessions": total_sessions or 0,
     }
 
 
