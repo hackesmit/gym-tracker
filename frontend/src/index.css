@@ -476,3 +476,31 @@ a:hover .lotr-nav-icon,
   opacity: 1;
   filter: grayscale(0%) drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 40%, transparent 60%));
 }
+
+/* ============================================================
+   JOURNEY PROGRESSION
+   ============================================================ */
+
+.shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+/* Journey connector line between badges */
+.journey-connector {
+  position: relative;
+}
+.journey-connector::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) var(--journey-progress, 0%),
+    var(--color-surface-lighter) var(--journey-progress, 0%)
+  );
+  transform: translateY(-50%);
+  z-index: 0;
+}
