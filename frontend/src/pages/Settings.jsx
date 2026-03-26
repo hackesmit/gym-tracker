@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { kgToDisplay, displayToKg } from '../utils/units';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import Card from '../components/Card';
 import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette } from 'lucide-react';
 import { getManual1RM, updateManual1RM, exportLogs } from '../api/client';
@@ -37,6 +38,7 @@ function isStale(dateStr) {
 
 export default function Settings() {
   const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm } = useApp();
+  const { addToast } = useToast();
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
@@ -86,7 +88,7 @@ export default function Settings() {
       setOrmSaved(true);
       setTimeout(() => setOrmSaved(false), 2000);
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     }
   };
 
@@ -256,7 +258,7 @@ export default function Settings() {
                 const a = document.createElement('a');
                 a.href = url; a.download = 'gym_tracker_export.csv'; a.click();
                 URL.revokeObjectURL(url);
-              } catch { alert('Export failed'); }
+              } catch { addToast('Export failed', 'error'); }
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-surface-light border border-surface-lighter rounded-lg text-sm text-text hover:bg-surface-lighter transition-colors touch-manipulation"
           >
@@ -271,7 +273,7 @@ export default function Settings() {
                 const a = document.createElement('a');
                 a.href = url; a.download = 'gym_tracker_export.json'; a.click();
                 URL.revokeObjectURL(url);
-              } catch { alert('Export failed'); }
+              } catch { addToast('Export failed', 'error'); }
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-surface-light border border-surface-lighter rounded-lg text-sm text-text hover:bg-surface-lighter transition-colors touch-manipulation"
           >

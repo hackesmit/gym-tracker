@@ -11,6 +11,7 @@ import WarmUpPyramid from '../components/WarmUpPyramid';
 import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator';
 import SessionSummary from '../components/SessionSummary';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import {
   getSchedule, getOverloadPlan, logBulkSession, logBodyMetric, getTracker,
   swapExercise, getExerciseCatalog, undoSession,
@@ -44,6 +45,7 @@ function getWeightHint(exerciseName, catalog) {
 
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
+  const { addToast } = useToast();
   const [sessions, setSessions] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -267,7 +269,7 @@ export default function Logger() {
         undoTimerRef.current = setTimeout(() => setUndoInfo(null), 10000);
       }
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -287,7 +289,7 @@ export default function Logger() {
       await logBodyMetric(data);
       setMetricsSaved(true);
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     }
   };
 
@@ -301,7 +303,7 @@ export default function Logger() {
       setPrList([]);
       setUndoInfo(null);
     } catch (err) {
-      alert('Undo failed: ' + err.message);
+      addToast('Undo failed: ' + err.message, 'error');
     }
   };
 
@@ -379,7 +381,7 @@ export default function Logger() {
       if (match) setSelectedSession(match);
       else if (flatSessions.length) setSelectedSession(flatSessions[0]);
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     } finally {
       setSwapTarget(null);
       setSwapSearch('');

@@ -4,6 +4,7 @@ import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy, Trash2, Penc
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { getCalendar, getTrackerWeek, undoSession, updateSessionDate, updateSet } from '../api/client';
 import { Chronicle as ChronicleIcon } from '../components/LotrIcons';
 
@@ -41,6 +42,7 @@ function groupByDate(sessions) {
 
 export default function History() {
   const { activeProgram, convert, unitLabel, units } = useApp();
+  const { addToast } = useToast();
   const [calendar, setCalendar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState(null);
@@ -110,7 +112,7 @@ export default function History() {
       setEditingDate(null);
       reload();
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     }
   };
 
@@ -139,7 +141,7 @@ export default function History() {
         setSessionDetails((prev) => ({ ...prev, [key]: match || null }));
       }
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     }
   };
 
@@ -151,7 +153,7 @@ export default function History() {
       setDeleteConfirm(null);
       reload();
     } catch (err) {
-      alert(err.message);
+      addToast(err.message, 'error');
     }
   };
 

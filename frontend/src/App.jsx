@@ -1,7 +1,9 @@
 import { Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { ToastProvider } from './context/ToastContext';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import ToastContainer from './components/Toast';
 import Dashboard from './pages/Dashboard';
 import Tracker from './pages/Tracker';
 import Logger from './pages/Logger';
@@ -16,22 +18,25 @@ import Achievements from './pages/Achievements';
 export default function App() {
   return (
     <ErrorBoundary>
-    <AppProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tracker" element={<Tracker />} />
-          <Route path="/log" element={<Logger />} />
-          <Route path="/progress" element={<Progress />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/recovery" element={<Recovery />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/program" element={<Program />} />
-          <Route path="/achievements" element={<Achievements />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </AppProvider>
+      <ToastProvider>
+        <AppProvider>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tracker" element={<Tracker />} />
+              <Route path="/log" element={<Logger />} />
+              <Route path="/progress" element={<Progress />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/recovery" element={<Recovery />} />
+              <Route path="/history" element={<History />} />
+              <Route path="/program" element={<Program />} />
+              <Route path="/achievements" element={<Achievements />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </AppProvider>
+        <ToastContainer />
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
