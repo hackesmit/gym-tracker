@@ -16,7 +16,7 @@ const REALM_META = {
 };
 
 /* PNG nav icon — renders an <img> at the given size */
-function LotrNavIcon({ src, size = 18, className = '' }) {
+function LotrNavIcon({ src, size = 22, className = '' }) {
   return (
     <img
       src={src}
@@ -31,7 +31,7 @@ function LotrNavIcon({ src, size = 18, className = '' }) {
 
 /* Wrapper that unifies SVG components and PNG <img> into a single interface */
 function makePngNav(src) {
-  return function PngNavIcon({ size = 18, className = '' }) {
+  return function PngNavIcon({ size = 22, className = '' }) {
     return <LotrNavIcon src={src} size={size} className={className} />;
   };
 }
