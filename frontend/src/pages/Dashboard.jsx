@@ -5,6 +5,7 @@ import {
   ArrowRight, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import Card from '../components/Card';
+import JourneyProgress from '../components/JourneyProgress';
 import ProgramUpload from '../components/ProgramUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
@@ -307,24 +308,11 @@ export default function Dashboard() {
       <div className="grid md:grid-cols-2 gap-4">
         {/* Program progress */}
         {activeProgram && tracker && (
-          <Card title="Journey Progress">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">
-                Week {tracker.current_week} of {tracker.total_weeks || activeProgram.total_weeks}
-              </span>
-              <span className="text-sm font-medium text-accent-light">{completionPct}%</span>
-            </div>
-            <div className="w-full bg-surface-lighter rounded-full h-3">
-              <div
-                className="bg-accent rounded-full h-3 transition-all"
-                style={{ width: `${Math.min(completionPct, 100)}%` }}
-              />
-            </div>
-            <div className="mt-3 flex gap-4 text-xs text-text-muted">
-              <span>{tracker.completed} sessions completed</span>
-              {tracker.current_streak > 0 && (
-                <span className="text-success">{tracker.current_streak} session streak</span>
-              )}
+          <Card title="The Journey" variant="parchment">
+            <JourneyProgress sessionCount={tracker?.completed ?? 0} />
+            <div className="mt-3 pt-3 border-t border-surface-lighter flex items-center justify-between text-xs text-text-muted">
+              <span>Week {tracker.current_week} of {tracker.total_weeks || activeProgram.total_weeks}</span>
+              <span className="text-accent-light font-medium">{completionPct}% program complete</span>
             </div>
           </Card>
         )}
