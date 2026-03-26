@@ -8,7 +8,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { useApp } from '../context/AppContext';
-import { getProgress, getSchedule, getExerciseCatalog } from '../api/client';
+import { getProgress, getSchedule, getExerciseCatalog, getStrengthStandards } from '../api/client';
 import { exportToCSV } from '../utils/export';
 
 export default function Progress() {
@@ -20,6 +20,7 @@ export default function Progress() {
   const [search, setSearch] = useState('');
 
   const [muscleMap, setMuscleMap] = useState({});
+  const [strengthGrades, setStrengthGrades] = useState({});
 
   // Load exercise list from schedule + catalog for muscle grouping
   useEffect(() => {
@@ -27,7 +28,8 @@ export default function Progress() {
     Promise.all([
       getSchedule(activeProgram.id),
       getExerciseCatalog().catch(() => []),
-    ]).then(([res, catalog]) => {
+      getStrengthStandards().catch(() => null),
+    ]).then(([res, catalog, standards]) => {
       const names = new Set();
       const schedule = res.schedule || {};
       Object.values(schedule).forEach((weekSessions) => {
@@ -45,6 +47,24 @@ export default function Progress() {
         mMap[c.name] = c.muscle_group;
       });
       setMuscleMap(mMap);
+
+      // Build reverse lookup: exercise name → strength grade
+      const grades = {};
+      if (standards?.lifts) {
+        Object.entries(standards.lifts).forEach(([category, info]) => {
+          if (info.source_exercise && info.classification) {
+            grades[info.source_exercise.toUpperCase()] = {
+              category,
+              classification: info.classification,
+              percentile: info.percentile_estimate,
+              confidence: info.confidence?.label,
+              ratio: info.ratio,
+              isStale: info.is_stale,
+            };
+          }
+        });
+      }
+      setStrengthGrades(grades);
 
       const sorted = [...names].sort();
       setExercises(sorted);
@@ -74,6 +94,9 @@ export default function Progress() {
 
   const projections = data?.projections;
   const prs = data?.prs;
+
+  // Strength standard grade for selected exercise (case-insensitive match)
+  const strengthGrade = selected ? strengthGrades[selected.toUpperCase()] : null;
 
   return (
     <div className="space-y-6">
@@ -164,7 +187,48 @@ export default function Progress() {
                       <div className="text-[10px] text-text-muted">In the last 4 weeks</div>
                     </Card>
                   )}
+                  {strengthGrade && (
+                    <Card>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          strengthGrade.classification === 'elite' ? 'bg-accent' :
+                          strengthGrade.classification === 'advanced' ? 'bg-success' :
+                          strengthGrade.classification === 'intermediate' ? 'bg-info' :
+                          strengthGrade.classification === 'novice' ? 'bg-secondary' :
+                          'bg-text-muted'
+                        }`} />
+                        <div>
+                          <div className="text-sm font-bold capitalize">{strengthGrade.classification}</div>
+                          <div className="text-[10px] text-text-muted capitalize">{strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}x BW</div>
+                        </div>
+                      </div>
+                      {strengthGrade.isStale && (
+                        <div className="text-[9px] text-warning mt-1">Data is stale (&gt;12 weeks)</div>
+                      )}
+                    </Card>
+                  )}
                 </div>
+              )}
+
+              {/* Strength standard (standalone if no PR data) */}
+              {strengthGrade && !(prs && prs.all_time_e1rm) && (
+                <Card>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      strengthGrade.classification === 'elite' ? 'bg-accent' :
+                      strengthGrade.classification === 'advanced' ? 'bg-success' :
+                      strengthGrade.classification === 'intermediate' ? 'bg-info' :
+                      strengthGrade.classification === 'novice' ? 'bg-secondary' :
+                      'bg-text-muted'
+                    }`} />
+                    <div>
+                      <div className="text-sm font-bold capitalize">{strengthGrade.classification}</div>
+                      <div className="text-[10px] text-text-muted capitalize">
+                        Strength Standard · {strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}x BW
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
 
               {/* Chart */}
