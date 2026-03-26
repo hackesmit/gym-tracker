@@ -177,7 +177,8 @@ def dashboard_summary(db: Session = Depends(get_db)):
 
     # Total completed sessions
     total_sessions = db.query(func.count(SessionLog.id)).filter(
-        SessionLog.status == 'completed'
+        SessionLog.status == 'completed',
+        SessionLog.user_id == uid,
     ).scalar()
 
     # Recovery snapshot

@@ -57,15 +57,14 @@ function prIcon(type) {
   return <Trophy size={18} className="text-accent" />;
 }
 
-/* ─── Journey rank from total sessions ─── */
+/* ─── Journey rank from total sessions (aligned with JourneyProgress stages) ─── */
 const JOURNEY_RANKS = [
-  { min: 500, label: 'Bearer of the Ring' },
+  { min: 500, label: 'Ring Bearer' },
   { min: 200, label: 'Minas Tirith' },
-  { min: 100, label: "Helm's Deep" },
+  { min: 100, label: 'Moria' },
   { min: 50,  label: 'Lothlórien' },
   { min: 25,  label: 'Misty Mountains' },
   { min: 10,  label: 'Rivendell' },
-  { min: 1,   label: 'Bree' },
   { min: 0,   label: 'The Shire' },
 ];
 

@@ -3,7 +3,7 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import {
   TodaysQuest, EyeOfSauron, Lembas,
-  Chronicle as ChronicleIcon, SettingsGear, Ring,
+  Chronicle as ChronicleIcon, SettingsGear,
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
 
