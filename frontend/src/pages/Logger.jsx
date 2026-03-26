@@ -13,23 +13,10 @@ import SessionSummary from '../components/SessionSummary';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import {
-  getSchedule, getOverloadPlan, logBulkSession, logBodyMetric, getTracker,
-  swapExercise, getExerciseCatalog, undoSession,
+  logBulkSession, logBodyMetric, undoSession,
 } from '../api/client';
-
-/**
- * Transform the nested schedule response into a flat sessions array for a given week.
- * Backend returns: { schedule: { weekNum: { sessionName: [exercises] } } }
- * We need: [{ session_name, exercises: [...] }]
- */
-function flattenScheduleForWeek(scheduleResponse, week) {
-  const schedule = scheduleResponse?.schedule || {};
-  const weekData = schedule[week] || schedule[String(week)] || {};
-  return Object.entries(weekData).map(([sessionName, exercises]) => ({
-    session_name: sessionName,
-    exercises,
-  }));
-}
+import useLoggerSession from '../hooks/useLoggerSession';
+import useExerciseSwap from '../hooks/useExerciseSwap';
 
 function getWeightHint(exerciseName, catalog) {
   if (!catalog || !catalog.length) return null;
@@ -46,34 +33,39 @@ function getWeightHint(exerciseName, catalog) {
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
   const { addToast } = useToast();
-  const [sessions, setSessions] = useState([]);
-  const [currentWeek, setCurrentWeek] = useState(1);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [overload, setOverload] = useState(null);
+
+  // --- Hook 1: session / schedule / overload state ---
+  const {
+    sessions,
+    setSessions,
+    currentWeek,
+    setCurrentWeek,
+    selectedSession,
+    setSelectedSession,
+    overload,
+    setOverload,
+    scheduleData,
+    setScheduleData,
+    loading,
+    pendingRestore,
+    setPendingRestore,
+    catalogData,
+    setCatalogData,
+    skipSetsInit,
+    swapInProgress,
+    changeWeek,
+  } = useLoggerSession(activeProgram, units);
+
+  // --- Local Logger state ---
   const [sets, setSets] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('workout'); // workout | metrics
-  const [scheduleData, setScheduleData] = useState(null);
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
-  const [pendingRestore, setPendingRestore] = useState(null);
   const [plateCalcWeight, setPlateCalcWeight] = useState(null);
   const [undoInfo, setUndoInfo] = useState(null); // { sessionLogId, savedSets, timer }
   const undoTimerRef = useRef(null);
-
-  // Refs to skip sets re-init after exercise swap (preserves user-entered data)
-  const skipSetsInit = useRef(false);
-  const swapInProgress = useRef(false);
-
-  // Exercise swap state
-  const [swapTarget, setSwapTarget] = useState(null); // exercise name being swapped
-  const [swapCatalog, setSwapCatalog] = useState([]);
-  const [swapSearch, setSwapSearch] = useState('');
-  const [swapLoading, setSwapLoading] = useState(false);
-  const [swapMuscleGroup, setSwapMuscleGroup] = useState(null);
-  const [showAllMuscleGroups, setShowAllMuscleGroups] = useState(false);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -82,68 +74,24 @@ export default function Logger() {
   });
   const [metricsSaved, setMetricsSaved] = useState(false);
 
-  useEffect(() => {
-    if (!activeProgram) { setLoading(false); return; }
-
-    const load = async () => {
-      try {
-        const [scheduleRes, trackerRes] = await Promise.all([
-          getSchedule(activeProgram.id),
-          getTracker(activeProgram.id).catch(() => null),
-        ]);
-
-        setScheduleData(scheduleRes);
-
-        // Use tracker's current week, fallback to 1
-        const week = trackerRes?.current_week || 1;
-        setCurrentWeek(week);
-
-        // If tracker has a next_session, use its week
-        const nextWeek = trackerRes?.next_session?.week || week;
-        setCurrentWeek(nextWeek);
-
-        const flatSessions = flattenScheduleForWeek(scheduleRes, nextWeek);
-        setSessions(flatSessions);
-
-        // Pre-select the next session from tracker, or first available
-        const nextSessionName = trackerRes?.next_session?.session_name;
-        const match = flatSessions.find((s) => s.session_name === nextSessionName);
-        if (match) {
-          setSelectedSession(match);
-        } else if (flatSessions.length) {
-          setSelectedSession(flatSessions[0]);
-        }
-        // Pre-fetch exercise catalog for weight hints and swap modal
-        getExerciseCatalog()
-          .then((res) => setSwapCatalog(Array.isArray(res) ? res : res.exercises || []))
-          .catch(() => {});
-      } catch {
-        // Silently fail — user sees empty state
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [activeProgram]);
-
-  // Load overload suggestions when session changes
-  useEffect(() => {
-    if (!activeProgram || !selectedSession) return;
-    const isSwap = swapInProgress.current;
-    getOverloadPlan(activeProgram.id, currentWeek, selectedSession.session_name)
-      .then((data) => {
-        setOverload(data);
-        if (isSwap) {
-          // Overload updated after a swap — skip the sets-init effect it triggers
-          skipSetsInit.current = true;
-          swapInProgress.current = false;
-        }
-      })
-      .catch(() => {
-        setOverload(null);
-        swapInProgress.current = false;
-      });
-  }, [activeProgram, selectedSession, currentWeek]);
+  // --- Hook 2: exercise swap modal ---
+  const {
+    swapTarget,
+    swapSearch,
+    setSwapSearch,
+    swapLoading,
+    swapMuscleGroup,
+    showAllMuscleGroups,
+    setShowAllMuscleGroups,
+    filteredCatalog,
+    openSwapModal,
+    handleSwapSelect,
+    closeSwapModal,
+  } = useExerciseSwap(activeProgram, swapInProgress, {
+    currentWeek, selectedSession, setSelectedSession,
+    setSessions, setScheduleData, setSets, setCatalogData, catalogData,
+    skipSetsInit,
+  });
 
   // Initialize sets when session or overload changes
   useEffect(() => {
@@ -230,6 +178,12 @@ export default function Logger() {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
+  // Wrap changeWeek to also reset saved state
+  const handleChangeWeek = (newWeek) => {
+    changeWeek(newWeek);
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     if (!activeProgram || !selectedSession || !sets.length) return;
     setSaving(true);
@@ -306,99 +260,6 @@ export default function Logger() {
       addToast('Undo failed: ' + err.message, 'error');
     }
   };
-
-  // Change displayed week
-  const changeWeek = (newWeek) => {
-    if (!scheduleData || newWeek < 1 || newWeek > (activeProgram?.total_weeks || 12)) return;
-    setCurrentWeek(newWeek);
-    const flatSessions = flattenScheduleForWeek(scheduleData, newWeek);
-    setSessions(flatSessions);
-    if (flatSessions.length) setSelectedSession(flatSessions[0]);
-    setSaved(false);
-  };
-
-  // Open swap modal — fetch catalog on first open
-  const openSwapModal = async (exerciseName) => {
-    setSwapTarget(exerciseName);
-    setSwapSearch('');
-    setShowAllMuscleGroups(false);
-
-    let catalog = swapCatalog;
-    if (catalog.length === 0) {
-      setSwapLoading(true);
-      try {
-        const res = await getExerciseCatalog();
-        catalog = Array.isArray(res) ? res : res.exercises || [];
-        setSwapCatalog(catalog);
-      } catch {
-        setSwapCatalog([]);
-        catalog = [];
-      } finally {
-        setSwapLoading(false);
-      }
-    }
-
-    // Default-filter to same muscle group as exercise being swapped
-    const match = catalog.find((ex) => {
-      const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
-      return name === exerciseName;
-    });
-    setSwapMuscleGroup(match?.muscle_group || null);
-  };
-
-  const handleSwapSelect = async (newName) => {
-    if (!activeProgram || !swapTarget || newName === swapTarget) return;
-    try {
-      await swapExercise(activeProgram.id, swapTarget, newName);
-      // Refresh schedule data
-      const scheduleRes = await getSchedule(activeProgram.id);
-      setScheduleData(scheduleRes);
-      const flatSessions = flattenScheduleForWeek(scheduleRes, currentWeek);
-      setSessions(flatSessions);
-
-      // Update sets in-place: rename the swapped exercise but keep user-entered data
-      setSets((prev) => prev.map((s) => {
-        if (s.exercise_name === swapTarget) {
-          // Find the new exercise in the updated session to get its id
-          const match = flatSessions.find((fs) => fs.session_name === selectedSession?.session_name);
-          const newEx = match?.exercises?.find((e) => (e.exercise_name || e.exercise_name_canonical) === newName);
-          return {
-            ...s,
-            exercise_name: newName,
-            program_exercise_id: newEx?.id ?? s.program_exercise_id,
-          };
-        }
-        return s;
-      }));
-
-      // Skip the sets-init effect since we already updated sets manually
-      // swapInProgress stays true until overload refetch completes (prevents second wipe)
-      skipSetsInit.current = true;
-      swapInProgress.current = true;
-
-      // Re-select the same session by name
-      const match = flatSessions.find((s) => s.session_name === selectedSession?.session_name);
-      if (match) setSelectedSession(match);
-      else if (flatSessions.length) setSelectedSession(flatSessions[0]);
-    } catch (err) {
-      addToast(err.message, 'error');
-    } finally {
-      setSwapTarget(null);
-      setSwapSearch('');
-    }
-  };
-
-  // Filtered catalog for swap search — default-filtered by muscle group
-  const filteredCatalog = swapCatalog.filter((ex) => {
-    const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
-    if (name === swapTarget) return false;
-    if (!name.toLowerCase().includes(swapSearch.toLowerCase())) return false;
-    if (!showAllMuscleGroups && swapMuscleGroup) {
-      const mg = typeof ex === 'string' ? '' : ex.muscle_group || '';
-      if (mg !== swapMuscleGroup) return false;
-    }
-    return true;
-  });
 
   if (loading) return <LoadingSpinner />;
 
@@ -496,12 +357,12 @@ export default function Logger() {
         <>
           {/* Week selector */}
           <div className="flex items-center justify-center gap-4">
-            <button onClick={() => changeWeek(currentWeek - 1)} disabled={currentWeek <= 1}
+            <button onClick={() => handleChangeWeek(currentWeek - 1)} disabled={currentWeek <= 1}
               className="p-2.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30 touch-manipulation">
               <ChevronLeft size={20} />
             </button>
             <span className="text-sm font-medium min-w-[5rem] text-center">Week {currentWeek}</span>
-            <button onClick={() => changeWeek(currentWeek + 1)} disabled={currentWeek >= (activeProgram?.total_weeks || 12)}
+            <button onClick={() => handleChangeWeek(currentWeek + 1)} disabled={currentWeek >= (activeProgram?.total_weeks || 12)}
               className="p-2.5 rounded-lg bg-surface-light text-text-muted hover:text-text disabled:opacity-30 touch-manipulation">
               <ChevronRight size={20} />
             </button>
@@ -644,7 +505,7 @@ export default function Logger() {
                                 <div className="relative">
                                   <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
                                     {unitLabel}{(() => {
-                                      const hint = getWeightHint(s.exercise_name, swapCatalog);
+                                      const hint = getWeightHint(s.exercise_name, catalogData);
                                       return hint ? ` ${hint}` : '';
                                     })()}
                                   </label>
@@ -696,7 +557,7 @@ export default function Logger() {
                               </div>
                               {s.is_dropset && (
                                 <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
-                                  <span className="text-[9px] text-warning text-center pb-2">↳</span>
+                                  <span className="text-[9px] text-warning text-center pb-2">&#8627;</span>
                                   <div className="relative">
                                     <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop {unitLabel}</label>
                                     <input
@@ -762,12 +623,12 @@ export default function Logger() {
       {/* Exercise Swap Modal */}
       {swapTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setSwapTarget(null)}>
+          onClick={closeSwapModal}>
           <div className="bg-surface border border-surface-lighter rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl max-h-[70vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-text">Swap Exercise</h3>
-              <button onClick={() => setSwapTarget(null)}
+              <button onClick={closeSwapModal}
                 className="text-text-muted hover:text-text p-1 touch-manipulation">
                 <X size={18} />
               </button>
