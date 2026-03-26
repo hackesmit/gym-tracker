@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Trophy, Award, Target, Flame, Star } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getAchievements } from '../api/client';
+import JourneyProgress from '../components/JourneyProgress';
+import { getAchievements, getSummary } from '../api/client';
 import { useApp } from '../context/AppContext';
 
 /* ─── Icon mapping by type ─── */
@@ -73,13 +74,17 @@ function formatDate(iso) {
 export default function Achievements() {
   const { convert, unitLabel } = useApp();
   const [achievements, setAchievements] = useState([]);
+  const [sessionCount, setSessionCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAchievements()
-      .then(setAchievements)
-      .catch(() => setAchievements([]))
-      .finally(() => setLoading(false));
+    Promise.all([
+      getAchievements().catch(() => []),
+      getSummary().catch(() => null),
+    ]).then(([achList, summary]) => {
+      setAchievements(achList);
+      setSessionCount(summary?.total_sessions ?? 0);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSpinner />;
@@ -121,6 +126,11 @@ export default function Achievements() {
           <div className="flex-1 h-px bg-gradient-to-l from-accent/40 via-accent/20 to-transparent" />
         </div>
       </div>
+
+      {/* ─── Journey Progression ─── */}
+      <Card title="The Journey" variant="parchment">
+        <JourneyProgress sessionCount={sessionCount} />
+      </Card>
 
       {/* Hall of Records — Recent PRs (Dwarven) */}
       <Card title="Hall of Records — Recent PRs" variant="dwarven">
