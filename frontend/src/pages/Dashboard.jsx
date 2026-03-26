@@ -56,6 +56,22 @@ function prIcon(type) {
   return <Trophy size={18} className="text-accent" />;
 }
 
+/* ─── Journey rank from total sessions ─── */
+const JOURNEY_RANKS = [
+  { min: 500, label: 'Bearer of the Ring' },
+  { min: 200, label: 'Minas Tirith' },
+  { min: 100, label: "Helm's Deep" },
+  { min: 50,  label: 'Lothlórien' },
+  { min: 25,  label: 'Misty Mountains' },
+  { min: 10,  label: 'Rivendell' },
+  { min: 1,   label: 'Bree' },
+  { min: 0,   label: 'The Shire' },
+];
+
+function getJourneyRank(sessionCount) {
+  return JOURNEY_RANKS.find(r => sessionCount >= r.min) || JOURNEY_RANKS[JOURNEY_RANKS.length - 1];
+}
+
 export default function Dashboard() {
   const { activeProgram, programs, convert, unitLabel } = useApp();
   const [summary, setSummary] = useState(null);
@@ -106,17 +122,44 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Dashboard</h2>
-          <p className="text-text-muted text-sm mt-1">
-            {activeProgram?.name || 'No active program'}
-          </p>
+      {/* ─── Header bar ─── */}
+      <div className="heraldic-card p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <img
+              src="/lotr/logo.jpg"
+              alt=""
+              width={48}
+              height={48}
+              className="rounded-full object-cover shrink-0 hidden sm:block"
+            />
+            <div className="min-w-0">
+              <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-wide truncate">
+                {activeProgram?.name || 'Dashboard'}
+              </h2>
+              <p className="text-xs text-accent font-display tracking-wider mt-0.5">
+                Journey Rank: {getJourneyRank(tracker?.completed ?? 0).label}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+            <div className="text-center hidden sm:block">
+              <div className="text-lg font-bold text-text">{tracker?.current_streak ?? 0}</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Streak</div>
+            </div>
+            <div className="text-center hidden sm:block">
+              <div className="text-lg font-bold text-text">
+                {summary?.total_volume_kg != null
+                  ? `${Math.round(convert(summary.total_volume_kg)).toLocaleString()}`
+                  : '--'}
+              </div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Volume ({unitLabel})</div>
+            </div>
+            <Link to="/log" className="flex items-center gap-2 px-4 py-2.5 btn-gold text-sm">
+              <Dumbbell size={16} /> Log
+            </Link>
+          </div>
         </div>
-        <Link to="/log" className="flex items-center gap-2 px-4 py-2.5 btn-gold text-sm">
-          <Dumbbell size={16} /> Log Workout
-        </Link>
       </div>
 
       {/* ─── 1. Wisdom of Middle-earth ─── */}
