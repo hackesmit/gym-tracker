@@ -30,8 +30,16 @@ const navItems = [
 ];
 
 function AppLogo({ size = 'md' }) {
-  const px = size === 'sm' ? 20 : 24;
-  return <img src="/app-logo.png" alt="Logo" width={px} height={px} className="object-contain" />;
+  const px = size === 'sm' ? 28 : 36;
+  return (
+    <img
+      src="/lotr/logo.jpg"
+      alt="Anabolic Analyzer"
+      width={px}
+      height={px}
+      className="rounded-full object-cover"
+    />
+  );
 }
 
 export default function Layout() {
