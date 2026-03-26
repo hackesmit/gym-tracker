@@ -459,3 +459,20 @@ html, body, #root {
   background: var(--color-surface-lighter);
   border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-lighter) 70%);
 }
+
+/* ============================================================
+   LOTR PNG NAV ICONS
+   ============================================================ */
+
+.lotr-nav-icon {
+  opacity: 0.7;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+  filter: grayscale(20%);
+}
+
+/* Brighten on hover (parent link handles hover) */
+a:hover .lotr-nav-icon,
+.nav-active .lotr-nav-icon {
+  opacity: 1;
+  filter: grayscale(0%) drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 40%, transparent 60%));
+}

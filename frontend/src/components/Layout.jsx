@@ -2,9 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import {
-  TodaysQuest, EyeOfSauron, Barbell, ArrowUp,
-  Mountain, Lembas, Chronicle as ChronicleIcon, MapScroll,
-  Trophy, SettingsGear, Ring,
+  TodaysQuest, EyeOfSauron, Lembas,
+  Chronicle as ChronicleIcon, SettingsGear, Ring,
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
 
@@ -16,17 +15,44 @@ const REALM_META = {
   shire:     { label: 'Shire',     icon: '🍺' },
 };
 
+/* PNG nav icon — renders an <img> at the given size */
+function LotrNavIcon({ src, size = 18, className = '' }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className={`lotr-nav-icon object-contain ${className}`}
+      draggable={false}
+    />
+  );
+}
+
+/* Wrapper that unifies SVG components and PNG <img> into a single interface */
+function makePngNav(src) {
+  return function PngNavIcon({ size = 18, className = '' }) {
+    return <LotrNavIcon src={src} size={size} className={className} />;
+  };
+}
+
+const NavHornBlow = makePngNav('/lotr/nav-horn-blow.png');
+const NavAxe      = makePngNav('/lotr/nav-axe.png');
+const NavEye      = makePngNav('/lotr/nav-eye.png');
+const NavHorn     = makePngNav('/lotr/nav-horn.png');
+const NavHand     = makePngNav('/lotr/nav-hand.png');
+
 const navItems = [
-  { to: '/', icon: TodaysQuest, label: 'Dashboard' },
-  { to: '/tracker', icon: EyeOfSauron, label: 'Tracker' },
-  { to: '/log', icon: Barbell, label: 'Log Workout' },
-  { to: '/progress', icon: ArrowUp, label: 'Progress' },
-  { to: '/analytics', icon: Mountain, label: 'Analytics' },
-  { to: '/recovery', icon: Lembas, label: 'Recovery' },
-  { to: '/history', icon: ChronicleIcon, label: 'Chronicle' },
-  { to: '/program', icon: MapScroll, label: 'Program' },
-  { to: '/achievements', icon: Trophy, label: 'Achievements' },
-  { to: '/settings', icon: SettingsGear, label: 'Settings' },
+  { to: '/',              icon: TodaysQuest,   label: 'Dashboard' },
+  { to: '/tracker',       icon: EyeOfSauron,   label: 'Tracker' },
+  { to: '/log',           icon: NavHornBlow,   label: 'Log Workout' },
+  { to: '/progress',      icon: NavAxe,        label: 'Progress' },
+  { to: '/analytics',     icon: NavEye,        label: 'Analytics' },
+  { to: '/recovery',      icon: Lembas,        label: 'Recovery' },
+  { to: '/history',       icon: ChronicleIcon, label: 'Chronicle' },
+  { to: '/program',       icon: NavHorn,       label: 'Program' },
+  { to: '/achievements',  icon: NavHand,       label: 'Achievements' },
+  { to: '/settings',      icon: SettingsGear,  label: 'Settings' },
 ];
 
 function AppLogo({ size = 'md' }) {
@@ -70,7 +96,7 @@ export default function Layout() {
                 }`
               }
             >
-              <Icon size={18} />
+              <Icon size={22} />
               {label}
             </NavLink>
           ))}
@@ -129,7 +155,7 @@ export default function Layout() {
                   }`
                 }
               >
-                <Icon size={18} />
+                <Icon size={22} />
                 {label}
               </NavLink>
             ))}
