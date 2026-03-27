@@ -139,6 +139,7 @@ export default function Logger() {
           reps_completed: setReps,
           rpe_actual: setRpe,
           rest_period: ex.rest_period || '',
+          warm_up_sets: ex.warm_up_sets || '',
           is_bodyweight: false,
           is_dropset: false,
           dropset_load_kg: '',
@@ -280,6 +281,7 @@ export default function Logger() {
         is_superset: s.is_superset,
         superset_group: s.superset_group,
         rest_period: s.rest_period,
+        warm_up_sets: s.warm_up_sets,
       });
       currentEx = s.exercise_name;
     }
@@ -470,6 +472,11 @@ export default function Logger() {
                             <ArrowLeftRight size={13} />
                           </button>
                           <PlateCalcButton onClick={() => setPlateCalcWeight(group.sets[0]?.load_kg ? +group.sets[0].load_kg : 0)} />
+                          {group.warm_up_sets && group.warm_up_sets !== '0' && (
+                            <span className="text-[10px] text-text-muted shrink-0">
+                              {group.warm_up_sets} warm-up
+                            </span>
+                          )}
                           {group.rest_period && group.rest_period !== '0 MINS' && (
                             <span className="ml-auto text-[10px] text-text-muted flex items-center gap-1 shrink-0">
                               <Timer size={10} /> {group.rest_period}
