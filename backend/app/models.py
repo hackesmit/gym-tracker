@@ -40,6 +40,7 @@ class User(Base):
     workout_logs: Mapped[list["WorkoutLog"]] = relationship(back_populates="user")
     session_logs: Mapped[list["SessionLog"]] = relationship(back_populates="user")
     body_metrics: Mapped[list["BodyMetric"]] = relationship(back_populates="user")
+    vacation_periods: Mapped[list["VacationPeriod"]] = relationship(back_populates="user")
 
 
 class Program(Base):
@@ -242,3 +243,20 @@ class Achievement(Base):
     achieved_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
+
+
+class VacationPeriod(Base):
+    __tablename__ = "vacation_periods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="vacation_periods")
