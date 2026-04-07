@@ -85,13 +85,19 @@ def _session_logs_map(
     return {(log.week, log.session_name): log for log in logs}
 
 
-def _compute_current_week(program: Program, today: date) -> int:
-    """Compute the current week number (1-based, capped at total_weeks)."""
-    if program.start_date > today:
-        return 1
-    elapsed_days = (today - program.start_date).days
-    week = (elapsed_days // 7) + 1
-    return min(week, program.total_weeks)
+def _compute_current_week(
+    sessions_by_week: dict[int, list[dict]],
+    logs_map: dict[tuple[int, str], "SessionLog"],
+    total_weeks: int,
+) -> int:
+    """Current week = first week with any uncompleted session (completion-based)."""
+    for week_num in range(1, total_weeks + 1):
+        for sess in sessions_by_week.get(week_num, []):
+            key = (week_num, sess["session_name"])
+            log = logs_map.get(key)
+            if not log or log.status not in ("completed", "skipped"):
+                return week_num
+    return total_weeks
 
 
 def _sets_logged_for_session(
@@ -166,18 +172,16 @@ def _compute_streaks(
 @router.get("/{program_id}")
 def get_tracker(program_id: int, db: Session = Depends(get_db)):
     program = _get_program_or_404(program_id, db)
-    today = date.today()
-    current_week = _compute_current_week(program, today)
 
     sessions_by_week = _distinct_sessions_by_week(db, program_id)
     logs_map = _session_logs_map(db, program_id)
+    current_week = _compute_current_week(sessions_by_week, logs_map, program.total_weeks)
 
     total_sessions = sum(len(v) for v in sessions_by_week.values())
 
     # Build weeks payload and count statuses
     completed = 0
     skipped = 0
-    missed = 0
     weeks_payload: dict[str, list[dict]] = {}
 
     for week_num in sorted(sessions_by_week.keys()):
@@ -202,13 +206,10 @@ def get_tracker(program_id: int, db: Session = Depends(get_db)):
                 elif log.status == "skipped":
                     skipped += 1
             else:
-                status = "missed" if week_num < current_week else "pending"
-                if status == "missed":
-                    missed += 1
                 entry = {
                     "session_name": sess["session_name"],
                     "session_order": sess["session_order"],
-                    "status": status,
+                    "status": "pending",
                     "date": None,
                     "sets_logged": 0,
                     "session_rpe": None,
@@ -229,7 +230,7 @@ def get_tracker(program_id: int, db: Session = Depends(get_db)):
 
     # Determine next session
     next_session = None
-    for week_num in range(current_week, program.total_weeks + 1):
+    for week_num in range(1, program.total_weeks + 1):
         for sess in sessions_by_week.get(week_num, []):
             key = (week_num, sess["session_name"])
             if key not in logs_map:
@@ -270,7 +271,7 @@ def get_tracker(program_id: int, db: Session = Depends(get_db)):
         "total_sessions": total_sessions,
         "completed": completed,
         "skipped": skipped,
-        "missed": missed,
+        "missed": 0,
         "adherence_pct": adherence_pct,
         "current_streak": current_streak,
         "longest_streak": longest_streak,
@@ -291,9 +292,9 @@ def get_week_detail(
     if week_num < 1 or week_num > program.total_weeks:
         raise HTTPException(status_code=400, detail="Invalid week number")
 
-    today = date.today()
-    current_week = _compute_current_week(program, today)
+    sessions_by_week_full = _distinct_sessions_by_week(db, program_id)
     logs_map = _session_logs_map(db, program_id)
+    current_week = _compute_current_week(sessions_by_week_full, logs_map, program.total_weeks)
 
     # Get exercises grouped by session for this week
     exercises = (
@@ -323,10 +324,6 @@ def get_week_detail(
             status = log.status
             session_date = str(log.date)
             session_log_id = log.id
-        elif week_num < current_week:
-            status = "missed"
-            session_date = None
-            session_log_id = None
         else:
             status = "pending"
             session_date = None
@@ -578,11 +575,10 @@ def get_calendar(program_id: int, db: Session = Depends(get_db)):
 @router.get("/{program_id}/adherence")
 def get_adherence(program_id: int, db: Session = Depends(get_db)):
     program = _get_program_or_404(program_id, db)
-    today = date.today()
-    current_week = _compute_current_week(program, today)
 
     sessions_by_week = _distinct_sessions_by_week(db, program_id)
     logs_map = _session_logs_map(db, program_id)
+    current_week = _compute_current_week(sessions_by_week, logs_map, program.total_weeks)
 
     total_prescribed = sum(
         len(sessions_by_week.get(w, []))
@@ -591,7 +587,6 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
 
     total_completed = 0
     total_skipped = 0
-    total_missed = 0
     skip_counter: Counter[str] = Counter()
 
     for week_num in range(1, current_week + 1):
@@ -604,8 +599,6 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
                 elif log.status == "skipped":
                     total_skipped += 1
                     skip_counter[sess["session_name"]] += 1
-            else:
-                total_missed += 1
 
     completion_rate = round(
         total_completed / max(total_prescribed, 1) * 100, 1
@@ -628,7 +621,7 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
         "total_prescribed": total_prescribed,
         "total_completed": total_completed,
         "total_skipped": total_skipped,
-        "total_missed": total_missed,
+        "total_missed": 0,
         "current_streak": current_streak,
         "longest_streak": longest_streak,
         "sessions_per_week_avg": sessions_per_week_avg,
@@ -660,14 +653,12 @@ def get_workout_today(db: Session = Depends(get_db)):
             detail="No active program found",
         )
 
-    today = date.today()
-    current_week = _compute_current_week(program, today)
-
     sessions_by_week = _distinct_sessions_by_week(db, program.id)
     logs_map = _session_logs_map(db, program.id)
+    current_week = _compute_current_week(sessions_by_week, logs_map, program.total_weeks)
 
-    # Find the first uncompleted session starting from the current week
-    for week_num in range(current_week, program.total_weeks + 1):
+    # Find the first uncompleted session starting from week 1
+    for week_num in range(1, program.total_weeks + 1):
         for sess in sessions_by_week.get(week_num, []):
             key = (week_num, sess["session_name"])
             if key not in logs_map:
