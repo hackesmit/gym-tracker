@@ -3,8 +3,8 @@ import { kgToDisplay, displayToKg } from '../utils/units';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import Card from '../components/Card';
-import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette } from 'lucide-react';
-import { getManual1RM, updateManual1RM, exportLogs } from '../api/client';
+import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palmtree } from 'lucide-react';
+import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation } from '../api/client';
 
 const REALM_INFO = [
   { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
@@ -42,6 +42,10 @@ export default function Settings() {
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
+  const [vacationActive, setVacationActive] = useState(false);
+  const [vacationId, setVacationId] = useState(null);
+  const [vacationStart, setVacationStart] = useState(null);
+  const [vacationReason, setVacationReason] = useState('');
   const toKg = (val) => displayToKg(val, units);
   const fromKg = (val) => kgToDisplay(val, units);
 
@@ -68,6 +72,20 @@ export default function Settings() {
         setOrm(display);
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    getActiveVacation()
+      .then((v) => {
+        setVacationActive(true);
+        setVacationId(v.id);
+        setVacationStart(v.start_date);
+        setVacationReason(v.reason || '');
+      })
+      .catch(() => {
+        setVacationActive(false);
+        setVacationId(null);
+      });
   }, []);
 
   const saveOrm = async () => {
@@ -97,6 +115,28 @@ export default function Settings() {
       ...prev,
       [key]: { ...(prev[key] || { value: '', tested_at: '' }), [field]: value },
     }));
+  };
+
+  const handleVacationToggle = async () => {
+    try {
+      if (vacationActive && vacationId) {
+        const today = new Date().toISOString().split('T')[0];
+        await endVacation(vacationId, { end_date: today });
+        setVacationActive(false);
+        setVacationId(null);
+        setVacationStart(null);
+        addToast('Vacation ended — welcome back! Streak tracking resumed.', 'success');
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        const v = await startVacation({ start_date: today, reason: vacationReason || null });
+        setVacationActive(true);
+        setVacationId(v.id);
+        setVacationStart(v.start_date);
+        addToast('Vacation started — streak tracking paused until you return.', 'success');
+      }
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
   };
 
   return (
@@ -195,6 +235,37 @@ export default function Settings() {
         <p className="text-xs text-text-muted mt-3">
           Currently using: <span className="text-accent-light font-medium">{formatRestLabel(defaultRestSeconds)}</span>
         </p>
+      </Card>
+
+      {/* Vacation Mode */}
+      <Card title="Vacation Mode" icon={<Palmtree size={18} />}>
+        <p className="text-sm text-text-muted mb-4">
+          Pause streak tracking while you're away. Vacation weeks won't count against your streak.
+        </p>
+        {vacationActive && vacationStart && (
+          <p className="text-xs text-accent mb-3">
+            On vacation since {new Date(vacationStart + 'T00:00:00').toLocaleDateString()}
+          </p>
+        )}
+        {!vacationActive && (
+          <input
+            type="text"
+            placeholder="Reason (optional)"
+            value={vacationReason}
+            onChange={(e) => setVacationReason(e.target.value)}
+            className="w-full p-2 mb-3 rounded bg-surface-lighter text-text text-sm border border-border"
+          />
+        )}
+        <button
+          onClick={handleVacationToggle}
+          className={`w-full py-2.5 rounded font-semibold text-sm transition-colors ${
+            vacationActive
+              ? 'bg-success/20 text-success hover:bg-success/30'
+              : 'bg-warning/20 text-warning hover:bg-warning/30'
+          }`}
+        >
+          {vacationActive ? 'End Vacation' : 'Start Vacation'}
+        </button>
       </Card>
 
       <Card title="Known 1RM">

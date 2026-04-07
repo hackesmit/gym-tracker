@@ -145,7 +145,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 sm:gap-6 shrink-0">
             <div className="text-center hidden sm:block">
               <div className="text-lg font-bold text-text">{tracker?.current_streak ?? 0}</div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wider">Streak</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Week Streak</div>
             </div>
             <div className="text-center hidden sm:block">
               <div className="text-lg font-bold text-text">
@@ -269,7 +269,7 @@ export default function Dashboard() {
           />
           <KpiCard
             icon={<Torch size={16} className="text-dwarven-light" />}
-            label="Streak"
+            label="Week Streak"
             value={tracker?.current_streak ?? 0}
             color="text-dwarven-light"
           />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CheckCircle2, SkipForward, Circle, XCircle, Calendar as CalIcon,
+  CheckCircle2, SkipForward, Circle, Calendar as CalIcon,
   Grid3X3, ChevronRight, Dumbbell, Download,
 } from 'lucide-react';
 import Card from '../components/Card';
@@ -16,7 +16,6 @@ const STATUS_ICONS = {
   completed: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/20' },
   partial: { icon: CheckCircle2, color: 'text-warning', bg: 'bg-warning/20' },
   skipped: { icon: SkipForward, color: 'text-warning', bg: 'bg-warning/20' },
-  missed: { icon: XCircle, color: 'text-danger', bg: 'bg-danger/20' },
   pending: { icon: Circle, color: 'text-text-muted', bg: 'bg-surface-lighter' },
   upcoming: { icon: Circle, color: 'text-text-muted', bg: 'bg-surface-lighter' },
 };
@@ -117,8 +116,8 @@ export default function Tracker() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Completion" value={`${Math.round(adherence.completion_rate || 0)}%`} />
           <StatCard label="Sessions Done" value={adherence.total_completed ?? 0} />
-          <StatCard label="Current Streak" value={adherence.current_streak ?? 0} />
-          <StatCard label="Longest Streak" value={adherence.longest_streak ?? 0} />
+          <StatCard label="Current Week Streak" value={adherence.current_streak ?? 0} />
+          <StatCard label="Longest Week Streak" value={adherence.longest_streak ?? 0} />
         </div>
       )}
 

@@ -122,3 +122,10 @@ export const getAchievements = (params = {}) => {
 export const getManual1RM = () => request('/manual-1rm');
 export const updateManual1RM = (lifts) =>
   request('/manual-1rm', { method: 'PATCH', body: JSON.stringify({ lifts }) });
+
+// Vacation
+export const getVacations = () => request('/vacation');
+export const getActiveVacation = () => request('/vacation/active');
+export const startVacation = (data) => request('/vacation', { method: 'POST', body: JSON.stringify(data) });
+export const endVacation = (id, data) => request(`/vacation/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteVacation = (id) => request(`/vacation/${id}`, { method: 'DELETE' });
