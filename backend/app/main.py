@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from .database import Base, SessionLocal, engine
-from .routers import analytics, logging, programs, tracker
+from .routers import analytics, logging, programs, tracker, vacation
 from .seed_catalog import seed_exercise_catalog
 
 
@@ -87,6 +87,7 @@ app.include_router(logging.router)
 app.include_router(tracker.router)
 app.include_router(tracker.workout_router)
 app.include_router(analytics.router)
+app.include_router(vacation.router)
 
 
 @app.get("/")

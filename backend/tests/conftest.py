@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
@@ -12,14 +13,23 @@ from app.models import User
 
 @pytest.fixture()
 def db():
-    """Yield a fresh in-memory SQLite session for each test."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    """Yield a fresh in-memory SQLite session for each test.
+
+    Uses StaticPool so that every connection shares the same in-memory
+    database — required because FastAPI route handlers run in a worker
+    thread and would otherwise get a separate (empty) :memory: DB.
+    """
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()
 
     # Seed a default user
-    user = User(username="testuser")
+    user = User(name="testuser")
     session.add(user)
     session.commit()
 
