@@ -1,6 +1,6 @@
 """Program tracker endpoints — progress, calendar, adherence."""
 
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date, timedelta
 from typing import Optional
 
@@ -15,6 +15,7 @@ from ..models import (
     ProgramExercise,
     ProgramProgress,
     SessionLog,
+    VacationPeriod,
     WorkoutLog,
 )
 
@@ -85,6 +86,16 @@ def _session_logs_map(
     return {(log.week, log.session_name): log for log in logs}
 
 
+def _vacation_periods(db: Session, user_id: int) -> list:
+    """Return all vacation periods for a user, ordered by start date."""
+    return (
+        db.query(VacationPeriod)
+        .filter(VacationPeriod.user_id == user_id)
+        .order_by(VacationPeriod.start_date)
+        .all()
+    )
+
+
 def _compute_current_week(
     sessions_by_week: dict[int, list[dict]],
     logs_map: dict[tuple[int, str], "SessionLog"],
@@ -128,41 +139,72 @@ def _sets_logged_for_session(
 
 
 def _compute_streaks(
-    sessions_by_week: dict[int, list[dict]],
-    logs_map: dict[tuple[int, str], SessionLog],
-    current_week: int,
+    logs_map: dict[tuple[int, str], "SessionLog"],
+    frequency: int,
+    vacation_periods: list,
 ) -> tuple[int, int]:
-    """Return (current_streak, longest_streak) of consecutive completed sessions."""
-    ordered: list[str] = []  # status list in chronological order
-    for week_num in sorted(sessions_by_week.keys()):
-        if week_num > current_week:
-            break
-        for sess in sessions_by_week[week_num]:
-            key = (week_num, sess["session_name"])
-            log = logs_map.get(key)
-            if log:
-                ordered.append(log.status)
-            elif week_num < current_week:
-                ordered.append("missed")
-            # current week future sessions are not counted yet
+    """Return (current_streak, longest_streak) of consecutive calendar weeks
+    where the user completed >= frequency sessions. Vacation weeks are transparent."""
+    if not logs_map:
+        return 0, 0
 
-    current_streak = 0
-    longest_streak = 0
+    # Group completed sessions by ISO calendar week
+    week_counts: dict[tuple[int, int], int] = defaultdict(int)
+    earliest_date = None
+    latest_date = None
+    for (_wk, _sn), log in logs_map.items():
+        if log.status == "completed":
+            iso_year, iso_week, _ = log.date.isocalendar()
+            week_counts[(iso_year, iso_week)] += 1
+            if earliest_date is None or log.date < earliest_date:
+                earliest_date = log.date
+            if latest_date is None or log.date > latest_date:
+                latest_date = log.date
+
+    if not week_counts:
+        return 0, 0
+
+    def _iso_weeks_between(start: date, end: date):
+        current = start - timedelta(days=start.weekday())
+        end_monday = end - timedelta(days=end.weekday())
+        while current <= end_monday:
+            iso_y, iso_w, _ = current.isocalendar()
+            yield (iso_y, iso_w)
+            current += timedelta(days=7)
+
+    def _is_vacation_week(monday: date):
+        sunday = monday + timedelta(days=6)
+        for vp in vacation_periods:
+            vp_end = vp.end_date or date.max
+            if vp.start_date <= sunday and vp_end >= monday:
+                return True
+        return False
+
+    all_weeks = list(_iso_weeks_between(earliest_date, latest_date))
+
     streak = 0
-    for s in ordered:
-        if s == "completed":
+    longest = 0
+    for iso_year, iso_week in all_weeks:
+        monday = date.fromisocalendar(iso_year, iso_week, 1)
+        if _is_vacation_week(monday):
+            continue
+        if week_counts.get((iso_year, iso_week), 0) >= frequency:
             streak += 1
-            longest_streak = max(longest_streak, streak)
+            longest = max(longest, streak)
         else:
             streak = 0
-    # current streak = trailing run of completed
-    current_streak = 0
-    for s in reversed(ordered):
-        if s == "completed":
-            current_streak += 1
+
+    current = 0
+    for iso_year, iso_week in reversed(all_weeks):
+        monday = date.fromisocalendar(iso_year, iso_week, 1)
+        if _is_vacation_week(monday):
+            continue
+        if week_counts.get((iso_year, iso_week), 0) >= frequency:
+            current += 1
         else:
             break
-    return current_streak, longest_streak
+
+    return current, longest
 
 
 # ---------------------------------------------------------------------------
@@ -224,8 +266,9 @@ def get_tracker(program_id: int, db: Session = Depends(get_db)):
     )
     adherence_pct = round(completed / max(expected, 1) * 100, 1)
 
+    vacations = _vacation_periods(db, program.user_id)
     current_streak, longest_streak = _compute_streaks(
-        sessions_by_week, logs_map, current_week
+        logs_map, program.frequency, vacations
     )
 
     # Determine next session
@@ -604,8 +647,9 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
         total_completed / max(total_prescribed, 1) * 100, 1
     )
 
+    vacations = _vacation_periods(db, program.user_id)
     current_streak, longest_streak = _compute_streaks(
-        sessions_by_week, logs_map, current_week
+        logs_map, program.frequency, vacations
     )
 
     # Sessions per week average (based on weeks that have started)
