@@ -102,10 +102,23 @@ def suggest_next_session(db: Session, program_exercise_id: int) -> dict:
     if pe is None:
         return {"error": f"ProgramExercise {program_exercise_id} not found"}
 
+    # Find all ProgramExercise IDs for the same exercise across all weeks
+    # in this program (each week has its own PE row, but logs are tied to the
+    # week they were performed in — we need to look across all of them).
+    sibling_pe_ids = [
+        row[0]
+        for row in db.query(ProgramExercise.id)
+        .filter(
+            ProgramExercise.program_id == pe.program_id,
+            ProgramExercise.exercise_name_canonical == pe.exercise_name_canonical,
+        )
+        .all()
+    ]
+
     # Most recent working sets (all sets from the latest logged date).
     latest_logs: list[WorkoutLog] = (
         db.query(WorkoutLog)
-        .filter(WorkoutLog.program_exercise_id == program_exercise_id)
+        .filter(WorkoutLog.program_exercise_id.in_(sibling_pe_ids))
         .order_by(desc(WorkoutLog.date), desc(WorkoutLog.set_number))
         .limit(20)
         .all()
