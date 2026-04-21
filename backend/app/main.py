@@ -66,6 +66,17 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_true_1rm_attempt", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "completed_successfully", "BOOLEAN", default="true")
 
+    # programs: share_code for cross-user program sharing
+    _ensure_column("programs", "share_code", "VARCHAR")
+    try:
+        db.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_programs_share_code "
+            "ON programs (share_code)"
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
     # users: new auth fields
     _ensure_column("users", "username", "VARCHAR")
     _ensure_column("users", "email", "VARCHAR")

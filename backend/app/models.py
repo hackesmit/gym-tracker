@@ -63,6 +63,9 @@ class Program(Base):
     )  # active/completed/paused/abandoned
     total_weeks: Mapped[int] = mapped_column(Integer, default=12)
     source_file: Mapped[str | None] = mapped_column(String, nullable=True)
+    share_code: Mapped[str | None] = mapped_column(
+        String, unique=True, nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )

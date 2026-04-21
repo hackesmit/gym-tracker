@@ -157,6 +157,19 @@ export const importProgram = (file, frequency) => {
   });
 };
 
+// Program sharing
+export const enableProgramShare = (id) =>
+  request(`/program/${id}/share`, { method: 'POST' });
+export const disableProgramShare = (id) =>
+  request(`/program/${id}/share`, { method: 'DELETE' });
+export const previewSharedProgram = (code) =>
+  request(`/programs/shared/${encodeURIComponent(code)}`);
+export const importSharedProgram = (code, opts = {}) =>
+  request('/programs/import-shared', {
+    method: 'POST',
+    body: JSON.stringify({ code, activate: opts.activate !== false, rename: opts.rename }),
+  });
+
 // Logging
 export const logSet = (data) => request('/log', { method: 'POST', body: JSON.stringify(data) });
 export const logBulkSession = (data) => request('/log/bulk', { method: 'POST', body: JSON.stringify(data) });

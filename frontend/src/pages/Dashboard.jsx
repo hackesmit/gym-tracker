@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/Card';
 import ProgramUpload from '../components/ProgramUpload';
+import ImportSharedProgram from '../components/ImportSharedProgram';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { getDashboard } from '../api/client';
@@ -63,12 +64,16 @@ export default function Dashboard() {
 
   if (!programs.length && !data?.today_quest) {
     return (
-      <div className="max-w-md mx-auto mt-12">
+      <div className="max-w-md mx-auto mt-12 space-y-4">
         <Card title={t('dashboard.getStarted')}>
           <p className="text-text-muted text-sm mb-4">
             {t('dashboard.getStartedDesc')}
           </p>
           <ProgramUpload />
+          <div className="pt-3 mt-3 border-t border-surface-lighter">
+            <p className="text-xs text-text-muted mb-2">Have a share code from a friend?</p>
+            <ImportSharedProgram />
+          </div>
         </Card>
       </div>
     );
