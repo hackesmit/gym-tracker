@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import MuscleScore, User
+from ..muscle_rank_config import MUSCLE_RANK_THRESHOLDS
 from ..rank_engine import MVP_GROUPS, recompute_for_user
 from .friends import get_friend_ids
 
@@ -14,15 +15,18 @@ router = APIRouter(prefix="/api/ranks", tags=["ranks"])
 
 def _serialize(user_id: int, db: Session) -> list[dict]:
     rows = db.query(MuscleScore).filter(MuscleScore.user_id == user_id).all()
-    return [
-        {
+    out = []
+    for r in rows:
+        cfg = MUSCLE_RANK_THRESHOLDS.get(r.muscle_group, {})
+        out.append({
             "muscle_group": r.muscle_group,
             "score": round(r.score, 2),
             "rank": r.rank,
-            "components": {"V": round(r.score_v, 3), "I": round(r.score_i, 3), "F": round(r.score_f, 3)},
-        }
-        for r in rows
-    ]
+            "ratio": round(r.score_i, 3),
+            "metric": cfg.get("metric"),
+            "thresholds": cfg.get("thresholds"),
+        })
+    return out
 
 
 @router.get("")

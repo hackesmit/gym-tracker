@@ -8,16 +8,18 @@ Rank each body part on a 30-day rolling basis with Rainbow Six tiers.
 - `rank_engine.py`:
   - `recompute_for_user(db, user_id)` — triggered on WorkoutLog write.
   - `recompute_all(db)` — for periodic refresh (not scheduled yet).
-- Score formula (30d rolling): `score = 100 * (0.6*V + 0.3*I + 0.1*F)`.
-  - V = normalized total volume per muscle (vs max across users in group).
-  - I = avg top-set-weight / bodyweight (clamped).
-  - F = sessions hitting the group / 12 (capped at 1.0).
-  - All components clamped to [0,1] before combining.
-- MVP muscle groups: `chest, back, shoulders, quads, hamstrings, arms` (arms merges biceps+triceps from catalog).
-- Mapping layer: `ExerciseCatalog.muscle_group_primary` → MVP bucket.
-- Ranks:
-  - Multi-user: percentile within active user group. Copper 0-10 / Bronze 10-25 / Silver 25-40 / Gold 40-60 / Platinum 60-75 / Emerald 75-85 / Diamond 85-95 / Champion 95-100.
-  - Single-user fallback: absolute score thresholds (same breakpoints).
+- **Rewrite (2026-04-21):** percentile engine replaced with fixed global
+  strength standards. See `backend/app/muscle_rank_config.py` for the
+  authoritative threshold table.
+  - Metric per group: best valid e1RM / bodyweight (chest=bench, quads=squat,
+    hamstrings=deadlift, shoulders=OHP) or added-load / bodyweight for
+    weighted pullups (back) and weighted dips (arms).
+  - Bodyweight-pullup rep count is the fallback for back.
+  - Close-grip bench is the fallback proxy for arms.
+  - Manual `user.manual_1rm` entries are first-class inputs.
+  - Lookback window: 90 days. Reps capped at 10 for Epley accuracy.
+  - Outlier guard: ratios > 5x bodyweight are rejected.
+- MVP muscle groups unchanged: `chest, back, shoulders, quads, hamstrings, arms`.
 - Router `/api/ranks`:
   - `GET /` — current user's ranks.
   - `GET /compare/{user_id}` — friends only.

@@ -1,173 +1,404 @@
-"""Muscle-group rank engine: 30d rolling V/I/F → score → Rainbow Six tier."""
+"""Fixed-threshold muscle-group rank engine.
 
-from collections import defaultdict
+Ranks are computed from real strength anchors — the best valid lift in the
+last 90 days per muscle group, divided by bodyweight — and mapped against
+the fixed global thresholds in `muscle_rank_config.py`.
+
+This module intentionally replaces the old percentile/self-normalised
+engine.  Ranks must stay comparable across users, so:
+  * No percentile ranking.
+  * No dynamic recalibration from the active user population.
+  * Volume/frequency are NOT inputs to the displayed rank (they remain
+    available for analytics dashboards).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Iterable
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .models import ExerciseCatalog, MuscleScore, ProgramExercise, User, WorkoutLog
+from .models import (
+    BodyMetric,
+    MuscleScore,
+    ProgramExercise,
+    User,
+    WorkoutLog,
+)
+from .muscle_rank_config import (
+    ARMS_BODYWEIGHT_DIPS,
+    ARMS_CLOSE_GRIP_BENCH,
+    ARMS_WEIGHTED_DIPS,
+    BACK_BODYWEIGHT_PULLUPS,
+    BACK_WEIGHTED_PULLUPS,
+    EXERCISE_MAP,
+    LOOKBACK_DAYS,
+    MANUAL_1RM_KEY,
+    MAX_BODYWEIGHT_KG,
+    MAX_RATIO_CAP,
+    MAX_REPS_FOR_E1RM,
+    MIN_BODYWEIGHT_KG,
+    MUSCLE_RANK_THRESHOLDS,
+    MVP_GROUPS,
+    RANK_ORDER,
+    max_rank,
+    rank_from_reps,
+    rank_from_threshold,
+    tier_index,
+)
 
-MVP_GROUPS = ["chest", "back", "shoulders", "quads", "hamstrings", "arms"]
-
-# Map catalog primary muscle -> MVP group. Unknowns are ignored.
-CATALOG_TO_MVP = {
-    "chest": "chest",
-    "back": "back",
-    "lats": "back",
-    "upper_back": "back",
-    "shoulders": "shoulders",
-    "front_delts": "shoulders",
-    "side_delts": "shoulders",
-    "rear_delts": "shoulders",
-    "quads": "quads",
-    "hamstrings": "hamstrings",
-    "biceps": "arms",
-    "triceps": "arms",
-}
-
-# Rank thresholds (percentile bins)
-RANK_BINS = [
-    (0, 10, "Copper"),
-    (10, 25, "Bronze"),
-    (25, 40, "Silver"),
-    (40, 60, "Gold"),
-    (60, 75, "Platinum"),
-    (75, 85, "Emerald"),
-    (85, 95, "Diamond"),
-    (95, 101, "Champion"),
+__all__ = [
+    "MVP_GROUPS",
+    "RANK_ORDER",
+    "recompute_for_user",
+    "recompute_all",
 ]
 
 
-def _rank_from_percentile(pct: float) -> str:
-    for lo, hi, name in RANK_BINS:
-        if lo <= pct < hi:
-            return name
-    return "Champion"
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _epley_e1rm(load_kg: float, reps: int) -> float:
+    """Epley e1RM.  Rejected if reps > MAX_REPS_FOR_E1RM or non-positive."""
+    if load_kg is None or reps is None:
+        return 0.0
+    if load_kg <= 0 or reps <= 0:
+        return 0.0
+    if reps > MAX_REPS_FOR_E1RM:
+        return 0.0
+    if reps == 1:
+        return float(load_kg)
+    return float(load_kg) * (1.0 + reps / 30.0)
 
 
-def _mvp_group(primary: str | None) -> str | None:
-    if not primary:
+def _resolve_bodyweight(db: Session, user: User) -> float | None:
+    bw = user.bodyweight_kg
+    if not bw or bw <= 0:
+        latest = (
+            db.query(BodyMetric)
+            .filter(BodyMetric.user_id == user.id)
+            .order_by(BodyMetric.date.desc())
+            .first()
+        )
+        if latest and latest.bodyweight_kg and latest.bodyweight_kg > 0:
+            bw = latest.bodyweight_kg
+    if not bw:
         return None
-    return CATALOG_TO_MVP.get(primary.lower())
+    bw = float(bw)
+    if bw < MIN_BODYWEIGHT_KG or bw > MAX_BODYWEIGHT_KG:
+        return None
+    return bw
 
 
-def _compute_scores_for_user(db: Session, user_id: int) -> dict[str, dict]:
-    """Return {group: {V, I, F, score}} with raw V not normalized (normalization is global)."""
-    today = date.today()
-    cutoff = today - timedelta(days=30)
+def _parse_manual_value(entry) -> float:
+    if isinstance(entry, (int, float)):
+        return float(entry)
+    if isinstance(entry, dict):
+        val = entry.get("value_kg", 0)
+        try:
+            return float(val or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    return 0.0
 
-    # Pull 30d logs + catalog info
-    rows = (
-        db.query(WorkoutLog, ProgramExercise, ExerciseCatalog)
-        .join(ProgramExercise, WorkoutLog.program_exercise_id == ProgramExercise.id)
-        .outerjoin(ExerciseCatalog, ExerciseCatalog.canonical_name == ProgramExercise.exercise_name_canonical)
-        .filter(WorkoutLog.user_id == user_id, WorkoutLog.date >= cutoff)
-        .all()
-    )
 
-    # Bodyweight for Intensity normalization
-    user = db.get(User, user_id)
-    bw = user.bodyweight_kg if user and user.bodyweight_kg else 75.0
+def _score_from_ratio(ratio: float, thresholds: dict[str, float]) -> float:
+    """Normalize ratio to 0..100 using the Champion cutoff as 100."""
+    champ = thresholds.get("Champion", 1.0)
+    if champ <= 0:
+        return 0.0
+    return max(0.0, min(100.0, (float(ratio) / champ) * 100.0))
 
-    volumes = defaultdict(float)
-    top_sets = defaultdict(float)
-    session_dates = defaultdict(set)
-    for log, pe, cat in rows:
-        group = _mvp_group(cat.muscle_group_primary if cat else None)
-        if not group:
+
+@dataclass
+class _Result:
+    ratio: float         # metric value in whatever unit the group's threshold expects
+    tier: str
+    source: str          # canonical name / description of best lift used
+
+
+# ---------------------------------------------------------------------------
+# Per-group resolvers
+# ---------------------------------------------------------------------------
+
+def _best_barbell_ratio(
+    db: Session,
+    user_id: int,
+    group: str,
+    bw_kg: float,
+    cutoff: date,
+) -> _Result:
+    """Chest / quads / hamstrings / shoulders — e1RM / BW."""
+    exercises = EXERCISE_MAP.get(group) or {}
+    thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+
+    rows = []
+    if exercises:
+        rows = (
+            db.query(
+                ProgramExercise.exercise_name_canonical,
+                WorkoutLog.load_kg,
+                WorkoutLog.reps_completed,
+                WorkoutLog.date,
+            )
+            .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+            .filter(
+                WorkoutLog.user_id == user_id,
+                WorkoutLog.date >= cutoff,
+                WorkoutLog.reps_completed > 0,
+                WorkoutLog.reps_completed <= MAX_REPS_FOR_E1RM,
+                WorkoutLog.load_kg > 0,
+                ProgramExercise.exercise_name_canonical.in_(list(exercises.keys())),
+            )
+            .all()
+        )
+
+    best_ratio = 0.0
+    best_source: str | None = None
+    for name, load, reps, _d in rows:
+        spec = exercises.get(name, 0.0)
+        if spec <= 0:
             continue
-        volumes[group] += (log.load_kg or 0) * (log.reps_completed or 0)
-        top_sets[group] = max(top_sets[group], log.load_kg or 0)
-        session_dates[group].add(log.date)
+        e1rm = _epley_e1rm(load, reps)
+        if e1rm <= 0:
+            continue
+        ratio = (e1rm * spec) / bw_kg
+        if ratio > MAX_RATIO_CAP:
+            continue
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_source = f"logged:{name}"
 
-    result = {}
-    for g in MVP_GROUPS:
-        V_raw = volumes.get(g, 0.0)
-        I = min(1.0, (top_sets.get(g, 0.0) / bw) if bw else 0.0)
-        F = min(1.0, len(session_dates.get(g, set())) / 12.0)
-        result[g] = {"V_raw": V_raw, "I": I, "F": F}
-    return result
+    # Manual 1RM fallback.
+    manual_key = MANUAL_1RM_KEY.get(group)
+    if manual_key:
+        user = db.get(User, user_id)
+        manual_map = (user.manual_1rm or {}) if user else {}
+        entry = manual_map.get(manual_key)
+        if entry is not None:
+            val = _parse_manual_value(entry)
+            if val > 0:
+                ratio = val / bw_kg
+                if ratio <= MAX_RATIO_CAP and ratio > best_ratio:
+                    best_ratio = ratio
+                    best_source = f"manual:{manual_key}"
 
+    if best_ratio <= 0 or best_source is None:
+        return _Result(0.0, "Copper", "no_data")
+    return _Result(best_ratio, rank_from_threshold(best_ratio, thresholds), best_source)
+
+
+def _best_weighted_calisthenic(
+    db: Session,
+    user_id: int,
+    group: str,
+    bw_kg: float,
+    cutoff: date,
+    weighted: set[str],
+    bodyweight: set[str],
+    close_grip_fallback: set[str] | None,
+    manual_added_key: str | None,
+) -> _Result:
+    """Back / arms — added-load-over-bodyweight ratio with fallbacks.
+
+    Priority per the config spec:
+      1. Weighted pullup / weighted dip (primary)
+      2. Close-grip bench (arms only)
+      3. Bodyweight pullup rep fallback (back only)
+    """
+    thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+    fallback_rep_thresholds = MUSCLE_RANK_THRESHOLDS[group].get("fallback_reps")
+
+    candidate_names = list(weighted | bodyweight | (close_grip_fallback or set()))
+    rows = []
+    if candidate_names:
+        rows = (
+            db.query(
+                ProgramExercise.exercise_name_canonical,
+                WorkoutLog.load_kg,
+                WorkoutLog.reps_completed,
+                WorkoutLog.date,
+            )
+            .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+            .filter(
+                WorkoutLog.user_id == user_id,
+                WorkoutLog.date >= cutoff,
+                WorkoutLog.reps_completed > 0,
+                ProgramExercise.exercise_name_canonical.in_(candidate_names),
+            )
+            .all()
+        )
+
+    best_added_ratio = -1.0         # added load / BW  (float)
+    best_weighted_source: str | None = None
+    best_rep_count = 0
+    best_rep_source: str | None = None
+    saw_bodyweight = False
+
+    for name, load, reps, _d in rows:
+        if reps is None or reps <= 0:
+            continue
+
+        if name in weighted and load is not None and load > 0:
+            if reps > MAX_REPS_FOR_E1RM:
+                continue
+            e1rm = _epley_e1rm(load, reps)
+            if e1rm <= 0:
+                continue
+            ratio = e1rm / bw_kg
+            if ratio > MAX_RATIO_CAP:
+                continue
+            if ratio > best_added_ratio:
+                best_added_ratio = ratio
+                best_weighted_source = f"logged:{name}"
+
+        elif name in bodyweight:
+            saw_bodyweight = True
+            # Bodyweight pullup/dip => 0 kg added. Keep as floor.
+            if best_added_ratio < 0:
+                best_added_ratio = 0.0
+                best_weighted_source = f"logged:{name}"
+            # Rep-count fallback ranking (only populated when the group
+            # provides `fallback_reps`, i.e. back).
+            if reps > best_rep_count:
+                best_rep_count = reps
+                best_rep_source = f"logged_reps:{name}"
+
+        elif close_grip_fallback and name in close_grip_fallback and load is not None and load > 0:
+            # Close-grip bench as an arms proxy. Shift by 1.0 to align with
+            # the +added-BW scale (bench 1.0×BW ≈ bodyweight dip baseline).
+            if reps > MAX_REPS_FOR_E1RM:
+                continue
+            e1rm = _epley_e1rm(load, reps)
+            if e1rm <= 0:
+                continue
+            shifted = (e1rm / bw_kg) - 1.0
+            if shifted > MAX_RATIO_CAP:
+                continue
+            if shifted > best_added_ratio:
+                best_added_ratio = shifted
+                best_weighted_source = f"proxy_close_grip_bench:{name}"
+
+    # Manual added-load 1RM (e.g. user types "pullup": +40 kg).
+    if manual_added_key:
+        user = db.get(User, user_id)
+        manual_map = (user.manual_1rm or {}) if user else {}
+        entry = manual_map.get(manual_added_key)
+        if entry is not None:
+            val = _parse_manual_value(entry)
+            if val > 0:
+                ratio = val / bw_kg
+                if ratio <= MAX_RATIO_CAP and ratio > best_added_ratio:
+                    best_added_ratio = ratio
+                    best_weighted_source = f"manual:{manual_added_key}"
+
+    weighted_tier: str | None = None
+    if best_added_ratio >= 0 and best_weighted_source is not None:
+        weighted_tier = rank_from_threshold(best_added_ratio, thresholds)
+
+    rep_tier: str | None = None
+    if fallback_rep_thresholds and best_rep_count > 0:
+        rep_tier = rank_from_reps(best_rep_count, fallback_rep_thresholds)
+
+    if weighted_tier is None and rep_tier is None:
+        return _Result(0.0, "Copper", "no_data")
+
+    final_tier = max_rank(weighted_tier or "Copper", rep_tier or "Copper")
+
+    # Report the ratio of whichever path produced the winning tier.
+    wt = tier_index(weighted_tier or "Copper")
+    rt = tier_index(rep_tier or "Copper")
+    if wt >= rt and best_weighted_source is not None:
+        return _Result(max(best_added_ratio, 0.0), final_tier, best_weighted_source)
+    return _Result(float(best_rep_count), final_tier, best_rep_source or "bodyweight_reps")
+
+
+def _compute_group(
+    db: Session, user_id: int, group: str, bw_kg: float, cutoff: date,
+) -> _Result:
+    if group == "back":
+        return _best_weighted_calisthenic(
+            db, user_id, "back", bw_kg, cutoff,
+            weighted=BACK_WEIGHTED_PULLUPS,
+            bodyweight=BACK_BODYWEIGHT_PULLUPS,
+            close_grip_fallback=None,
+            manual_added_key=MANUAL_1RM_KEY.get("back_added"),
+        )
+    if group == "arms":
+        return _best_weighted_calisthenic(
+            db, user_id, "arms", bw_kg, cutoff,
+            weighted=ARMS_WEIGHTED_DIPS,
+            bodyweight=ARMS_BODYWEIGHT_DIPS,
+            close_grip_fallback=ARMS_CLOSE_GRIP_BENCH,
+            manual_added_key=MANUAL_1RM_KEY.get("arms_added"),
+        )
+    return _best_barbell_ratio(db, user_id, group, bw_kg, cutoff)
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
 
 def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
-    """Recompute + persist the user's ranks. Normalizes V against all active users."""
-    # Compute raw scores for every user (cheap: MVP groups only, 30d window)
-    user_ids = [u.id for u in db.query(User).all()]
-    all_raw: dict[int, dict] = {}
-    for uid in user_ids:
-        all_raw[uid] = _compute_scores_for_user(db, uid)
+    """Recompute & persist fixed-threshold muscle ranks for a single user.
 
-    # Normalize V per group across users
-    max_v = {g: 0.0 for g in MVP_GROUPS}
-    for uid, groups in all_raw.items():
-        for g, vals in groups.items():
-            if vals["V_raw"] > max_v[g]:
-                max_v[g] = vals["V_raw"]
+    Returns `{group: {"score": 0-100, "rank": tier, "ratio": raw, "source": str}}`.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        return {}
 
-    # Compute normalized scores
-    scored: dict[int, dict] = {}
-    for uid, groups in all_raw.items():
-        scored[uid] = {}
-        for g, vals in groups.items():
-            V = (vals["V_raw"] / max_v[g]) if max_v[g] > 0 else 0.0
-            V = max(0.0, min(1.0, V))
-            I = max(0.0, min(1.0, vals["I"]))
-            F = max(0.0, min(1.0, vals["F"]))
-            score = 100.0 * (0.6 * V + 0.3 * I + 0.1 * F)
-            scored[uid][g] = {"V": V, "I": I, "F": F, "score": score}
+    bw = _resolve_bodyweight(db, user)
+    today = date.today()
+    cutoff = today - timedelta(days=LOOKBACK_DAYS)
 
-    # Determine per-group percentile ranks
-    target_ranks: dict[str, dict] = {}  # per user
-    single_user_mode = len(user_ids) <= 1
-    for g in MVP_GROUPS:
-        values = sorted([(uid, scored[uid][g]["score"]) for uid in user_ids], key=lambda x: x[1])
-        n = len(values)
-        for i, (uid, s) in enumerate(values):
-            if single_user_mode:
-                # Absolute thresholds
-                bins = [(0, 10), (10, 25), (25, 40), (40, 60), (60, 75), (75, 85), (85, 95), (95, 101)]
-                for lo, hi in bins:
-                    if lo <= s < hi:
-                        rank = _rank_from_percentile(lo)
-                        break
-                else:
-                    rank = "Champion"
-            else:
-                # Percentile position (rank below / n * 100)
-                pct = (i / max(n - 1, 1)) * 100 if n > 1 else 50.0
-                rank = _rank_from_percentile(pct)
-            target_ranks.setdefault(uid, {})[g] = rank
-
-    # Persist for the target user (only this user to keep writes bounded)
     existing = {
         ms.muscle_group: ms
         for ms in db.query(MuscleScore).filter(MuscleScore.user_id == user_id).all()
     }
-    out = {}
-    for g in MVP_GROUPS:
-        vals = scored[user_id][g]
-        rank = target_ranks[user_id][g]
-        ms = existing.get(g)
+
+    out: dict[str, dict] = {}
+    for group in MVP_GROUPS:
+        if bw is None:
+            result = _Result(0.0, "Copper", "missing_bodyweight")
+        else:
+            result = _compute_group(db, user_id, group, bw, cutoff)
+
+        thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+        score = _score_from_ratio(result.ratio, thresholds)
+
+        ms = existing.get(group)
         if ms is None:
             ms = MuscleScore(
-                user_id=user_id, muscle_group=g,
-                score_v=vals["V"], score_i=vals["I"], score_f=vals["F"],
-                score=vals["score"], rank=rank,
+                user_id=user_id,
+                muscle_group=group,
+                score_v=0.0,
+                score_i=float(result.ratio),
+                score_f=0.0,
+                score=score,
+                rank=result.tier,
             )
             db.add(ms)
         else:
-            ms.score_v = vals["V"]
-            ms.score_i = vals["I"]
-            ms.score_f = vals["F"]
-            ms.score = vals["score"]
-            ms.rank = rank
-        out[g] = {"score": vals["score"], "rank": rank}
+            ms.score_v = 0.0
+            ms.score_i = float(result.ratio)
+            ms.score_f = 0.0
+            ms.score = score
+            ms.rank = result.tier
+
+        out[group] = {
+            "score": round(score, 2),
+            "rank": result.tier,
+            "ratio": round(float(result.ratio), 3),
+            "source": result.source,
+        }
+
     db.commit()
     return out
 
 
-def recompute_all(db: Session):
+def recompute_all(db: Session) -> None:
     for u in db.query(User).all():
         recompute_for_user(db, u.id)
