@@ -1,0 +1,241 @@
+import { useEffect, useState } from 'react';
+import Card from '../components/Card';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { listCardio, createCardio, updateCardio, deleteCardio, getCardioSummary } from '../api/client';
+import { Trash2, Pencil } from 'lucide-react';
+
+const MODALITIES = ['run', 'bike', 'swim', 'other'];
+
+const emptyForm = () => ({
+  date: new Date().toISOString().slice(0, 10),
+  modality: 'run',
+  duration_minutes: '',
+  distance_km: '',
+  elevation_m: '',
+  avg_hr: '',
+  calories: '',
+  rpe: '',
+  notes: '',
+});
+
+export default function Cardio() {
+  const [logs, setLogs] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const load = async () => {
+    try {
+      const [l, s] = await Promise.all([
+        listCardio({ limit: 50 }).catch(() => ({ logs: [] })),
+        getCardioSummary().catch(() => null),
+      ]);
+      setLogs(l.logs || l || []);
+      setSummary(s);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleChange = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const numOrNull = (v) => (v === '' || v == null ? null : Number(v));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    setSaving(true);
+    const payload = {
+      date: form.date,
+      modality: form.modality,
+      duration_minutes: numOrNull(form.duration_minutes),
+      distance_km: numOrNull(form.distance_km),
+      elevation_m: numOrNull(form.elevation_m),
+      avg_hr: numOrNull(form.avg_hr),
+      calories: numOrNull(form.calories),
+      rpe: numOrNull(form.rpe),
+      notes: form.notes || null,
+    };
+    try {
+      if (editingId) await updateCardio(editingId, payload);
+      else await createCardio(payload);
+      setForm(emptyForm());
+      setEditingId(null);
+      await load();
+    } catch (ex) {
+      setErr(ex.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const edit = (log) => {
+    setEditingId(log.id);
+    setForm({
+      date: (log.date || '').slice(0, 10),
+      modality: log.modality || 'run',
+      duration_minutes: log.duration_minutes ?? '',
+      distance_km: log.distance_km ?? '',
+      elevation_m: log.elevation_m ?? '',
+      avg_hr: log.avg_hr ?? '',
+      calories: log.calories ?? '',
+      rpe: log.rpe ?? '',
+      notes: log.notes || '',
+    });
+  };
+
+  const remove = async (id) => {
+    if (!confirm('Delete this cardio log?')) return;
+    try {
+      await deleteCardio(id);
+      await load();
+    } catch (ex) {
+      setErr(ex.message || 'Delete failed');
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <div className="space-y-6">
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Cardio</h2>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Card title="This week — duration">
+          <p className="text-2xl font-bold">
+            {summary?.week?.duration_minutes != null ? `${Math.round(summary.week.duration_minutes)} min` : '--'}
+          </p>
+        </Card>
+        <Card title="This week — distance">
+          <p className="text-2xl font-bold">
+            {summary?.week?.distance_km != null ? `${summary.week.distance_km.toFixed(1)} km` : '--'}
+          </p>
+        </Card>
+        <Card title="Personal bests">
+          {(() => {
+            const pbs = summary?.pbs || {};
+            const entries = Object.entries(pbs).filter(([, v]) => v);
+            if (!entries.length) return <p className="text-xs text-text-muted">No PBs yet.</p>;
+            return (
+              <ul className="text-xs space-y-0.5">
+                {entries.map(([m, pb]) => {
+                  let value = '--';
+                  if (pb.distance_km) value = `${pb.distance_km.toFixed(1)} km`;
+                  else if (pb.pace_min_per_km) value = `${pb.pace_min_per_km} min/km`;
+                  else if (pb.duration_minutes) value = `${pb.duration_minutes} min`;
+                  return (
+                    <li key={m} className="capitalize">
+                      <span className="text-text-muted">{m.replace(/_/g, ' ')}:</span> {value}
+                    </li>
+                  );
+                })}
+              </ul>
+            );
+          })()}
+        </Card>
+      </div>
+
+      {/* Form */}
+      <Card title={editingId ? 'Edit cardio session' : 'Log cardio'}>
+        <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Field label="Date">
+            <input type="date" value={form.date} onChange={(e) => handleChange('date', e.target.value)} className={inputCls} required />
+          </Field>
+          <Field label="Modality">
+            <select value={form.modality} onChange={(e) => handleChange('modality', e.target.value)} className={inputCls}>
+              {MODALITIES.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </Field>
+          <Field label="Duration (min)">
+            <input type="number" step="0.1" value={form.duration_minutes} onChange={(e) => handleChange('duration_minutes', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Distance (km)">
+            <input type="number" step="0.01" value={form.distance_km} onChange={(e) => handleChange('distance_km', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Elevation (m)">
+            <input type="number" step="1" value={form.elevation_m} onChange={(e) => handleChange('elevation_m', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Avg HR (bpm)">
+            <input type="number" step="1" value={form.avg_hr} onChange={(e) => handleChange('avg_hr', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Calories">
+            <input type="number" step="1" value={form.calories} onChange={(e) => handleChange('calories', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="RPE (1-10)">
+            <input type="number" min="1" max="10" step="1" value={form.rpe} onChange={(e) => handleChange('rpe', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Notes" className="sm:col-span-3">
+            <input type="text" value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} className={inputCls} />
+          </Field>
+          {err && <p className="text-sm text-danger sm:col-span-3">{err}</p>}
+          <div className="sm:col-span-3 flex gap-2">
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-accent text-surface-dark text-sm font-semibold disabled:opacity-60">
+              {saving ? 'Saving…' : editingId ? 'Update' : 'Log'}
+            </button>
+            {editingId && (
+              <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); }} className="px-4 py-2 rounded-lg bg-surface-light text-sm">
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      {/* Recent logs */}
+      <Card title="Recent sessions">
+        {logs.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-text-muted text-left">
+                  <th className="py-2">Date</th>
+                  <th>Modality</th>
+                  <th>Duration</th>
+                  <th>Distance</th>
+                  <th>HR</th>
+                  <th>RPE</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => (
+                  <tr key={l.id} className="border-t border-surface-lighter">
+                    <td className="py-2">{(l.date || '').slice(0, 10)}</td>
+                    <td className="capitalize">{l.modality}</td>
+                    <td>{l.duration_minutes != null ? `${l.duration_minutes} min` : '--'}</td>
+                    <td>{l.distance_km != null ? `${l.distance_km.toFixed(2)} km` : '--'}</td>
+                    <td>{l.avg_hr ?? '--'}</td>
+                    <td>{l.rpe ?? '--'}</td>
+                    <td className="flex gap-2 justify-end py-2">
+                      <button onClick={() => edit(l)} className="text-text-muted hover:text-accent"><Pencil size={14} /></button>
+                      <button onClick={() => remove(l.id)} className="text-text-muted hover:text-danger"><Trash2 size={14} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">No cardio logged yet.</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+const inputCls = 'w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text focus:ring-1 focus:ring-accent outline-none';
+
+function Field({ label, children, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-xs text-text-muted mb-1">{label}</span>
+      {children}
+    </label>
+  );
+}

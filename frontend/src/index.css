@@ -485,3 +485,35 @@ a:hover .lotr-nav-icon,
   box-shadow: var(--shadow-glow);
 }
 
+/* ============================================================
+   NEUTRAL THEME (default — no LOTR)
+   ============================================================ */
+[data-theme="neutral"] {
+  --color-surface-dark: #0b0d10;
+  --color-surface: #15181d;
+  --color-surface-light: #1e2229;
+  --color-surface-lighter: #2a2f38;
+  --color-text: #e7e9ec;
+  --color-text-muted: #8a8f99;
+  --color-accent: #3b82f6;
+  --color-accent-light: #60a5fa;
+  --color-accent-dark: #2563eb;
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #2563eb;
+  --color-secondary: #6b7280;
+  --color-secondary-light: #9ca3af;
+  --color-rivendell: #3b82f6;
+  --color-rivendell-light: #60a5fa;
+  --color-rivendell-dark: #2563eb;
+  --color-dwarven: #3b82f6;
+  --color-dwarven-light: #60a5fa;
+  --color-dwarven-dark: #2563eb;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #38bdf8;
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.1);
+  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+

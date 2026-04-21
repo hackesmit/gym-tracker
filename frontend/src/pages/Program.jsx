@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ProgramBuilder from '../components/ProgramBuilder';
+import ProgramUpload from '../components/ProgramUpload';
 import { useApp } from '../context/AppContext';
 import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
 
@@ -26,6 +28,7 @@ export default function Program() {
   const [weekLogs, setWeekLogs] = useState({});       // { weekNum: { sessions: [...] } }
   const [weekLogsLoading, setWeekLogsLoading] = useState({}); // { weekNum: bool }
   const [updating, setUpdating] = useState(false);
+  const [showBuilder, setShowBuilder] = useState(false);
 
   useEffect(() => {
     if (!activeProgram) {
@@ -115,12 +118,30 @@ export default function Program() {
 
   if (!activeProgram) {
     return (
-      <div className="max-w-md mx-auto mt-12">
-        <Card title="No Program">
-          <p className="text-text-muted text-sm">
-            No active program found. Import a program from the Dashboard to get started.
+      <div className="max-w-xl mx-auto mt-6 space-y-4">
+        <Card title="No active program yet">
+          <p className="text-text-muted text-sm mb-4">
+            Start by creating your own split — Leg Day, Arm Day, whatever you like — or import a
+            spreadsheet-based program.
           </p>
+          <button
+            onClick={() => setShowBuilder(true)}
+            className="w-full py-3 rounded-lg bg-accent text-surface font-semibold text-sm mb-3"
+          >
+            Create Custom Program
+          </button>
+          <div className="pt-3 border-t border-surface-lighter">
+            <p className="text-xs text-text-muted mb-2">Or import an .xlsx template:</p>
+            <ProgramUpload onUploaded={() => { refreshPrograms(); }} />
+          </div>
         </Card>
+
+        {showBuilder && (
+          <ProgramBuilder
+            onClose={() => setShowBuilder(false)}
+            onCreated={() => { setShowBuilder(false); refreshPrograms(); }}
+          />
+        )}
       </div>
     );
   }
@@ -140,6 +161,12 @@ export default function Program() {
 
   return (
     <div className="space-y-6">
+      {showBuilder && (
+        <ProgramBuilder
+          onClose={() => setShowBuilder(false)}
+          onCreated={() => { setShowBuilder(false); refreshPrograms(); }}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -155,8 +182,14 @@ export default function Program() {
           </p>
           <p className="text-text-muted text-[11px] mt-1.5 flex items-center gap-1.5">
             <AlertCircle size={12} className="shrink-0 text-info" />
-            To change training frequency, re-import your program from the Dashboard with the new frequency setting.
+            To change training frequency, re-import your program or create a new custom one.
           </p>
+          <button
+            onClick={() => setShowBuilder(true)}
+            className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10"
+          >
+            + Create another program
+          </button>
         </div>
 
         {/* Lifecycle buttons */}

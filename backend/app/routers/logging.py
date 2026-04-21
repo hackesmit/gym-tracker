@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import (
     Achievement,
@@ -149,17 +150,6 @@ class BodyMetricResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _get_default_user(db: Session) -> User:
-    """Return the first user in the database or raise 404."""
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No user found. Create a user first.",
-        )
-    return user
-
-
 # ---------------------------------------------------------------------------
 # Workout set logging
 # ---------------------------------------------------------------------------
@@ -170,9 +160,13 @@ def _get_default_user(db: Session) -> User:
     response_model=SetLogResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def log_single_set(payload: SetLogRequest, db: Session = Depends(get_db)):
+def log_single_set(
+    payload: SetLogRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Log a single set for an exercise."""
-    user = _get_default_user(db)
+    user = current_user
 
     # Validate program_exercise_id exists
     pe = db.get(ProgramExercise, payload.program_exercise_id)
@@ -198,6 +192,17 @@ def log_single_set(payload: SetLogRequest, db: Session = Depends(get_db)):
     db.add(log)
     db.commit()
     db.refresh(log)
+    # Medal + rank engines
+    try:
+        from ..medal_engine import check_strength_medals
+        check_strength_medals(db, log)
+    except Exception:
+        pass
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, user.id)
+    except Exception:
+        pass
     return log
 
 
@@ -206,9 +211,13 @@ def log_single_set(payload: SetLogRequest, db: Session = Depends(get_db)):
     response_model=BulkLogResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
+def log_bulk_session(
+    payload: BulkLogRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Log an entire workout session at once."""
-    user = _get_default_user(db)
+    user = current_user
 
     # Validate all program_exercise_ids up-front
     pe_ids = {s.program_exercise_id for s in payload.sets}
@@ -413,6 +422,20 @@ def log_bulk_session(payload: BulkLogRequest, db: Session = Depends(get_db)):
 
     db.commit()
 
+    # Fire medal + rank engines
+    try:
+        from ..medal_engine import check_strength_medals, check_consistency_medals
+        check_consistency_medals(db, session_log)
+        for wl in db.query(WorkoutLog).filter(WorkoutLog.session_log_id == session_log.id).all():
+            check_strength_medals(db, wl)
+    except Exception:
+        pass
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, user.id)
+    except Exception:
+        pass
+
     return BulkLogResponse(
         session_log_id=session_log.id,
         sets_logged=len(payload.sets),
@@ -429,11 +452,12 @@ def list_logs(
     from_date: Optional[date] = Query(None),
     to_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Query logged data with optional filters."""
     query = db.query(WorkoutLog).options(
         joinedload(WorkoutLog.program_exercise)
-    )
+    ).filter(WorkoutLog.user_id == current_user.id)
 
     if exercise:
         query = query.join(ProgramExercise).filter(
@@ -473,11 +497,13 @@ def list_logs(
 def export_logs(
     format: str = Query("csv", description="Export format: csv or json"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Export all workout logs as CSV or JSON."""
     logs = (
         db.query(WorkoutLog)
         .options(joinedload(WorkoutLog.program_exercise))
+        .filter(WorkoutLog.user_id == current_user.id)
         .order_by(WorkoutLog.date.desc(), WorkoutLog.id)
         .all()
     )
@@ -519,9 +545,17 @@ def export_logs(
 
 
 @router.patch("/api/log/session/{session_log_id}")
-def update_session(session_log_id: int, new_date: date = Query(...), db: Session = Depends(get_db)):
+def update_session(
+    session_log_id: int,
+    new_date: date = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update the date of a session and all its workout logs."""
-    session_log = db.query(SessionLog).filter(SessionLog.id == session_log_id).first()
+    session_log = db.query(SessionLog).filter(
+        SessionLog.id == session_log_id,
+        SessionLog.user_id == current_user.id,
+    ).first()
     if not session_log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
@@ -545,9 +579,17 @@ class SetUpdateRequest(BaseModel):
 
 
 @router.patch("/api/log/set/{log_id}")
-def update_set(log_id: int, payload: SetUpdateRequest, db: Session = Depends(get_db)):
+def update_set(
+    log_id: int,
+    payload: SetUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update weight, reps, or RPE on a single logged set."""
-    log = db.query(WorkoutLog).filter(WorkoutLog.id == log_id).first()
+    log = db.query(WorkoutLog).filter(
+        WorkoutLog.id == log_id,
+        WorkoutLog.user_id == current_user.id,
+    ).first()
     if not log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WorkoutLog not found")
     if payload.load_kg is not None:
@@ -566,10 +608,17 @@ def update_set(log_id: int, payload: SetUpdateRequest, db: Session = Depends(get
 
 
 @router.delete("/api/log/session/{session_log_id}")
-def undo_session(session_log_id: int, db: Session = Depends(get_db)):
+def undo_session(
+    session_log_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Delete a session and all its workout logs (undo last save)."""
     session_log = (
-        db.query(SessionLog).filter(SessionLog.id == session_log_id).first()
+        db.query(SessionLog).filter(
+            SessionLog.id == session_log_id,
+            SessionLog.user_id == current_user.id,
+        ).first()
     )
     if not session_log:
         raise HTTPException(
@@ -609,9 +658,13 @@ def undo_session(session_log_id: int, db: Session = Depends(get_db)):
     response_model=BodyMetricResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_body_metric(payload: BodyMetricRequest, db: Session = Depends(get_db)):
+def create_body_metric(
+    payload: BodyMetricRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Log body metrics for a given date."""
-    user = _get_default_user(db)
+    user = current_user
 
     metric = BodyMetric(
         user_id=user.id,
@@ -633,9 +686,10 @@ def body_metrics_history(
     from_date: Optional[date] = Query(None),
     to_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get body metrics over time with optional date range filters."""
-    query = db.query(BodyMetric)
+    query = db.query(BodyMetric).filter(BodyMetric.user_id == current_user.id)
 
     if from_date is not None:
         query = query.filter(BodyMetric.date >= from_date)
@@ -662,9 +716,13 @@ class Manual1RMPayload(BaseModel):
 
 
 @router.patch("/api/manual-1rm")
-def update_manual_1rm(payload: Manual1RMPayload, db: Session = Depends(get_db)):
+def update_manual_1rm(
+    payload: Manual1RMPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Set or update manual 1RM values for strength standards."""
-    user = _get_default_user(db)
+    user = current_user
     current = user.manual_1rm or {}
     for category, entry in payload.lifts.items():
         if category not in VALID_1RM_CATEGORIES:
@@ -685,7 +743,9 @@ def update_manual_1rm(payload: Manual1RMPayload, db: Session = Depends(get_db)):
 
 
 @router.get("/api/manual-1rm")
-def get_manual_1rm(db: Session = Depends(get_db)):
+def get_manual_1rm(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get current manual 1RM values."""
-    user = _get_default_user(db)
-    return {"manual_1rm": user.manual_1rm or {}}
+    return {"manual_1rm": current_user.manual_1rm or {}}

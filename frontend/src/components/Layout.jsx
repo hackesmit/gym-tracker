@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import {
   TodaysQuest, EyeOfSauron, Lembas,
   Chronicle as ChronicleIcon, SettingsGear,
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 const REALM_META = {
   gondor:    { label: 'Gondor',    icon: '🏰' },
@@ -52,6 +53,11 @@ const navItems = [
   { to: '/history',       icon: ChronicleIcon, label: 'Chronicle' },
   { to: '/program',       icon: NavHorn,       label: 'Program' },
   { to: '/achievements',  icon: NavHand,       label: 'Achievements' },
+  { to: '/cardio',        icon: Heart,         label: 'Cardio' },
+  { to: '/friends',       icon: Users,         label: 'Friends' },
+  { to: '/medals',        icon: Trophy,        label: 'Medals' },
+  { to: '/chat',          icon: MessageCircle, label: 'Chat' },
+  { to: '/profile',       icon: UserIcon,      label: 'Profile' },
   { to: '/settings',      icon: SettingsGear,  label: 'Settings' },
 ];
 
@@ -70,8 +76,10 @@ function AppLogo({ size = 'md' }) {
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { realm, cycleRealm } = useApp();
+  const { realm, cycleRealm, themeMode } = useApp();
+  const { user, logout } = useAuth();
   const meta = REALM_META[realm] || REALM_META.gondor;
+  const lotrMode = themeMode === 'lotr';
 
   return (
     <div className="flex min-h-screen">
@@ -101,16 +109,28 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        {/* Realm toggle */}
-        <div className="p-3 border-t border-surface-lighter">
-          <button
-            onClick={cycleRealm}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-surface-light text-text-muted hover:text-text touch-manipulation"
-            title={`Switch realm (current: ${meta.label})`}
-          >
-            <span className="text-base">{meta.icon}</span>
-            <span className="text-xs tracking-wide">{meta.label}</span>
-          </button>
+        {/* Realm toggle (LOTR mode only) + user/logout */}
+        <div className="p-3 border-t border-surface-lighter space-y-2">
+          {lotrMode && (
+            <button
+              onClick={cycleRealm}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-surface-light text-text-muted hover:text-text touch-manipulation"
+              title={`Switch realm (current: ${meta.label})`}
+            >
+              <span className="text-base">{meta.icon}</span>
+              <span className="text-xs tracking-wide">{meta.label}</span>
+            </button>
+          )}
+          {user && (
+            <button
+              onClick={logout}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs text-text-muted hover:text-text hover:bg-surface-light transition-colors"
+              title="Sign out"
+            >
+              <span className="truncate">{user.username}</span>
+              <LogOut size={14} />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -121,13 +141,15 @@ export default function Layout() {
           <AppLogo size="sm" /> Anabolic Analyzer
         </h1>
         <div className="flex items-center gap-1">
-          <button
-            onClick={cycleRealm}
-            className="text-base p-2 touch-manipulation"
-            title={`Switch realm (current: ${meta.label})`}
-          >
-            {meta.icon}
-          </button>
+          {lotrMode && (
+            <button
+              onClick={cycleRealm}
+              className="text-base p-2 touch-manipulation"
+              title={`Switch realm (current: ${meta.label})`}
+            >
+              {meta.icon}
+            </button>
+          )}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="text-text-muted p-2 -mr-2 touch-manipulation"
@@ -159,6 +181,14 @@ export default function Layout() {
                 {label}
               </NavLink>
             ))}
+            {user && (
+              <button
+                onClick={() => { setMobileOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-text-muted hover:text-text"
+              >
+                <LogOut size={22} /> Sign out ({user.username})
+              </button>
+            )}
           </nav>
         </div>
       )}

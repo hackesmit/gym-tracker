@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import User, VacationPeriod
 
@@ -34,19 +35,14 @@ def _serialize(vp: VacationPeriod) -> dict:
     }
 
 
-def _default_user(db: Session) -> User:
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No user found")
-    return user
-
-
 @router.get("")
-def list_vacations(db: Session = Depends(get_db)):
-    user = _default_user(db)
+def list_vacations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     periods = (
         db.query(VacationPeriod)
-        .filter(VacationPeriod.user_id == user.id)
+        .filter(VacationPeriod.user_id == current_user.id)
         .order_by(VacationPeriod.start_date)
         .all()
     )
@@ -54,12 +50,14 @@ def list_vacations(db: Session = Depends(get_db)):
 
 
 @router.get("/active")
-def get_active_vacation(db: Session = Depends(get_db)):
-    user = _default_user(db)
+def get_active_vacation(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     vp = (
         db.query(VacationPeriod)
         .filter(
-            VacationPeriod.user_id == user.id,
+            VacationPeriod.user_id == current_user.id,
             VacationPeriod.end_date.is_(None),
         )
         .order_by(VacationPeriod.start_date.desc())
@@ -71,10 +69,13 @@ def get_active_vacation(db: Session = Depends(get_db)):
 
 
 @router.post("", status_code=201)
-def create_vacation(body: VacationCreate, db: Session = Depends(get_db)):
-    user = _default_user(db)
+def create_vacation(
+    body: VacationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     vp = VacationPeriod(
-        user_id=user.id,
+        user_id=current_user.id,
         start_date=body.start_date,
         end_date=body.end_date,
         reason=body.reason,
@@ -87,9 +88,15 @@ def create_vacation(body: VacationCreate, db: Session = Depends(get_db)):
 
 @router.put("/{vacation_id}")
 def update_vacation(
-    vacation_id: int, body: VacationUpdate, db: Session = Depends(get_db)
+    vacation_id: int,
+    body: VacationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    vp = db.query(VacationPeriod).filter(VacationPeriod.id == vacation_id).first()
+    vp = db.query(VacationPeriod).filter(
+        VacationPeriod.id == vacation_id,
+        VacationPeriod.user_id == current_user.id,
+    ).first()
     if not vp:
         raise HTTPException(status_code=404, detail="Vacation period not found")
     if body.end_date is not None:
@@ -102,8 +109,15 @@ def update_vacation(
 
 
 @router.delete("/{vacation_id}")
-def delete_vacation(vacation_id: int, db: Session = Depends(get_db)):
-    vp = db.query(VacationPeriod).filter(VacationPeriod.id == vacation_id).first()
+def delete_vacation(
+    vacation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vp = db.query(VacationPeriod).filter(
+        VacationPeriod.id == vacation_id,
+        VacationPeriod.user_id == current_user.id,
+    ).first()
     if not vp:
         raise HTTPException(status_code=404, detail="Vacation period not found")
     db.delete(vp)

@@ -2,13 +2,31 @@
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
+from .auth import hash_password
 from .database import Base, SessionLocal, engine
-from .routers import analytics, logging, programs, tracker, vacation
+from .medal_engine import seed_medal_catalog
+from .models import User
+from .routers import (
+    analytics,
+    auth,
+    cardio,
+    chat,
+    dashboard,
+    friends,
+    logging,
+    medals,
+    programs,
+    ranks,
+    social,
+    tracker,
+    vacation,
+)
 from .seed_catalog import seed_exercise_catalog
 
 
@@ -45,18 +63,64 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_bodyweight", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
+    _ensure_column("workout_logs", "is_true_1rm_attempt", "BOOLEAN", default="false")
+    _ensure_column("workout_logs", "completed_successfully", "BOOLEAN", default="true")
 
-    # Add indexes for frequently queried columns (Postgres only; SQLite handles via ORM)
+    # users: new auth fields
+    _ensure_column("users", "username", "VARCHAR")
+    _ensure_column("users", "email", "VARCHAR")
+    _ensure_column("users", "password_hash", "VARCHAR")
+    _ensure_column("users", "last_login_at", "TIMESTAMP")
+    _ensure_column("users", "manual_1rm", "JSON" if not is_sqlite else "TEXT")
+
+    # Compound indexes for dashboard / analytics performance
+    index_stmts = [
+        "CREATE INDEX IF NOT EXISTS idx_workout_logs_user_date ON workout_logs (user_id, date)",
+        "CREATE INDEX IF NOT EXISTS idx_session_logs_user_date ON session_logs (user_id, date)",
+        "CREATE INDEX IF NOT EXISTS idx_body_metrics_user_date ON body_metrics (user_id, date)",
+        "CREATE INDEX IF NOT EXISTS idx_cardio_logs_user_date ON cardio_logs (user_id, date)",
+        "CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements (user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_feed_events_user_created ON feed_events (user_id, created_at)",
+    ]
     if not is_sqlite:
-        for stmt in [
+        index_stmts += [
             "CREATE INDEX IF NOT EXISTS ix_workout_logs_user_id ON workout_logs (user_id)",
             "CREATE INDEX IF NOT EXISTS ix_workout_logs_date ON workout_logs (date)",
             "CREATE INDEX IF NOT EXISTS ix_program_exercises_canonical ON program_exercises (exercise_name_canonical)",
             "CREATE INDEX IF NOT EXISTS ix_session_logs_program_id ON session_logs (program_id)",
-        ]:
+        ]
+    for stmt in index_stmts:
+        try:
             db.execute(text(stmt))
-        db.commit()
+        except Exception:
+            pass
+    db.commit()
 
+
+def _backfill_default_user(db):
+    """Ensure a user named 'hackesmit' exists with a password set.
+
+    - If a user exists but has no password_hash (pre-auth data), upgrade it.
+    - Otherwise if no user at all, create hackesmit/password.
+    """
+    user = db.query(User).first()
+    if user:
+        if not user.password_hash:
+            # Upgrade the existing single user in place
+            user.username = user.username or "hackesmit"
+            user.password_hash = hash_password("password")
+            if not user.name:
+                user.name = "hackesmit"
+            db.commit()
+    else:
+        u = User(
+            username="hackesmit",
+            name="hackesmit",
+            password_hash=hash_password("password"),
+            preferred_units="kg",
+        )
+        db.add(u)
+        db.commit()
 
 
 @asynccontextmanager
@@ -67,6 +131,8 @@ async def lifespan(app: FastAPI):
     try:
         _run_migrations(db)
         seed_exercise_catalog(db)
+        seed_medal_catalog(db)
+        _backfill_default_user(db)
     finally:
         db.close()
     yield
@@ -82,12 +148,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(programs.router)
 app.include_router(logging.router)
 app.include_router(tracker.router)
 app.include_router(tracker.workout_router)
 app.include_router(analytics.router)
 app.include_router(vacation.router)
+app.include_router(cardio.router)
+app.include_router(friends.router)
+app.include_router(medals.router)
+app.include_router(ranks.router)
+app.include_router(social.router)
+app.include_router(dashboard.router)
+app.include_router(chat.router)
 
 
 @app.get("/")

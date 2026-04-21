@@ -9,12 +9,14 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import (
     Program,
     ProgramExercise,
     ProgramProgress,
     SessionLog,
+    User,
     VacationPeriod,
     WorkoutLog,
 )
@@ -41,8 +43,11 @@ class SessionStatusRequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _get_program_or_404(program_id: int, db: Session) -> Program:
-    program = db.query(Program).filter(Program.id == program_id).first()
+def _get_program_or_404(program_id: int, db: Session, user_id: int | None = None) -> Program:
+    q = db.query(Program).filter(Program.id == program_id)
+    if user_id is not None:
+        q = q.filter(Program.user_id == user_id)
+    program = q.first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
     return program
@@ -212,8 +217,12 @@ def _compute_streaks(
 # ---------------------------------------------------------------------------
 
 @router.get("/{program_id}")
-def get_tracker(program_id: int, db: Session = Depends(get_db)):
-    program = _get_program_or_404(program_id, db)
+def get_tracker(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
 
     sessions_by_week = _distinct_sessions_by_week(db, program_id)
     logs_map = _session_logs_map(db, program_id)
@@ -329,9 +338,12 @@ def get_tracker(program_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{program_id}/week/{week_num}")
 def get_week_detail(
-    program_id: int, week_num: int, db: Session = Depends(get_db)
+    program_id: int,
+    week_num: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    program = _get_program_or_404(program_id, db)
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
     if week_num < 1 or week_num > program.total_weeks:
         raise HTTPException(status_code=400, detail="Invalid week number")
 
@@ -425,8 +437,9 @@ def log_session(
     program_id: int,
     body: SessionStatusRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    program = _get_program_or_404(program_id, db)
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
 
     # Validate week
     if body.week < 1 or body.week > program.total_weeks:
@@ -539,8 +552,12 @@ def log_session(
 # ---------------------------------------------------------------------------
 
 @router.patch("/{program_id}/advance")
-def advance_session(program_id: int, db: Session = Depends(get_db)):
-    program = _get_program_or_404(program_id, db)
+def advance_session(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
 
     progress = (
         db.query(ProgramProgress)
@@ -579,8 +596,12 @@ def advance_session(program_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/{program_id}/calendar")
-def get_calendar(program_id: int, db: Session = Depends(get_db)):
-    program = _get_program_or_404(program_id, db)
+def get_calendar(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
 
     logs = (
         db.query(SessionLog)
@@ -616,8 +637,12 @@ def get_calendar(program_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/{program_id}/adherence")
-def get_adherence(program_id: int, db: Session = Depends(get_db)):
-    program = _get_program_or_404(program_id, db)
+def get_adherence(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    program = _get_program_or_404(program_id, db, user_id=current_user.id)
 
     sessions_by_week = _distinct_sessions_by_week(db, program_id)
     logs_map = _session_logs_map(db, program_id)
@@ -678,7 +703,10 @@ def get_adherence(program_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @workout_router.get("/today")
-def get_workout_today(db: Session = Depends(get_db)):
+def get_workout_today(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Return the next prescribed workout session for the active program.
 
     Finds the most recent active program, computes the current week,
@@ -687,7 +715,7 @@ def get_workout_today(db: Session = Depends(get_db)):
     # Find the most recent active program
     program = (
         db.query(Program)
-        .filter(Program.status == "active")
+        .filter(Program.status == "active", Program.user_id == current_user.id)
         .order_by(Program.created_at.desc())
         .first()
     )

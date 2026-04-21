@@ -1,19 +1,58 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
+export const TOKEN_KEY = 'gym-token';
+
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token, remember = true) {
+  try {
+    // Clear both first to avoid stale entries
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    if (!token) return;
+    if (remember) localStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 async function request(path, options = {}) {
   const maxRetries = options.method && options.method !== 'GET' ? 3 : 1;
   let lastError;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      const token = getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${BASE}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
         ...options,
+        headers,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const err = new Error(body.detail || `API error ${res.status}`);
         err.status = res.status;
-        // Only retry on 5xx, not 4xx
+        if (res.status === 401) {
+          clearToken();
+          try { window.dispatchEvent(new Event('auth:logout')); } catch { /* ignore */ }
+          throw err;
+        }
         if (res.status >= 500 && attempt < maxRetries - 1) {
           lastError = err;
           await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
@@ -24,7 +63,6 @@ async function request(path, options = {}) {
       return res.json();
     } catch (err) {
       lastError = err;
-      // Retry on network errors (no status = fetch failed)
       if (!err.status && attempt < maxRetries - 1) {
         await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
         continue;
@@ -35,8 +73,67 @@ async function request(path, options = {}) {
   throw lastError;
 }
 
+// Auth
+export const register = (data) =>
+  request('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+export const login = (data) =>
+  request('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+export const getMe = () => request('/auth/me');
+export const updateMe = (data) =>
+  request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) });
+export const absorbAccount = (source_username, source_password) =>
+  request('/auth/absorb', { method: 'POST', body: JSON.stringify({ source_username, source_password }) });
+
+// Dashboard consolidated
+export const getDashboard = () => request('/dashboard');
+
+// Cardio
+export const listCardio = (params = {}) => {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null));
+  return request(`/cardio/logs?${qs}`);
+};
+export const createCardio = (data) =>
+  request('/cardio/log', { method: 'POST', body: JSON.stringify(data) });
+export const updateCardio = (id, data) =>
+  request(`/cardio/log/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteCardio = (id) =>
+  request(`/cardio/log/${id}`, { method: 'DELETE' });
+export const getCardioSummary = () => request('/cardio/summary');
+
+// Friends
+export const listFriends = () => request('/friends');
+export const requestFriend = (username) =>
+  request('/friends/request', { method: 'POST', body: JSON.stringify({ username_or_id: username }) });
+export const acceptFriend = (id) =>
+  request(`/friends/accept/${id}`, { method: 'POST' });
+export const declineFriend = (id) =>
+  request(`/friends/decline/${id}`, { method: 'POST' });
+export const removeFriend = (id) =>
+  request(`/friends/${id}`, { method: 'DELETE' });
+
+// Medals
+export const listMedals = () => request('/medals');
+export const getMyMedals = () => request('/medals/my');
+
+// Ranks
+export const getRanks = (userId) => request(`/ranks${userId ? `?user_id=${userId}` : ''}`);
+export const compareRanks = (userId) => request(`/ranks/compare/${userId}`);
+
+// Social
+export const getSocialFeed = () => request('/social/feed');
+export const getLeaderboard = () => request('/social/leaderboard');
+export const getCompare = (userId) => request(`/social/compare/${userId}`);
+
+// Chat
+export const getChatMessages = (afterId) =>
+  request(`/chat${afterId != null ? `?after_id=${afterId}` : ''}`);
+export const sendChatMessage = (content) =>
+  request('/chat', { method: 'POST', body: JSON.stringify({ content }) });
+
 // Programs
 export const getPrograms = () => request('/programs');
+export const createCustomProgram = (data) =>
+  request('/programs/custom', { method: 'POST', body: JSON.stringify(data) });
 export const getSchedule = (id) => request(`/program/${id}/schedule`);
 export const updateProgramStatus = (id, status) =>
   request(`/program/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PATCH' });
@@ -49,7 +146,10 @@ export const importProgram = (file, frequency) => {
   const form = new FormData();
   form.append('file', file);
   form.append('frequency', frequency);
-  return fetch(`${BASE}/import-program`, { method: 'POST', body: form }).then(async (r) => {
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetch(`${BASE}/import-program`, { method: 'POST', body: form, headers }).then(async (r) => {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Upload failed');
     return r.json();
   });
@@ -73,7 +173,10 @@ export const updateSet = (logId, data) =>
 
 // Export
 export const exportLogs = async (format = 'csv') => {
-  const res = await fetch(`${BASE}/logs/export?format=${format}`);
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}/logs/export?format=${format}`, { headers });
   if (!res.ok) throw new Error('Export failed');
   if (format === 'json') return res.json();
   return res.text();
@@ -118,7 +221,7 @@ export const getAchievements = (params = {}) => {
   return request(`/analytics/achievements?${qs}`);
 };
 
-// Manual 1RM — shape: { lifts: { bench: { value_kg, tested_at } | null } }
+// Manual 1RM
 export const getManual1RM = () => request('/manual-1rm');
 export const updateManual1RM = (lifts) =>
   request('/manual-1rm', { method: 'PATCH', body: JSON.stringify({ lifts }) });

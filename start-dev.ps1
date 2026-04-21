@@ -86,10 +86,10 @@ Write-Step "Checking for existing processes on ports $BACKEND_PORT and $FRONTEND
 foreach ($port in @($BACKEND_PORT, $FRONTEND_PORT)) {
     $conns = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
     foreach ($conn in $conns) {
-        $pid = $conn.OwningProcess
-        if ($pid -and $pid -ne 0) {
-            Write-Warn "Killing PID $pid on port $port"
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+        $procId = $conn.OwningProcess
+        if ($procId -and $procId -ne 0) {
+            Write-Warn "Killing PID $procId on port $port"
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -116,8 +116,9 @@ Wait-ForUrl -Url $BACKEND_URL -Label "Backend" -TimeoutSeconds $POLL_TIMEOUT
 # ══════════════════════════════════════════════════════════════════════
 Write-Step "Starting frontend (npm run dev) in $FrontendDir ..."
 
-$script:FrontendProc = Start-Process -PassThru -NoNewWindow -FilePath "npm" `
-    -ArgumentList "run", "dev" `
+# On Windows, npm is a .cmd shim, not a Win32 exe — launch it via cmd.exe
+$script:FrontendProc = Start-Process -PassThru -NoNewWindow -FilePath "cmd.exe" `
+    -ArgumentList "/c", "npm", "run", "dev" `
     -WorkingDirectory $FrontendDir
 
 Write-Ok "Frontend started (PID $($script:FrontendProc.Id))"

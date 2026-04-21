@@ -25,6 +25,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    username: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     bodyweight_kg: Mapped[float] = mapped_column(Float, nullable=True)
     height_cm: Mapped[float] = mapped_column(Float, nullable=True)
     sex: Mapped[str] = mapped_column(String, nullable=True)
@@ -142,6 +146,8 @@ class WorkoutLog(Base):
     is_bodyweight: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dropset: Mapped[bool] = mapped_column(Boolean, default=False)
     dropset_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_true_1rm_attempt: Mapped[bool] = mapped_column(Boolean, default=False)
+    completed_successfully: Mapped[bool] = mapped_column(Boolean, default=True)
     session_log_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("session_logs.id", ondelete="CASCADE"), nullable=True
     )
@@ -260,3 +266,122 @@ class VacationPeriod(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="vacation_periods")
+
+
+class CardioLog(Base):
+    __tablename__ = "cardio_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    modality: Mapped[str] = mapped_column(String, nullable=False)  # run, bike, swim, row, walk, other
+    duration_minutes: Mapped[float] = mapped_column(Float, nullable=False)
+    distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    elevation_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_hr: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rpe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("requester_id", "addressee_id", name="uq_friendship_pair"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    requester_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    addressee_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending/accepted/declined
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Medal(Base):
+    __tablename__ = "medals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    metric_type: Mapped[str] = mapped_column(String, nullable=False)
+    unit: Mapped[str] = mapped_column(String, nullable=False)
+    higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class MedalRecord(Base):
+    __tablename__ = "medal_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    medal_id: Mapped[int] = mapped_column(Integer, ForeignKey("medals.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String, nullable=True)  # workout_log/cardio_log/session_log
+    source_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    achieved_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class MedalCurrentHolder(Base):
+    __tablename__ = "medal_current_holder"
+
+    medal_id: Mapped[int] = mapped_column(Integer, ForeignKey("medals.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MuscleScore(Base):
+    __tablename__ = "muscle_scores"
+    __table_args__ = (
+        UniqueConstraint("user_id", "muscle_group", name="uq_muscle_score"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    muscle_group: Mapped[str] = mapped_column(String, nullable=False)
+    score_v: Mapped[float] = mapped_column(Float, default=0.0)
+    score_i: Mapped[float] = mapped_column(Float, default=0.0)
+    score_f: Mapped[float] = mapped_column(Float, default=0.0)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    rank: Mapped[str] = mapped_column(String, default="Copper")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FeedEvent(Base):
+    __tablename__ = "feed_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False, default="user")
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), index=True
+    )
+

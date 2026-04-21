@@ -4,7 +4,8 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import Card from '../components/Card';
 import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palmtree } from 'lucide-react';
-import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation } from '../api/client';
+import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount } from '../api/client';
+import { useT } from '../i18n';
 
 const REALM_INFO = [
   { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
@@ -37,7 +38,8 @@ function isStale(dateStr) {
 }
 
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm, themeMode, setThemeMode, language, setLanguage } = useApp();
+  const t = useT();
   const { addToast } = useToast();
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
@@ -143,6 +145,65 @@ export default function Settings() {
     <div className="space-y-6">
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Settings</h2>
 
+      <Card title={t('settings.language', 'Language')}>
+        <p className="text-sm text-text-muted mb-4">
+          Choose the language used across the app. / Elige el idioma de la app.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setLanguage('en')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              language === 'en'
+                ? 'border-accent bg-accent/15 text-accent-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            <span className="text-lg block mb-1">🇬🇧</span>
+            {t('settings.language.en', 'English')}
+          </button>
+          <button
+            onClick={() => setLanguage('es')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              language === 'es'
+                ? 'border-accent bg-accent/15 text-accent-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            <span className="text-lg block mb-1">🇪🇸</span>
+            {t('settings.language.es', 'Español')}
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Theme Mode">
+        <p className="text-sm text-text-muted mb-4">
+          Choose between a clean neutral look and the full Middle-earth theme.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setThemeMode('neutral')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              themeMode === 'neutral'
+                ? 'border-accent bg-accent/15 text-accent-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            Neutral
+          </button>
+          <button
+            onClick={() => setThemeMode('lotr')}
+            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+              themeMode === 'lotr'
+                ? 'border-accent bg-accent/15 text-accent-light'
+                : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
+            }`}
+          >
+            LOTR
+          </button>
+        </div>
+      </Card>
+
+      {themeMode === 'lotr' && (
       <Card title="Realm Theme">
         <p className="text-sm text-text-muted mb-4">
           Choose your realm. Each brings its own colors to Middle-earth.
@@ -178,6 +239,7 @@ export default function Settings() {
           ))}
         </div>
       </Card>
+      )}
 
       <Card title="Units">
         <p className="text-sm text-text-muted mb-4">
@@ -316,6 +378,9 @@ export default function Settings() {
         </button>
       </Card>
 
+      {/* Import existing data from another account */}
+      <AbsorbCard addToast={addToast} />
+
       {/* Export Data */}
       <Card title="Export Data">
         <p className="text-xs text-text-muted mb-3">Download all workout history for backup or analysis.</p>
@@ -353,5 +418,68 @@ export default function Settings() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function AbsorbCard({ addToast }) {
+  const [srcUser, setSrcUser] = useState('');
+  const [srcPass, setSrcPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const run = async () => {
+    if (!srcUser || !srcPass || busy) return;
+    if (!confirm(`Reassign all data from "${srcUser}" to this account? The source account will be deleted.`)) return;
+    setBusy(true);
+    try {
+      const res = await absorbAccount(srcUser.trim(), srcPass);
+      setResult(res);
+      setSrcPass('');
+      addToast('Data imported. Reloading…', 'success');
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      addToast(err.message || 'Absorb failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Import existing data">
+      <p className="text-sm text-text-muted mb-3">
+        Moving from an older account? Enter its credentials to pull all your programs, workout logs,
+        cardio, and body metrics into this account. The old account is deleted afterwards.
+      </p>
+      <div className="space-y-2">
+        <input
+          type="text"
+          placeholder="Source username (e.g. hackesmit)"
+          value={srcUser}
+          onChange={(e) => setSrcUser(e.target.value)}
+          className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+          autoComplete="off"
+        />
+        <input
+          type="password"
+          placeholder="Source password"
+          value={srcPass}
+          onChange={(e) => setSrcPass(e.target.value)}
+          className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+          autoComplete="off"
+        />
+        <button
+          onClick={run}
+          disabled={busy || !srcUser || !srcPass}
+          className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+        >
+          {busy ? 'Importing…' : 'Import data'}
+        </button>
+        {result && (
+          <p className="text-xs text-success">
+            Moved: {Object.entries(result.moved || {}).map(([k, v]) => `${v} ${k}`).join(', ') || 'nothing'}
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }

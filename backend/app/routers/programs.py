@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import func
 
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import Program, ProgramExercise, ProgramProgress, User, WorkoutLog
 from ..parser import parse_program
@@ -26,6 +27,27 @@ class StatusUpdate(BaseModel):
 class ExerciseSwap(BaseModel):
     new_exercise_name: str
 
+
+class CustomExercise(BaseModel):
+    name: str
+    working_sets: int = 3
+    prescribed_reps: str = "8-12"
+    prescribed_rpe: float | None = None
+    rest_seconds: int | None = None
+    notes: str | None = None
+
+
+class CustomSession(BaseModel):
+    name: str
+    exercises: list[CustomExercise]
+
+
+class CustomProgramPayload(BaseModel):
+    name: str
+    sessions: list[CustomSession]
+    total_weeks: int = 12
+    activate: bool = True
+
 # Directory for uploaded spreadsheets
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", tempfile.gettempdir())) / "uploads"
 
@@ -38,23 +60,13 @@ FREQUENCY_SHEETS = {
 }
 
 
-def _get_or_create_default_user(db: Session) -> User:
-    """Get the default user, creating one if none exists."""
-    user = db.query(User).first()
-    if not user:
-        user = User(name="Default User", preferred_units="kg")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
-
-
 @router.post("/import-program")
 def import_program(
     file: UploadFile = File(...),
     frequency: int = Form(...),
     program_name: str = Form("The Essentials"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upload an .xlsx file, parse it, and store the program + exercises.
@@ -100,12 +112,9 @@ def import_program(
     max_week = max(ex["week"] for ex in exercises)
     total_weeks = max(max_week, 12)
 
-    # Get or create default user
-    user = _get_or_create_default_user(db)
-
     # Create the program
     program = Program(
-        user_id=user.id,
+        user_id=current_user.id,
         name=program_name,
         frequency=frequency,
         start_date=date.today(),
@@ -178,10 +187,92 @@ def import_program(
     }
 
 
+@router.post("/programs/custom", status_code=201)
+def create_custom_program(
+    payload: CustomProgramPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a blank program with user-defined sessions and exercises.
+
+    Each session is cloned across all weeks so progression works the same as
+    an imported spreadsheet program.
+    """
+    if not payload.sessions:
+        raise HTTPException(status_code=400, detail="At least one session required")
+    if any(not s.exercises for s in payload.sessions):
+        raise HTTPException(status_code=400, detail="Each session needs at least one exercise")
+
+    total_weeks = max(1, min(payload.total_weeks, 52))
+    frequency = len(payload.sessions)
+
+    if payload.activate:
+        # Demote other active programs so only one is active at a time.
+        db.query(Program).filter(
+            Program.user_id == current_user.id,
+            Program.status == "active",
+        ).update({"status": "paused"}, synchronize_session=False)
+
+    program = Program(
+        user_id=current_user.id,
+        name=payload.name.strip() or "My Program",
+        frequency=frequency,
+        start_date=date.today(),
+        status="active" if payload.activate else "paused",
+        total_weeks=total_weeks,
+        source_file=None,
+    )
+    db.add(program)
+    db.flush()
+
+    for week in range(1, total_weeks + 1):
+        for s_idx, session in enumerate(payload.sessions, start=1):
+            for e_idx, ex in enumerate(session.exercises, start=1):
+                db.add(ProgramExercise(
+                    program_id=program.id,
+                    week=week,
+                    session_name=session.name.strip() or f"Session {s_idx}",
+                    session_order_in_week=s_idx,
+                    exercise_order=e_idx,
+                    exercise_name_canonical=ex.name.strip().lower(),
+                    exercise_name_raw=ex.name.strip(),
+                    warm_up_sets=0,
+                    working_sets=ex.working_sets,
+                    prescribed_reps=ex.prescribed_reps,
+                    prescribed_rpe=ex.prescribed_rpe,
+                    rest_period=(f"{ex.rest_seconds}s" if ex.rest_seconds else None),
+                    substitution_1=None,
+                    substitution_2=None,
+                    notes=ex.notes,
+                    is_superset=False,
+                    superset_group=None,
+                ))
+
+    db.add(ProgramProgress(
+        program_id=program.id,
+        current_week=1,
+        current_session_index=1,
+        total_sessions_completed=0,
+        total_sessions_skipped=0,
+    ))
+    db.commit()
+    db.refresh(program)
+    return {
+        "id": program.id,
+        "name": program.name,
+        "frequency": frequency,
+        "total_weeks": total_weeks,
+        "status": program.status,
+    }
+
+
 @router.get("/programs")
-def list_programs(db: Session = Depends(get_db)):
+def list_programs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """List all programs."""
-    programs = db.query(Program).all()
+    programs = db.query(Program).filter(Program.user_id == current_user.id).all()
     return {
         "programs": [
             {
@@ -199,9 +290,15 @@ def list_programs(db: Session = Depends(get_db)):
 
 
 @router.get("/program/{program_id}/schedule")
-def get_program_schedule(program_id: int, db: Session = Depends(get_db)):
+def get_program_schedule(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get the full weekly schedule for a program."""
-    program = db.query(Program).filter(Program.id == program_id).first()
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
 
@@ -279,7 +376,10 @@ def get_program_schedule(program_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/program/{program_id}/status")
 def update_program_status(
-    program_id: int, body: StatusUpdate, db: Session = Depends(get_db)
+    program_id: int,
+    body: StatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Update program status (active/paused/completed/abandoned)."""
     status = body.status
@@ -290,7 +390,9 @@ def update_program_status(
             detail=f"Status must be one of {valid_statuses}",
         )
 
-    program = db.query(Program).filter(Program.id == program_id).first()
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
 
@@ -308,8 +410,14 @@ def swap_exercise(
     old_name: str,
     body: ExerciseSwap,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Swap an exercise name across all weeks of a program."""
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
     exercises = (
         db.query(ProgramExercise)
         .filter(
@@ -335,7 +443,11 @@ def swap_exercise(
 
 
 @router.post("/program/{program_id}/deduplicate")
-def deduplicate_program(program_id: int, db: Session = Depends(get_db)):
+def deduplicate_program(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Remove duplicate ProgramExercise rows and associated WorkoutLog entries.
 
     When multiple ProgramExercise rows share the same (program_id, week,
@@ -343,7 +455,9 @@ def deduplicate_program(program_id: int, db: Session = Depends(get_db)):
     delete the rest along with their WorkoutLog entries.
     Also renames sessions with duplicate session_orders to "SESSION A/B".
     """
-    program = db.query(Program).filter(Program.id == program_id).first()
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
 
