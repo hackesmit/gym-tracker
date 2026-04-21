@@ -1,7 +1,10 @@
 """Program CRUD and import endpoints."""
 
 import os
+import re
+import secrets
 import shutil
+import string
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -48,6 +51,24 @@ class CustomProgramPayload(BaseModel):
     total_weeks: int = 12
     activate: bool = True
 
+
+class ImportSharedPayload(BaseModel):
+    code: str
+    activate: bool = True
+    rename: str | None = None
+
+
+SHARE_CODE_ALPHABET = string.ascii_uppercase + string.digits  # no lowercase / no lookalikes kept for brevity
+
+
+def _generate_share_code(db: Session, length: int = 8) -> str:
+    for _ in range(10):
+        code = "".join(secrets.choice(SHARE_CODE_ALPHABET) for _ in range(length))
+        if not db.query(Program).filter(Program.share_code == code).first():
+            return code
+    # Extremely unlikely collision path: fall back to longer code
+    return "".join(secrets.choice(SHARE_CODE_ALPHABET) for _ in range(length + 4))
+
 # Directory for uploaded spreadsheets
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", tempfile.gettempdir())) / "uploads"
 
@@ -82,13 +103,16 @@ def import_program(
             detail=f"Frequency must be one of {list(FREQUENCY_SHEETS.keys())}",
         )
 
-    # Validate file type
-    if not file.filename or not file.filename.endswith(".xlsx"):
+    # Validate file type (case-insensitive; tolerate stray whitespace)
+    safe_name = (file.filename or "").strip()
+    if not safe_name.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="File must be an .xlsx spreadsheet")
 
-    # Save uploaded file
+    # Save uploaded file under a sanitized name (strip path separators, collapse spaces)
+    stored_name = re.sub(r"[\\/]+", "_", safe_name)
+    stored_name = re.sub(r"\s+", " ", stored_name)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    file_path = UPLOAD_DIR / file.filename
+    file_path = UPLOAD_DIR / stored_name
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
@@ -112,6 +136,12 @@ def import_program(
     max_week = max(ex["week"] for ex in exercises)
     total_weeks = max(max_week, 12)
 
+    # Demote any previously-active programs so exactly one is active.
+    db.query(Program).filter(
+        Program.user_id == current_user.id,
+        Program.status == "active",
+    ).update({"status": "paused"}, synchronize_session=False)
+
     # Create the program
     program = Program(
         user_id=current_user.id,
@@ -120,7 +150,7 @@ def import_program(
         start_date=date.today(),
         status="active",
         total_weeks=total_weeks,
-        source_file=file.filename,
+        source_file=stored_name,
     )
     db.add(program)
     db.flush()  # Get program.id
@@ -283,6 +313,7 @@ def list_programs(
                 "start_date": str(p.start_date),
                 "total_weeks": p.total_weeks,
                 "source_file": p.source_file,
+                "share_code": p.share_code,
             }
             for p in programs
         ]
@@ -549,4 +580,176 @@ def deduplicate_program(
         "duplicate_exercises_removed": len(dup_pe_ids),
         "orphaned_logs_removed": deleted_logs,
         "duplicate_logs_removed": deleted_dup_logs,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Program sharing
+#
+# A program owner can enable sharing to get a human-readable code.  Other
+# users import the program by code — this deep-copies every ProgramExercise
+# into a fresh Program owned by the importer so their edits and logs stay
+# isolated from the original.  Workout logs are NOT copied.
+# ---------------------------------------------------------------------------
+
+def _summarize_program(program: Program, db: Session) -> dict:
+    pe_count = (
+        db.query(func.count(ProgramExercise.id))
+        .filter(ProgramExercise.program_id == program.id)
+        .scalar()
+        or 0
+    )
+    session_names = (
+        db.query(ProgramExercise.session_name)
+        .filter(ProgramExercise.program_id == program.id, ProgramExercise.week == 1)
+        .distinct()
+        .all()
+    )
+    owner = db.get(User, program.user_id)
+    return {
+        "id": program.id,
+        "name": program.name,
+        "frequency": program.frequency,
+        "total_weeks": program.total_weeks,
+        "total_exercises": int(pe_count),
+        "sessions_week1": [s[0] for s in session_names],
+        "owner_username": owner.username if owner else None,
+        "owner_name": owner.name if owner else None,
+    }
+
+
+@router.post("/program/{program_id}/share")
+def enable_program_share(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enable sharing for a program and return its share code."""
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if not program.share_code:
+        program.share_code = _generate_share_code(db)
+        db.commit()
+    return {
+        "program_id": program.id,
+        "share_code": program.share_code,
+        "share_enabled": True,
+    }
+
+
+@router.delete("/program/{program_id}/share")
+def disable_program_share(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Revoke the share code so the program can no longer be imported."""
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    program.share_code = None
+    db.commit()
+    return {"program_id": program.id, "share_enabled": False}
+
+
+@router.get("/programs/shared/{code}")
+def preview_shared_program(
+    code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return summary info for a shared program without importing it."""
+    code = (code or "").strip().upper()
+    program = db.query(Program).filter(Program.share_code == code).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Invalid share code")
+    return _summarize_program(program, db)
+
+
+@router.post("/programs/import-shared", status_code=201)
+def import_shared_program(
+    payload: ImportSharedPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Import a shared program by code as a new program owned by the user."""
+    code = (payload.code or "").strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Share code required")
+    source = db.query(Program).filter(Program.share_code == code).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Invalid share code")
+    if source.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You already own this program")
+
+    if payload.activate:
+        db.query(Program).filter(
+            Program.user_id == current_user.id,
+            Program.status == "active",
+        ).update({"status": "paused"}, synchronize_session=False)
+
+    new_name = (payload.rename or source.name).strip() or source.name
+    new_program = Program(
+        user_id=current_user.id,
+        name=new_name,
+        frequency=source.frequency,
+        start_date=date.today(),
+        status="active" if payload.activate else "paused",
+        total_weeks=source.total_weeks,
+        source_file=source.source_file,
+        share_code=None,  # imported copies are private by default
+    )
+    db.add(new_program)
+    db.flush()
+
+    src_exercises = (
+        db.query(ProgramExercise)
+        .filter(ProgramExercise.program_id == source.id)
+        .order_by(ProgramExercise.week, ProgramExercise.session_order_in_week, ProgramExercise.exercise_order)
+        .all()
+    )
+    for ex in src_exercises:
+        db.add(ProgramExercise(
+            program_id=new_program.id,
+            week=ex.week,
+            session_name=ex.session_name,
+            session_order_in_week=ex.session_order_in_week,
+            exercise_order=ex.exercise_order,
+            exercise_name_canonical=ex.exercise_name_canonical,
+            exercise_name_raw=ex.exercise_name_raw,
+            warm_up_sets=ex.warm_up_sets,
+            working_sets=ex.working_sets,
+            prescribed_reps=ex.prescribed_reps,
+            prescribed_rpe=ex.prescribed_rpe,
+            rest_period=ex.rest_period,
+            substitution_1=ex.substitution_1,
+            substitution_2=ex.substitution_2,
+            notes=ex.notes,
+            is_superset=ex.is_superset,
+            superset_group=ex.superset_group,
+        ))
+
+    db.add(ProgramProgress(
+        program_id=new_program.id,
+        current_week=1,
+        current_session_index=1,
+        total_sessions_completed=0,
+        total_sessions_skipped=0,
+    ))
+    db.commit()
+    db.refresh(new_program)
+
+    return {
+        "id": new_program.id,
+        "name": new_program.name,
+        "frequency": new_program.frequency,
+        "total_weeks": new_program.total_weeks,
+        "status": new_program.status,
+        "imported_from_user_id": source.user_id,
+        "exercises_copied": len(src_exercises),
     }

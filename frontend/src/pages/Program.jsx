@@ -3,11 +3,14 @@ import {
   ChevronDown, ChevronRight, Pause, Play, XCircle, CheckCircle2, Eye,
   Dumbbell, Clock, Hash, Gauge, MessageSquare, ArrowLeftRight,
   Link as LinkIcon, AlertCircle, Circle, SkipForward, Loader2,
+  Share2, Upload,
 } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProgramBuilder from '../components/ProgramBuilder';
 import ProgramUpload from '../components/ProgramUpload';
+import ProgramShareModal from '../components/ProgramShareModal';
+import ImportSharedProgram from '../components/ImportSharedProgram';
 import { useApp } from '../context/AppContext';
 import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
 import { useT } from '../i18n';
@@ -31,6 +34,8 @@ export default function Program() {
   const [weekLogsLoading, setWeekLogsLoading] = useState({}); // { weekNum: bool }
   const [updating, setUpdating] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     if (!activeProgram) {
@@ -135,6 +140,10 @@ export default function Program() {
             <p className="text-xs text-text-muted mb-2">{t('program.importTitle')}</p>
             <ProgramUpload onUploaded={() => { refreshPrograms(); }} />
           </div>
+          <div className="pt-3 mt-3 border-t border-surface-lighter">
+            <p className="text-xs text-text-muted mb-2">Import a shared program</p>
+            <ImportSharedProgram onImported={() => refreshPrograms()} />
+          </div>
         </Card>
 
         {showBuilder && (
@@ -168,6 +177,13 @@ export default function Program() {
           onCreated={() => { setShowBuilder(false); refreshPrograms(); }}
         />
       )}
+      {showShare && (
+        <ProgramShareModal
+          program={activeProgram}
+          onClose={() => setShowShare(false)}
+          onChange={() => refreshPrograms()}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -185,12 +201,34 @@ export default function Program() {
             <AlertCircle size={12} className="shrink-0 text-info" />
             To change training frequency, re-import your program or create a new custom one.
           </p>
-          <button
-            onClick={() => setShowBuilder(true)}
-            className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10"
-          >
-            {t('program.createAnother')}
-          </button>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              onClick={() => setShowBuilder(true)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10"
+            >
+              {t('program.createAnother')}
+            </button>
+            <button
+              onClick={() => setShowUpload((v) => !v)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10 flex items-center gap-1"
+            >
+              <Upload size={12} /> {showUpload ? 'Hide re-import' : 'Re-import from Excel'}
+            </button>
+            <button
+              onClick={() => setShowShare(true)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10 flex items-center gap-1"
+            >
+              <Share2 size={12} /> {activeProgram.share_code ? 'Sharing on' : 'Share'}
+            </button>
+          </div>
+          {showUpload && (
+            <div className="mt-3 max-w-md stone-panel p-3">
+              <p className="text-xs text-text-muted mb-2">
+                Uploading a new spreadsheet will pause this program and activate the new one.
+              </p>
+              <ProgramUpload />
+            </div>
+          )}
         </div>
 
         {/* Lifecycle buttons */}
