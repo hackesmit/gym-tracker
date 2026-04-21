@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import Card from './Card';
 import { createCustomProgram } from '../api/client';
+import { useT } from '../i18n';
 
 const DEFAULT_EXERCISE = { name: '', working_sets: 3, prescribed_reps: '8-12', rest_seconds: 90 };
 const DEFAULT_SESSION = () => ({ name: '', exercises: [{ ...DEFAULT_EXERCISE }] });
 
 export default function ProgramBuilder({ onClose, onCreated }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [totalWeeks, setTotalWeeks] = useState(12);
   const [sessions, setSessions] = useState([
@@ -40,8 +42,8 @@ export default function ProgramBuilder({ onClose, onCreated }) {
 
   const submit = async () => {
     setErr('');
-    if (!name.trim()) return setErr('Program name is required');
-    if (sessions.length === 0) return setErr('Add at least one session');
+    if (!name.trim()) return setErr(t('builder.errName'));
+    if (sessions.length === 0) return setErr(t('builder.errSessions'));
     for (const [i, s] of sessions.entries()) {
       if (!s.name.trim()) return setErr(`Session ${i + 1} needs a name`);
       if (s.exercises.length === 0) return setErr(`Session "${s.name}" needs at least one exercise`);
@@ -78,24 +80,24 @@ export default function ProgramBuilder({ onClose, onCreated }) {
       <div className="w-full max-w-2xl my-4">
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-xl font-semibold">Create Program</h3>
-            <button onClick={onClose} className="text-text-muted hover:text-text p-1" aria-label="Close">
+            <h3 className="font-display text-xl font-semibold">{t('builder.title')}</h3>
+            <button onClick={onClose} className="text-text-muted hover:text-text p-1" aria-label={t('common.close')}>
               <X size={20} />
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-5">
             <div className="col-span-2">
-              <label className="block text-xs text-text-muted mb-1">Program name</label>
+              <label className="block text-xs text-text-muted mb-1">{t('builder.programName')}</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="My Split"
+                placeholder={t('builder.namePlaceholder')}
                 className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Weeks</label>
+              <label className="block text-xs text-text-muted mb-1">{t('builder.weeks')}</label>
               <input
                 type="number"
                 min={1}
@@ -114,7 +116,7 @@ export default function ProgramBuilder({ onClose, onCreated }) {
                   <input
                     value={session.name}
                     onChange={(e) => updateSession(si, { name: e.target.value })}
-                    placeholder={`Session ${si + 1} (e.g. Leg Day)`}
+                    placeholder={t('builder.sessionPlaceholder').replace('{n}', si + 1)}
                     className="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm font-medium"
                   />
                   {sessions.length > 1 && (
@@ -134,7 +136,7 @@ export default function ProgramBuilder({ onClose, onCreated }) {
                       <input
                         value={ex.name}
                         onChange={(e) => updateExercise(si, ei, { name: e.target.value })}
-                        placeholder="Exercise name"
+                        placeholder={t('builder.exerciseName')}
                         className="col-span-5 bg-surface border border-surface-lighter rounded px-2 py-1.5 text-sm"
                       />
                       <input
@@ -177,7 +179,7 @@ export default function ProgramBuilder({ onClose, onCreated }) {
                   onClick={() => addExercise(si)}
                   className="mt-3 text-xs text-accent hover:text-accent-light flex items-center gap-1"
                 >
-                  <Plus size={14} /> Add exercise
+                  <Plus size={14} /> {t('builder.addExercise')}
                 </button>
               </div>
             ))}
@@ -187,27 +189,26 @@ export default function ProgramBuilder({ onClose, onCreated }) {
             onClick={addSession}
             className="mt-3 w-full py-2 rounded-lg border border-dashed border-surface-lighter text-sm text-text-muted hover:text-text hover:border-accent"
           >
-            <Plus size={14} className="inline mr-1" /> Add session (e.g. Arm Day)
+            <Plus size={14} className="inline mr-1" /> {t('builder.addSession')}
           </button>
 
           {err && <p className="text-sm text-danger mt-3">{err}</p>}
 
           <div className="mt-5 flex justify-end gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-text-muted hover:text-text">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={submit}
               disabled={busy}
               className="px-4 py-2 rounded-lg bg-accent text-surface font-semibold text-sm disabled:opacity-50"
             >
-              {busy ? 'Creating…' : 'Create program'}
+              {busy ? t('builder.creating') : t('builder.create')}
             </button>
           </div>
 
           <p className="text-[10px] text-text-muted mt-3">
-            Columns: exercise · sets · rep range · rest (sec). The program applies the same sessions
-            every week — your logs drive progressive-overload suggestions automatically.
+            {t('builder.help')}
           </p>
         </Card>
       </div>

@@ -3,8 +3,10 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { listMedals, getMyMedals } from '../api/client';
 import { Trophy } from 'lucide-react';
+import { useT } from '../i18n';
 
 export default function Medals() {
+  const t = useT();
   const [all, setAll] = useState([]);
   const [mine, setMine] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function Medals() {
 
   return (
     <div className="space-y-4">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Medals</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('medals.title')}</h2>
       <p className="text-sm text-text-muted">
         King-of-the-hill records across all users. Hold a medal by setting the top value.
       </p>

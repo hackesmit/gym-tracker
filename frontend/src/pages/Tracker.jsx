@@ -10,6 +10,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import TrainingHeatmap from '../components/TrainingHeatmap';
 import { useApp } from '../context/AppContext';
 import { getTracker, getCalendar, getAdherence } from '../api/client';
+import { useT } from '../i18n';
 import { exportToCSV } from '../utils/export';
 
 const STATUS_ICONS = {
@@ -22,6 +23,7 @@ const STATUS_ICONS = {
 
 export default function Tracker() {
   const { activeProgram } = useApp();
+  const t = useT();
   const [tracker, setTracker] = useState(null);
   const [adherence, setAdherence] = useState(null);
   const [view, setView] = useState('grid'); // grid | calendar
@@ -32,11 +34,11 @@ export default function Tracker() {
     if (!activeProgram) { setLoading(false); return; }
     const load = async () => {
       try {
-        const [t, a] = await Promise.all([
+        const [tr, a] = await Promise.all([
           getTracker(activeProgram.id),
           getAdherence(activeProgram.id),
         ]);
-        setTracker(t);
+        setTracker(tr);
         setAdherence(a);
       } catch (err) {
         setError(err.message);
@@ -50,8 +52,8 @@ export default function Tracker() {
   if (loading) return <LoadingSpinner />;
   if (!activeProgram) return (
     <div className="text-center py-12">
-      <p className="text-text-muted">No active program. Import one from the Dashboard.</p>
-      <Link to="/" className="text-accent text-sm mt-2 inline-block">Go to Dashboard</Link>
+      <p className="text-text-muted">{t('tracker.noActiveProgram')}</p>
+      <Link to="/" className="text-accent text-sm mt-2 inline-block">{t('tracker.goDashboard')}</Link>
     </div>
   );
   if (error) return <ErrorMessage message={error} />;
@@ -67,7 +69,7 @@ export default function Tracker() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Program Tracker</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('tracker.title')}</h2>
           <p className="text-text-muted text-sm mt-1">{activeProgram.name}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -87,7 +89,7 @@ export default function Tracker() {
               className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
             >
               <Download size={12} />
-              Export
+              {t('common.export')}
             </button>
           )}
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
@@ -114,10 +116,10 @@ export default function Tracker() {
       {/* Adherence stats */}
       {adherence && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Completion" value={`${Math.round(adherence.completion_rate || 0)}%`} />
-          <StatCard label="Sessions Done" value={adherence.total_completed ?? 0} />
-          <StatCard label="Current Week Streak" value={adherence.current_streak ?? 0} />
-          <StatCard label="Longest Week Streak" value={adherence.longest_streak ?? 0} />
+          <StatCard label={t('tracker.completion')} value={`${Math.round(adherence.completion_rate || 0)}%`} />
+          <StatCard label={t('tracker.sessionsDone')} value={adherence.total_completed ?? 0} />
+          <StatCard label={t('tracker.currentWeekStreak')} value={adherence.current_streak ?? 0} />
+          <StatCard label={t('tracker.longestWeekStreak')} value={adherence.longest_streak ?? 0} />
         </div>
       )}
 
@@ -130,9 +132,9 @@ export default function Tracker() {
             }>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold">
-                  Week {week.week_number}
+                  {t('common.week')} {week.week_number}
                   {week.week_number === currentWeek && (
-                    <span className="ml-2 text-xs text-accent bg-accent/10 px-2 py-0.5 rounded">Current</span>
+                    <span className="ml-2 text-xs text-accent bg-accent/10 px-2 py-0.5 rounded">{t('common.current')}</span>
                   )}
                 </h4>
               </div>
@@ -162,7 +164,7 @@ export default function Tracker() {
       )}
 
       {/* Training Frequency Heatmap */}
-      <Card title="Training Frequency">
+      <Card title={t('tracker.trainingFrequency')}>
         <HeatmapSection programId={activeProgram.id} />
       </Card>
     </div>
@@ -170,15 +172,17 @@ export default function Tracker() {
 }
 
 function HeatmapSection({ programId }) {
+  const t = useT();
   const [cal, setCal] = useState(null);
   useEffect(() => {
     getCalendar(programId).then(setCal).catch(() => {});
   }, [programId]);
-  if (!cal) return <p className="text-xs text-text-muted py-2">Loading...</p>;
+  if (!cal) return <p className="text-xs text-text-muted py-2">{t('common.loading')}</p>;
   return <TrainingHeatmap calendarData={cal} />;
 }
 
 function CalendarView({ programId }) {
+  const t = useT();
   const [cal, setCal] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -191,10 +195,10 @@ function CalendarView({ programId }) {
 
   if (loading) return <LoadingSpinner />;
   const sessions = cal?.calendar || [];
-  if (!sessions.length) return <p className="text-text-muted text-sm text-center py-8">No session dates recorded yet.</p>;
+  if (!sessions.length) return <p className="text-text-muted text-sm text-center py-8">{t('tracker.noSessionDates')}</p>;
 
   return (
-    <Card title="Session Calendar">
+    <Card title={t('tracker.sessionCalendar')}>
       <div className="space-y-2">
         {sessions.map((s, i) => {
           const st = STATUS_ICONS[s.status] || STATUS_ICONS.pending;

@@ -1,8 +1,13 @@
 import { Check, Trophy, Copy } from 'lucide-react';
 import { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { useT } from '../i18n';
 
 export default function SessionSummary({ sets, prList, sessionName, week, units, convert, unitLabel, onLogAnother }) {
   const [copied, setCopied] = useState(false);
+  const { themeMode } = useApp();
+  const lotr = themeMode === 'lotr';
+  const t = useT();
 
   const weightedSets = sets.filter(s => s.load_kg > 0);
   const countedSets = sets.filter(s => s.load_kg > 0 || s.is_bodyweight);
@@ -48,18 +53,22 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
         </div>
       </div>
 
-      <p className="text-xs text-text-muted italic">The day's training is complete.</p>
+      <p className="text-xs text-text-muted italic">
+        {lotr ? t('summary.completeLotr') : t('summary.complete')}
+      </p>
 
       <div className="grid grid-cols-2 gap-3">
-        <StatBlock label="Volume" value={`${formatVolume(displayVolume)}`} unit={unitLabel} />
-        <StatBlock label="Top Set" value={topSet ? topSet.exercise_name : '—'} sub={topSet ? `${Math.round(topSet.load_kg)} ${unitLabel} × ${topSet.reps_completed}` : null} />
-        <StatBlock label="Exercises" value={exercises.size} />
-        <StatBlock label="Sets" value={countedSets.length} />
+        <StatBlock label={t('summary.volume')} value={`${formatVolume(displayVolume)}`} unit={unitLabel} />
+        <StatBlock label={t('summary.topSet')} value={topSet ? topSet.exercise_name : '—'} sub={topSet ? `${Math.round(topSet.load_kg)} ${unitLabel} × ${topSet.reps_completed}` : null} />
+        <StatBlock label={t('common.exercises')} value={exercises.size} />
+        <StatBlock label={t('common.sets')} value={countedSets.length} />
       </div>
 
       {prList?.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-accent font-semibold">Records Forged</p>
+          <p className="text-[10px] uppercase tracking-widest text-accent font-semibold">
+            {lotr ? t('summary.recordsForged') : t('summary.newPRs')}
+          </p>
           {prList.map((pr, i) => (
             <div key={i} className="flex items-center gap-2 forged-panel px-3 py-2">
               <Trophy className="w-4 h-4 text-dwarven-light shrink-0" />
@@ -78,10 +87,10 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
       <div className="flex gap-2 pt-1">
         <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 text-sm text-accent hover:text-accent-light transition-colors">
           <Copy className="w-3.5 h-3.5" />
-          {copied ? 'Copied!' : 'Copy Chronicle'}
+          {copied ? t('common.copied') : (lotr ? t('summary.copyChronicle') : t('summary.copySummary'))}
         </button>
         <button onClick={onLogAnother} className="flex-1 btn-gold text-sm py-2">
-          Log another session
+          {t('logger.logAnother')}
         </button>
       </div>
     </div>

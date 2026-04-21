@@ -10,6 +10,7 @@ import ProgramBuilder from '../components/ProgramBuilder';
 import ProgramUpload from '../components/ProgramUpload';
 import { useApp } from '../context/AppContext';
 import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
+import { useT } from '../i18n';
 
 const STATUS_STYLES = {
   active: 'bg-success/15 text-success',
@@ -20,6 +21,7 @@ const STATUS_STYLES = {
 
 export default function Program() {
   const { activeProgram, refreshPrograms } = useApp();
+  const t = useT();
   const [schedule, setSchedule] = useState(null);
   const [tracker, setTracker] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,19 +121,18 @@ export default function Program() {
   if (!activeProgram) {
     return (
       <div className="max-w-xl mx-auto mt-6 space-y-4">
-        <Card title="No active program yet">
+        <Card title={t('program.noActive')}>
           <p className="text-text-muted text-sm mb-4">
-            Start by creating your own split — Leg Day, Arm Day, whatever you like — or import a
-            spreadsheet-based program.
+            {t('program.importDesc')}
           </p>
           <button
             onClick={() => setShowBuilder(true)}
             className="w-full py-3 rounded-lg bg-accent text-surface font-semibold text-sm mb-3"
           >
-            Create Custom Program
+            {t('program.createCustom')}
           </button>
           <div className="pt-3 border-t border-surface-lighter">
-            <p className="text-xs text-text-muted mb-2">Or import an .xlsx template:</p>
+            <p className="text-xs text-text-muted mb-2">{t('program.importTitle')}</p>
             <ProgramUpload onUploaded={() => { refreshPrograms(); }} />
           </div>
         </Card>
@@ -188,7 +189,7 @@ export default function Program() {
             onClick={() => setShowBuilder(true)}
             className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-accent/40 text-accent hover:bg-accent/10"
           >
-            + Create another program
+            {t('program.createAnother')}
           </button>
         </div>
 

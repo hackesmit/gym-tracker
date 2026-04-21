@@ -4,8 +4,10 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BodyMap from '../components/BodyMap';
 import { getCompare } from '../api/client';
+import { useT } from '../i18n';
 
 export default function Compare() {
+  const t = useT();
   const [params] = useSearchParams();
   const friendId = params.get('friend');
   const [data, setData] = useState(null);
@@ -40,7 +42,7 @@ export default function Compare() {
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">
-        Compare: {me.username || 'You'} vs {friend.username}
+        {t('compare.title')}: {me.username || 'You'} vs {friend.username}
       </h2>
 
       <div className="grid md:grid-cols-2 gap-4">

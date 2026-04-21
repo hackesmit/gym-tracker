@@ -115,6 +115,31 @@ def update_me(
     return current_user
 
 
+class AdminResetPayload(BaseModel):
+    target_username: str
+    new_password: str = Field(..., min_length=4, max_length=128)
+
+
+ADMIN_USERNAMES = {"hackesmit"}
+
+
+@router.post("/admin-reset")
+def admin_reset(
+    payload: AdminResetPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reset another user's password. Restricted to admin usernames."""
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = db.query(User).filter(User.username == payload.target_username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    target.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"ok": True, "username": target.username}
+
+
 class AbsorbPayload(BaseModel):
     source_username: str
     source_password: str

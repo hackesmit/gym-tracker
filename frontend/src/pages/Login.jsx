@@ -35,7 +35,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-surface-dark">
       <div className="w-full max-w-sm">
         <h1 className="font-display text-2xl font-semibold tracking-wide text-center mb-6 text-text">
-          Gym Tracker
+          {t('app.name.neutral', 'Gym Tracker')}
         </h1>
         <Card title={t('login.title', 'Sign in')}>
           <form onSubmit={submit} className="space-y-3">
@@ -78,7 +78,7 @@ export default function Login() {
               disabled={busy}
               className="w-full py-2.5 rounded-lg bg-accent text-surface-dark text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60"
             >
-              {busy ? '…' : t('login.submit', 'Sign in')}
+              {busy ? t('login.submitting', 'Signing in…') : t('login.submit', 'Sign in')}
             </button>
           </form>
           <p className="text-xs text-text-muted mt-4 text-center">

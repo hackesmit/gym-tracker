@@ -4,8 +4,10 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { listFriends, requestFriend, acceptFriend, declineFriend, removeFriend } from '../api/client';
 import { UserPlus, Check, X, Trash2 } from 'lucide-react';
+import { useT } from '../i18n';
 
 export default function Friends() {
+  const t = useT();
   const [data, setData] = useState({ accepted: [], incoming: [], outgoing: [] });
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
@@ -29,7 +31,7 @@ export default function Friends() {
         });
       }
     } catch (ex) {
-      setErr(ex.message || 'Failed to load friends');
+      setErr(ex.message || t('friends.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -42,11 +44,11 @@ export default function Friends() {
     setErr(''); setMsg('');
     try {
       await requestFriend(username.trim());
-      setMsg('Request sent.');
+      setMsg(t('friends.requestSent'));
       setUsername('');
       load();
     } catch (ex) {
-      setErr(ex.message || 'Request failed');
+      setErr(ex.message || t('friends.requestFailed'));
     }
   };
 
@@ -54,18 +56,18 @@ export default function Friends() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Friends</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('friends.title')}</h2>
 
-      <Card title="Add a friend">
+      <Card title={t('friends.add')}>
         <form onSubmit={sendReq} className="flex gap-2">
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="username"
+            placeholder={t('friends.usernamePlaceholder')}
             className="flex-1 bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm text-text focus:ring-1 focus:ring-accent outline-none"
           />
           <button type="submit" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-surface-dark text-sm font-semibold">
-            <UserPlus size={14} /> Send
+            <UserPlus size={14} /> {t('common.send')}
           </button>
         </form>
         {err && <p className="text-sm text-danger mt-2">{err}</p>}
@@ -73,7 +75,7 @@ export default function Friends() {
       </Card>
 
       {data.incoming.length > 0 && (
-        <Card title="Incoming requests">
+        <Card title={t('friends.incoming')}>
           <ul className="divide-y divide-surface-lighter">
             {data.incoming.map((f) => {
               const fid = f.friendship_id || f.id;
@@ -83,10 +85,10 @@ export default function Friends() {
                   <span className="text-sm font-medium">{who}</span>
                   <div className="flex gap-2">
                     <button onClick={async () => { await acceptFriend(fid); load(); }} className="flex items-center gap-1 px-3 py-1.5 rounded bg-success/20 text-success text-xs">
-                      <Check size={12} /> Accept
+                      <Check size={12} /> {t('friends.accept')}
                     </button>
                     <button onClick={async () => { await declineFriend(fid); load(); }} className="flex items-center gap-1 px-3 py-1.5 rounded bg-surface-light text-text-muted text-xs">
-                      <X size={12} /> Decline
+                      <X size={12} /> {t('friends.decline')}
                     </button>
                   </div>
                 </li>
@@ -97,7 +99,7 @@ export default function Friends() {
       )}
 
       {data.outgoing.length > 0 && (
-        <Card title="Pending — sent">
+        <Card title={t('friends.pendingSent')}>
           <ul className="divide-y divide-surface-lighter">
             {data.outgoing.map((f) => {
               const fid = f.friendship_id || f.id;
@@ -105,7 +107,7 @@ export default function Friends() {
               return (
                 <li key={fid} className="py-2 flex items-center justify-between opacity-60">
                   <span className="text-sm">{who}</span>
-                  <span className="text-xs text-text-muted">awaiting</span>
+                  <span className="text-xs text-text-muted">{t('friends.awaiting')}</span>
                 </li>
               );
             })}
@@ -113,7 +115,7 @@ export default function Friends() {
         </Card>
       )}
 
-      <Card title="Your friends">
+      <Card title={t('friends.yours')}>
         {data.accepted.length ? (
           <ul className="divide-y divide-surface-lighter">
             {data.accepted.map((f) => {
@@ -127,19 +129,19 @@ export default function Friends() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-text">{f.username || f.name}</p>
                     <p className="text-xs text-text-muted">
-                      {volume != null && <>Vol 30d: {Math.round(volume).toLocaleString()} · </>}
-                      {sessions != null && <>Sessions: {sessions} · </>}
-                      {cardio != null && <>Cardio: {cardio.toFixed(1)} km</>}
+                      {volume != null && <>{t('friends.vol30d')}: {Math.round(volume).toLocaleString()} · </>}
+                      {sessions != null && <>{t('friends.sessions')}: {sessions} · </>}
+                      {cardio != null && <>{t('friends.cardio')}: {cardio.toFixed(1)} km</>}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Link to={`/compare?friend=${uid}`} className="px-3 py-1.5 rounded bg-accent/15 text-accent text-xs font-semibold">
-                      Compare
+                      {t('friends.compare')}
                     </Link>
                     <Link to={`/profile?userId=${uid}`} className="px-3 py-1.5 rounded bg-surface-light text-xs">
-                      Profile
+                      {t('friends.profileLink')}
                     </Link>
-                    <button onClick={async () => { if (confirm('Remove friend?')) { await removeFriend(uid); load(); } }} className="text-text-muted hover:text-danger">
+                    <button onClick={async () => { if (confirm(t('friends.removeConfirm'))) { await removeFriend(uid); load(); } }} className="text-text-muted hover:text-danger">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -148,7 +150,7 @@ export default function Friends() {
             })}
           </ul>
         ) : (
-          <p className="text-sm text-text-muted">No friends yet. Send a request above.</p>
+          <p className="text-sm text-text-muted">{t('friends.empty')}</p>
         )}
       </Card>
     </div>

@@ -4,8 +4,9 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import Card from '../components/Card';
 import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palmtree } from 'lucide-react';
-import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount } from '../api/client';
+import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount, adminResetPassword } from '../api/client';
 import { useT } from '../i18n';
+import { useAuth } from '../context/AuthContext';
 
 const REALM_INFO = [
   { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
@@ -41,6 +42,8 @@ export default function Settings() {
   const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm, themeMode, setThemeMode, language, setLanguage } = useApp();
   const t = useT();
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = (user?.username || '').toLowerCase() === 'hackesmit';
   // orm state: { bench: { value: '225', tested_at: '2026-03-20' }, ... }
   const [orm, setOrm] = useState({});
   const [ormSaved, setOrmSaved] = useState(false);
@@ -143,11 +146,11 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Settings</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('settings.title')}</h2>
 
-      <Card title={t('settings.language', 'Language')}>
+      <Card title={t('settings.language')}>
         <p className="text-sm text-text-muted mb-4">
-          Choose the language used across the app. / Elige el idioma de la app.
+          {t('settings.language.desc')}
         </p>
         <div className="flex gap-3">
           <button
@@ -175,9 +178,9 @@ export default function Settings() {
         </div>
       </Card>
 
-      <Card title="Theme Mode">
+      <Card title={t('settings.themeMode')}>
         <p className="text-sm text-text-muted mb-4">
-          Choose between a clean neutral look and the full Middle-earth theme.
+          {t('settings.themeMode.desc')}
         </p>
         <div className="flex gap-3">
           <button
@@ -188,7 +191,7 @@ export default function Settings() {
                 : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
             }`}
           >
-            Neutral
+            {t('settings.themeMode.neutral')}
           </button>
           <button
             onClick={() => setThemeMode('lotr')}
@@ -198,15 +201,15 @@ export default function Settings() {
                 : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text hover:border-text-muted'
             }`}
           >
-            LOTR
+            {t('settings.themeMode.lotr')}
           </button>
         </div>
       </Card>
 
       {themeMode === 'lotr' && (
-      <Card title="Realm Theme">
+      <Card title={t('settings.realm')}>
         <p className="text-sm text-text-muted mb-4">
-          Choose your realm. Each brings its own colors to Middle-earth.
+          {t('settings.realm.desc')}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {REALM_INFO.map(({ key, label, icon, desc, colors }) => (
@@ -241,10 +244,9 @@ export default function Settings() {
       </Card>
       )}
 
-      <Card title="Units">
+      <Card title={t('settings.units')}>
         <p className="text-sm text-text-muted mb-4">
-          Choose your preferred unit system. All weights will be displayed in your selected unit.
-          Data is always stored in kg internally and converted automatically.
+          {t('settings.units.desc')}
         </p>
         <div className="flex gap-3">
           <button
@@ -271,13 +273,13 @@ export default function Settings() {
           </button>
         </div>
         <p className="text-xs text-text-muted mt-3">
-          Currently using: <span className="text-accent-light font-medium">{units === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}</span>
+          {t('settings.units.current')}: <span className="text-accent-light font-medium">{units === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}</span>
         </p>
       </Card>
 
-      <Card title="Rest Timer">
+      <Card title={t('settings.restTimer')}>
         <p className="text-sm text-text-muted mb-4">
-          Default rest time between sets. Individual exercise rest periods override this.
+          {t('settings.restTimer.desc')}
         </p>
         <div className="flex gap-2 flex-wrap">
           {REST_PRESETS.map((sec) => (
@@ -295,14 +297,14 @@ export default function Settings() {
           ))}
         </div>
         <p className="text-xs text-text-muted mt-3">
-          Currently using: <span className="text-accent-light font-medium">{formatRestLabel(defaultRestSeconds)}</span>
+          {t('settings.units.current')}: <span className="text-accent-light font-medium">{formatRestLabel(defaultRestSeconds)}</span>
         </p>
       </Card>
 
       {/* Vacation Mode */}
-      <Card title="Vacation Mode" icon={<Palmtree size={18} />}>
+      <Card title={t('settings.vacation')} icon={<Palmtree size={18} />}>
         <p className="text-sm text-text-muted mb-4">
-          Pause streak tracking while you're away. Vacation weeks won't count against your streak.
+          {t('settings.vacation.desc')}
         </p>
         {vacationActive && vacationStart && (
           <p className="text-xs text-accent mb-3">
@@ -312,7 +314,7 @@ export default function Settings() {
         {!vacationActive && (
           <input
             type="text"
-            placeholder="Reason (optional)"
+            placeholder={t('settings.vacation.reason')}
             value={vacationReason}
             onChange={(e) => setVacationReason(e.target.value)}
             className="w-full p-2 mb-3 rounded bg-surface-lighter text-text text-sm border border-border"
@@ -326,14 +328,13 @@ export default function Settings() {
               : 'bg-warning/20 text-warning hover:bg-warning/30'
           }`}
         >
-          {vacationActive ? 'End Vacation' : 'Start Vacation'}
+          {vacationActive ? t('settings.vacation.end') : t('settings.vacation.start')}
         </button>
       </Card>
 
-      <Card title="Known 1RM">
+      <Card title={t('settings.knownOneRM')}>
         <p className="text-sm text-text-muted mb-4">
-          Enter your known one-rep maxes with the date tested. Used for strength standards when
-          no qualifying barbell lift has been logged. Logged data only overrides if it's both newer and higher confidence.
+          {t('settings.knownOneRM.desc')}
         </p>
         <div className="space-y-3">
           {LIFT_CATEGORIES.map(({ key, label }) => {
@@ -374,16 +375,18 @@ export default function Settings() {
           onClick={saveOrm}
           className="mt-4 w-full py-3 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors touch-manipulation"
         >
-          {ormSaved ? 'Saved!' : 'Save 1RMs'}
+          {ormSaved ? t('common.saved') : t('settings.knownOneRM.save')}
         </button>
       </Card>
 
       {/* Import existing data from another account */}
       <AbsorbCard addToast={addToast} />
 
+      {isAdmin && <AdminResetCard addToast={addToast} />}
+
       {/* Export Data */}
-      <Card title="Export Data">
-        <p className="text-xs text-text-muted mb-3">Download all workout history for backup or analysis.</p>
+      <Card title={t('settings.export')}>
+        <p className="text-xs text-text-muted mb-3">{t('settings.export.desc')}</p>
         <div className="flex gap-3">
           <button
             onClick={async () => {
@@ -421,7 +424,84 @@ export default function Settings() {
   );
 }
 
+function AdminResetCard({ addToast }) {
+  const t = useT();
+  const [target, setTarget] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    if (!target || !newPass || busy) return;
+    if (newPass !== confirm) {
+      addToast('Passwords do not match', 'error');
+      return;
+    }
+    if (newPass.length < 4) {
+      addToast('Password must be at least 4 characters', 'error');
+      return;
+    }
+    if (!window.confirm(`Reset password for "${target}"? They'll need the new password to log in.`)) return;
+    setBusy(true);
+    try {
+      await adminResetPassword(target.trim(), newPass);
+      addToast(`Password reset for ${target.trim()}`, 'success');
+      setTarget('');
+      setNewPass('');
+      setConfirm('');
+    } catch (err) {
+      addToast(err.message || 'Reset failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title={t('settings.adminReset')}>
+      <p className="text-sm text-text-muted mb-3">
+        {t('settings.adminReset.desc')}
+      </p>
+      <div className="space-y-2">
+        <input
+          type="text"
+          placeholder={t('settings.adminReset.target')}
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+          autoComplete="off"
+        />
+        <input
+          type="password"
+          placeholder={t('settings.adminReset.newPass')}
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+          className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+          autoComplete="new-password"
+        />
+        <input
+          type="password"
+          placeholder={t('settings.adminReset.confirm')}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          className={`w-full bg-surface-light border rounded-lg px-3 py-2 text-sm ${
+            confirm && newPass !== confirm ? 'border-danger' : 'border-surface-lighter'
+          }`}
+          autoComplete="new-password"
+        />
+        <button
+          onClick={run}
+          disabled={busy || !target || !newPass || newPass !== confirm}
+          className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+        >
+          {busy ? t('settings.adminReset.running') : t('settings.adminReset.run')}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 function AbsorbCard({ addToast }) {
+  const t = useT();
   const [srcUser, setSrcUser] = useState('');
   const [srcPass, setSrcPass] = useState('');
   const [busy, setBusy] = useState(false);
@@ -445,15 +525,14 @@ function AbsorbCard({ addToast }) {
   };
 
   return (
-    <Card title="Import existing data">
+    <Card title={t('settings.import')}>
       <p className="text-sm text-text-muted mb-3">
-        Moving from an older account? Enter its credentials to pull all your programs, workout logs,
-        cardio, and body metrics into this account. The old account is deleted afterwards.
+        {t('settings.import.desc')}
       </p>
       <div className="space-y-2">
         <input
           type="text"
-          placeholder="Source username (e.g. hackesmit)"
+          placeholder={t('settings.import.sourceUser')}
           value={srcUser}
           onChange={(e) => setSrcUser(e.target.value)}
           className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
@@ -461,7 +540,7 @@ function AbsorbCard({ addToast }) {
         />
         <input
           type="password"
-          placeholder="Source password"
+          placeholder={t('settings.import.sourcePass')}
           value={srcPass}
           onChange={(e) => setSrcPass(e.target.value)}
           className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
@@ -472,7 +551,7 @@ function AbsorbCard({ addToast }) {
           disabled={busy || !srcUser || !srcPass}
           className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
         >
-          {busy ? 'Importing…' : 'Import data'}
+          {busy ? t('settings.import.running') : t('settings.import.run')}
         </button>
         {result && (
           <p className="text-xs text-success">

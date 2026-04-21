@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Trophy, Award, Target, Flame, Star, X } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 function typeIcon(type) {
   if (type.includes('pr')) return <Trophy className="w-5 h-5 text-accent" />;
@@ -10,20 +11,20 @@ function typeIcon(type) {
   return <Trophy className="w-5 h-5 text-text-muted" />;
 }
 
-function typeLabel(type) {
-  if (type === 'weight_pr') return 'A new record is forged';
-  if (type === 'e1rm_pr') return 'A new record is forged';
-  if (type === 'rep_pr') return 'Honor earned';
-  if (type === 'volume_pr') return 'Honor earned';
-  if (type === 'streak') return 'The Watch continues';
-  if (type === 'consistency') return 'Honor earned';
+function typeLabel(type, lotr) {
+  if (type === 'weight_pr' || type === 'e1rm_pr') return lotr ? 'A new record is forged' : 'New PR';
+  if (type === 'rep_pr' || type === 'volume_pr') return lotr ? 'Honor earned' : 'New PR';
+  if (type === 'streak') return lotr ? 'The Watch continues' : 'Streak extended';
+  if (type === 'consistency') return lotr ? 'Honor earned' : 'Consistency';
   if (type === 'milestone') return 'Milestone reached';
-  if (type === 'badge') return 'Honor earned';
+  if (type === 'badge') return lotr ? 'Honor earned' : 'Badge earned';
   return 'Achievement';
 }
 
 export default function AchievementToast({ achievements = [], onClose }) {
   const [visible, setVisible] = useState(false);
+  const { themeMode } = useApp();
+  const lotr = themeMode === 'lotr';
 
   useEffect(() => {
     if (achievements.length === 0) return;
@@ -57,7 +58,7 @@ export default function AchievementToast({ achievements = [], onClose }) {
           {typeIcon(a.type)}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-accent uppercase tracking-wider font-display">
-              {typeLabel(a.type)}
+              {typeLabel(a.type, lotr)}
             </p>
             <p className="text-sm text-text font-medium truncate">
               {a.exercise_name ? `${a.exercise_name} — ${a.value}` : a.value}

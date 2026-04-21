@@ -12,6 +12,7 @@ import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator'
 import SessionSummary from '../components/SessionSummary';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { useT } from '../i18n';
 import {
   logBulkSession, logBodyMetric, undoSession,
 } from '../api/client';
@@ -32,6 +33,7 @@ function getWeightHint(exerciseName, catalog) {
 
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
+  const t = useT();
   const { addToast } = useToast();
 
   // --- Hook 1: session / schedule / overload state ---
@@ -266,7 +268,7 @@ export default function Logger() {
 
   if (!activeProgram) return (
     <div className="text-center py-12 text-text-muted">
-      No active program. Import one from the Dashboard.
+      {t('logger.noActiveProgram')}
     </div>
   );
 
@@ -313,7 +315,7 @@ export default function Logger() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header + tab switcher */}
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Log Workout</h2>
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('logger.title')}</h2>
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
           <button onClick={() => setTab('workout')}
             className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-accent text-white' : 'text-text-muted'}`}>
@@ -335,7 +337,7 @@ export default function Logger() {
             </div>
           ) : (
             <div className="space-y-4">
-              <MetricInput label={`Bodyweight (${unitLabel})`} value={metrics.bodyweight_kg}
+              <MetricInput label={`${t('logger.bodyweight')} (${unitLabel})`} value={metrics.bodyweight_kg}
                 onChange={(v) => setMetrics((m) => ({ ...m, bodyweight_kg: v }))} />
               <MetricInput label="Body Fat %" value={metrics.body_fat_pct}
                 onChange={(v) => setMetrics((m) => ({ ...m, body_fat_pct: v }))} />
@@ -466,7 +468,7 @@ export default function Logger() {
                           <span className="truncate">{group.name}</span>
                           <button
                             onClick={() => openSwapModal(group.name)}
-                            title="Swap exercise"
+                            title={t('logger.swap')}
                             className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
                           >
                             <ArrowLeftRight size={13} />
@@ -634,7 +636,7 @@ export default function Logger() {
           <div className="bg-surface border border-surface-lighter rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl max-h-[70vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-text">Swap Exercise</h3>
+              <h3 className="text-sm font-bold text-text">{t('logger.swap')}</h3>
               <button onClick={closeSwapModal}
                 className="text-text-muted hover:text-text p-1 touch-manipulation">
                 <X size={18} />

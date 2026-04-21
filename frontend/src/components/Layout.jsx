@@ -1,5 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle } from 'lucide-react';
+import {
+  Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle,
+  Home, Target, ClipboardList, TrendingUp, BarChart3, Leaf, BookOpen, Calendar, Award, Settings as SettingsIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import {
   TodaysQuest, EyeOfSauron, Lembas,
@@ -7,6 +10,7 @@ import {
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../i18n';
 
 const REALM_META = {
   gondor:    { label: 'Gondor',    icon: '🏰' },
@@ -43,22 +47,40 @@ const NavEye      = makePngNav('/lotr/nav-eye.png');
 const NavHorn     = makePngNav('/lotr/nav-horn.png');
 const NavHand     = makePngNav('/lotr/nav-hand.png');
 
-const navItems = [
-  { to: '/',              icon: TodaysQuest,   label: 'Dashboard' },
-  { to: '/tracker',       icon: EyeOfSauron,   label: 'Tracker' },
-  { to: '/log',           icon: NavHornBlow,   label: 'Log Workout' },
-  { to: '/progress',      icon: NavAxe,        label: 'Progress' },
-  { to: '/analytics',     icon: NavEye,        label: 'Analytics' },
-  { to: '/recovery',      icon: Lembas,        label: 'Recovery' },
-  { to: '/history',       icon: ChronicleIcon, label: 'Chronicle' },
-  { to: '/program',       icon: NavHorn,       label: 'Program' },
-  { to: '/achievements',  icon: NavHand,       label: 'Achievements' },
-  { to: '/cardio',        icon: Heart,         label: 'Cardio' },
-  { to: '/friends',       icon: Users,         label: 'Friends' },
-  { to: '/medals',        icon: Trophy,        label: 'Medals' },
-  { to: '/chat',          icon: MessageCircle, label: 'Chat' },
-  { to: '/profile',       icon: UserIcon,      label: 'Profile' },
-  { to: '/settings',      icon: SettingsGear,  label: 'Settings' },
+const lotrNavItems = [
+  { to: '/',              icon: TodaysQuest,   labelKey: 'nav.dashboard' },
+  { to: '/tracker',       icon: EyeOfSauron,   labelKey: 'nav.tracker' },
+  { to: '/log',           icon: NavHornBlow,   labelKey: 'nav.log' },
+  { to: '/progress',      icon: NavAxe,        labelKey: 'nav.progress' },
+  { to: '/analytics',     icon: NavEye,        labelKey: 'nav.analytics' },
+  { to: '/recovery',      icon: Lembas,        labelKey: 'nav.recovery' },
+  { to: '/history',       icon: ChronicleIcon, labelKey: 'nav.chronicle' },
+  { to: '/program',       icon: NavHorn,       labelKey: 'nav.program' },
+  { to: '/achievements',  icon: NavHand,       labelKey: 'nav.achievements' },
+  { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
+  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
+  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
+  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
+  { to: '/settings',      icon: SettingsGear,  labelKey: 'nav.settings' },
+];
+
+const neutralNavItems = [
+  { to: '/',              icon: Home,          labelKey: 'nav.dashboard' },
+  { to: '/tracker',       icon: Target,        labelKey: 'nav.tracker' },
+  { to: '/log',           icon: ClipboardList, labelKey: 'nav.log' },
+  { to: '/progress',      icon: TrendingUp,    labelKey: 'nav.progress' },
+  { to: '/analytics',     icon: BarChart3,     labelKey: 'nav.analytics' },
+  { to: '/recovery',      icon: Leaf,          labelKey: 'nav.recovery' },
+  { to: '/history',       icon: BookOpen,      labelKey: 'nav.history' },
+  { to: '/program',       icon: Calendar,      labelKey: 'nav.program' },
+  { to: '/achievements',  icon: Award,         labelKey: 'nav.achievements' },
+  { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
+  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
+  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
+  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
+  { to: '/settings',      icon: SettingsIcon,  labelKey: 'nav.settings' },
 ];
 
 function AppLogo({ size = 'md' }) {
@@ -80,6 +102,9 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const meta = REALM_META[realm] || REALM_META.gondor;
   const lotrMode = themeMode === 'lotr';
+  const navItems = lotrMode ? lotrNavItems : neutralNavItems;
+  const t = useT();
+  const appName = lotrMode ? 'Anabolic Analyzer' : t('app.name.neutral');
 
   return (
     <div className="flex min-h-screen">
@@ -87,11 +112,11 @@ export default function Layout() {
       <aside className="hidden md:flex flex-col w-56 nav-gondor shrink-0">
         <div className="p-4 border-b border-surface-lighter">
           <h1 className="font-display text-lg font-semibold text-accent-light flex items-center gap-2 tracking-wide">
-            <AppLogo /> Anabolic Analyzer
+            <AppLogo /> {appName}
           </h1>
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, labelKey }) => (
             <NavLink
               key={to}
               to={to}
@@ -105,7 +130,7 @@ export default function Layout() {
               }
             >
               <Icon size={22} />
-              {label}
+              {t(labelKey)}
             </NavLink>
           ))}
         </nav>
@@ -138,7 +163,7 @@ export default function Layout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-surface-lighter px-4 py-3 flex items-center justify-between"
            style={{ borderBottomColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-surface-lighter) 85%)' }}>
         <h1 className="font-display text-base font-semibold text-accent-light flex items-center gap-2 tracking-wide">
-          <AppLogo size="sm" /> Anabolic Analyzer
+          <AppLogo size="sm" /> {appName}
         </h1>
         <div className="flex items-center gap-1">
           {lotrMode && (
@@ -165,7 +190,7 @@ export default function Layout() {
         <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileOpen(false)}>
           <nav className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
                onClick={(e) => e.stopPropagation()}>
-            {navItems.map(({ to, icon: Icon, label }) => (
+            {navItems.map(({ to, icon: Icon, labelKey }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -178,7 +203,7 @@ export default function Layout() {
                 }
               >
                 <Icon size={22} />
-                {label}
+                {t(labelKey)}
               </NavLink>
             ))}
             {user && (
@@ -186,7 +211,7 @@ export default function Layout() {
                 onClick={() => { setMobileOpen(false); logout(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-text-muted hover:text-text"
               >
-                <LogOut size={22} /> Sign out ({user.username})
+                <LogOut size={22} /> {t('nav.signOut')} ({user.username})
               </button>
             )}
           </nav>

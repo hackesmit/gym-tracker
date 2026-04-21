@@ -82,7 +82,8 @@
       "Bash(mv data/gym_tracker.db.bak data/gym_tracker.db)",
       "Bash(find '/mnt/c/Users/danie/Downloads/Gym Tracker/frontend/src' -type f \\\\\\(-name *.jsx -o -name *.js \\\\\\))",
       "Bash(python -c \"from app.routers.analytics import router; print\\(''OK''\\)\")",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(grep -n \"lucide-react\" /mnt/c/Users/danie/Downloads/Gym Tracker/frontend/src/components/*.jsx)"
     ]
   }
 }

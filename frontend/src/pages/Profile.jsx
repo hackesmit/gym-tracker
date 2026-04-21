@@ -6,8 +6,10 @@ import BodyMap from '../components/BodyMap';
 import { useAuth } from '../context/AuthContext';
 import { getRanks, getMyMedals, getCompare } from '../api/client';
 import { Trophy } from 'lucide-react';
+import { useT } from '../i18n';
 
 export default function Profile() {
+  const t = useT();
   const [params] = useSearchParams();
   const targetId = params.get('userId');
   const { user } = useAuth();
@@ -45,10 +47,10 @@ export default function Profile() {
           ]);
           setRanks(normalizeRanks(r.groups || r.ranks || r));
           setMedals(m.medals || m || []);
-          setUsername(user?.username || 'You');
+          setUsername(user?.username || t('profile.you'));
         }
       } catch (ex) {
-        setErr(ex.message || 'Failed to load profile');
+        setErr(ex.message || t('profile.failedLoad'));
       } finally {
         setLoading(false);
       }
@@ -66,14 +68,14 @@ export default function Profile() {
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{username}</h2>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Muscle ranks">
+        <Card title={t('profile.muscleRanks')}>
           <div className="flex justify-center">
             <BodyMap ranks={ranks} size={320} />
           </div>
         </Card>
 
         <div className="space-y-4">
-          <Card title="Medals owned">
+          <Card title={t('profile.medalsOwned')}>
             {medals.length ? (
               <ul className="space-y-2">
                 {medals.slice(0, 10).map((m) => (
@@ -85,11 +87,11 @@ export default function Profile() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-text-muted">No medals yet.</p>
+              <p className="text-sm text-text-muted">{t('profile.noMedals')}</p>
             )}
           </Card>
 
-          <Card title="Rank summary">
+          <Card title={t('profile.rankSummary')}>
             {rankEntries.length ? (
               <ul className="grid grid-cols-2 gap-2 text-sm">
                 {rankEntries.map(([muscle, v]) => {
@@ -106,14 +108,14 @@ export default function Profile() {
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-text-muted">No ranked muscles yet.</p>
+              <p className="text-sm text-text-muted">{t('profile.noRanks')}</p>
             )}
           </Card>
         </div>
       </div>
 
       {recentPrs.length > 0 && (
-        <Card title="Recent PRs">
+        <Card title={t('profile.recentPRs')}>
           <ul className="divide-y divide-surface-lighter">
             {recentPrs.slice(0, 10).map((pr, i) => (
               <li key={i} className="py-2 flex justify-between text-sm">

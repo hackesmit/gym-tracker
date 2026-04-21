@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react';
-import { Trophy, Award, Target, Flame, Star } from 'lucide-react';
+import { Trophy, Award, Target, Flame, Star, Shield, Mountain } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import JourneyProgress from '../components/JourneyProgress';
 import { getAchievements, getSummary } from '../api/client';
 import { useApp } from '../context/AppContext';
+import { useT } from '../i18n';
 
 /* ─── Icon mapping by type ─── */
-function typeIcon(type) {
-  if (type === 'e1rm_pr') return <RingIcon className="w-5 h-5 text-accent" />;
-  if (type === 'weight_pr') return <SwordIcon className="w-5 h-5 text-dwarven-light" />;
+function typeIcon(type, lotr) {
+  if (type === 'e1rm_pr') return lotr
+    ? <RingIcon className="w-5 h-5 text-accent" />
+    : <Award className="w-5 h-5 text-accent" />;
+  if (type === 'weight_pr') return lotr
+    ? <SwordIcon className="w-5 h-5 text-dwarven-light" />
+    : <Trophy className="w-5 h-5 text-accent" />;
   if (type === 'rep_pr' || type === 'volume_pr') return <Trophy className="w-5 h-5 text-accent" />;
-  if (type === 'streak') return <TorchIcon className="w-5 h-5 text-dwarven-light" />;
-  if (type === 'consistency') return <ShieldIcon className="w-5 h-5 text-secondary-light" />;
-  if (type === 'milestone') return <MountainIcon className="w-5 h-5 text-accent-light" />;
+  if (type === 'streak') return lotr
+    ? <TorchIcon className="w-5 h-5 text-dwarven-light" />
+    : <Flame className="w-5 h-5 text-accent" />;
+  if (type === 'consistency') return lotr
+    ? <ShieldIcon className="w-5 h-5 text-secondary-light" />
+    : <Shield className="w-5 h-5 text-secondary-light" />;
+  if (type === 'milestone') return lotr
+    ? <MountainIcon className="w-5 h-5 text-accent-light" />
+    : <Mountain className="w-5 h-5 text-accent-light" />;
   if (type === 'badge') return <Award className="w-5 h-5 text-accent" />;
   return <Trophy className="w-5 h-5 text-text-muted" />;
 }
@@ -72,7 +83,9 @@ function formatDate(iso) {
 }
 
 export default function Achievements() {
-  const { convert, unitLabel } = useApp();
+  const { convert, unitLabel, themeMode } = useApp();
+  const lotr = themeMode === 'lotr';
+  const t = useT();
   const [achievements, setAchievements] = useState([]);
   const [sessionCount, setSessionCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -118,7 +131,7 @@ export default function Achievements() {
       <div>
         <div className="flex items-center gap-3">
           <Trophy className="w-7 h-7 text-accent" />
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Hall of Heroes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{lotr ? t('achievements.hallOfHeroes') : t('achievements.title')}</h1>
         </div>
         <div className="flex items-center gap-3 mt-3">
           <div className="flex-1 h-px bg-gradient-to-r from-accent/40 via-accent/20 to-transparent" />
@@ -128,20 +141,22 @@ export default function Achievements() {
       </div>
 
       {/* ─── Journey Progression ─── */}
-      <Card title="The Journey" variant="parchment">
+      <Card title={lotr ? t('achievements.journey') : t('achievements.progression')} variant="parchment">
         <JourneyProgress sessionCount={sessionCount} />
       </Card>
 
-      {/* Hall of Records — Recent PRs (Dwarven) */}
-      <Card title="Hall of Records — Recent PRs" variant="dwarven">
+      {/* Recent PRs */}
+      <Card title={lotr ? t('achievements.hallOfRecords') : t('achievements.recentPRs')} variant="dwarven">
         {recentPRs.length === 0 ? (
-          <p className="text-text-muted text-sm">No recent records forged — keep pushing.</p>
+          <p className="text-text-muted text-sm">
+            {lotr ? t('achievements.noRecentRecordsForged') : t('achievements.noRecentPRs')}
+          </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentPRs.map((a) => (
               <div key={a.id} className="forged-panel p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  {typeIcon(a.type)}
+                  {typeIcon(a.type, lotr)}
                   <span className="text-sm font-semibold text-text truncate">{a.exercise_name}</span>
                 </div>
                 <p className="text-lg font-bold text-text">{fmtWeight(a.value)}</p>
@@ -156,14 +171,16 @@ export default function Achievements() {
       </Card>
 
       {/* All-Time Records */}
-      <Card title="All-Time Records (Est. 1RM)" variant="dwarven">
+      <Card title={t('achievements.allTime')} variant="dwarven">
         {allTimeRecords.length === 0 ? (
-          <p className="text-text-muted text-sm">No records yet.</p>
+          <p className="text-text-muted text-sm">{t('achievements.noRecords')}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {allTimeRecords.map((a) => (
               <div key={a.exercise_name} className="forged-panel p-4 flex items-center gap-3">
-                <RingIcon className="w-5 h-5 text-accent shrink-0" />
+                {lotr
+                  ? <RingIcon className="w-5 h-5 text-accent shrink-0" />
+                  : <Award className="w-5 h-5 text-accent shrink-0" />}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text truncate">{a.exercise_name}</p>
                   <p className="text-lg font-bold text-text">{fmtWeight(a.value)}</p>
@@ -176,14 +193,14 @@ export default function Achievements() {
       </Card>
 
       {/* Milestones */}
-      <Card title="Milestones">
+      <Card title={t('achievements.milestones')}>
         {milestones.length === 0 ? (
-          <p className="text-text-muted text-sm">No milestones unlocked yet.</p>
+          <p className="text-text-muted text-sm">{t('achievements.noMilestones')}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {milestones.map((a) => (
               <div key={a.id} className="stone-panel p-4 flex items-center gap-3">
-                {typeIcon(a.type)}
+                {typeIcon(a.type, lotr)}
                 <div>
                   <p className="text-sm font-semibold text-text">{a.exercise_name || a.type}</p>
                   <p className="text-xs text-text-muted">
@@ -196,10 +213,12 @@ export default function Achievements() {
         )}
       </Card>
 
-      {/* Honors (Badges) */}
-      <Card title="Honors">
+      {/* Badges */}
+      <Card title={lotr ? t('achievements.honors') : t('achievements.badges')}>
         {badges.length === 0 ? (
-          <p className="text-text-muted text-sm">No honors earned yet.</p>
+          <p className="text-text-muted text-sm">
+            {lotr ? t('achievements.noHonors') : t('achievements.noBadges')}
+          </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {badges.map((a) => {

@@ -83,6 +83,8 @@ export const updateMe = (data) =>
   request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) });
 export const absorbAccount = (source_username, source_password) =>
   request('/auth/absorb', { method: 'POST', body: JSON.stringify({ source_username, source_password }) });
+export const adminResetPassword = (target_username, new_password) =>
+  request('/auth/admin-reset', { method: 'POST', body: JSON.stringify({ target_username, new_password }) });
 
 // Dashboard consolidated
 export const getDashboard = () => request('/dashboard');

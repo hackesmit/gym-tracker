@@ -14,6 +14,7 @@ import {
   getVolume, getMuscleBalance, getStrengthStandards, getBodyMetrics, getTonnage,
 } from '../api/client';
 import { exportToCSV } from '../utils/export';
+import { useT } from '../i18n';
 
 const MUSCLE_COLORS = {
   chest: '#ef4444', back: '#60a5fa', shoulders: '#f59e0b',
@@ -24,6 +25,7 @@ const MUSCLE_COLORS = {
 
 export default function Analytics() {
   const { convert, unitLabel } = useApp();
+  const t = useT();
   const [volume, setVolume] = useState(null);
   const [balance, setBalance] = useState(null);
   const [strength, setStrength] = useState(null);
@@ -36,7 +38,7 @@ export default function Analytics() {
   useEffect(() => {
     let stale = false;
     const load = async () => {
-      const [v, b, s, bm, t] = await Promise.all([
+      const [v, b, s, bm, tn] = await Promise.all([
         getVolume(weeksBack).catch(() => null),
         getMuscleBalance().catch(() => null),
         getStrengthStandards().catch(() => null),
@@ -48,7 +50,7 @@ export default function Analytics() {
       setBalance(b);
       setStrength(s);
       setBodyMetrics(bm);
-      setTonnage(t);
+      setTonnage(tn);
       setLoading(false);
     };
     load();
@@ -80,10 +82,10 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Strength of the Age</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('analytics.title')}</h2>
 
       {/* Volume chart */}
-      <Card title="Weekly Volume by Muscle Group" action={
+      <Card title={t('analytics.weeklyVolume')} action={
         <div className="flex items-center gap-2">
           {volumeData.length > 0 && (
             <button
@@ -91,7 +93,7 @@ export default function Analytics() {
               className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
             >
               <Download size={12} />
-              Export
+              {t('common.export')}
             </button>
           )}
           <div className="flex gap-1">
@@ -117,7 +119,7 @@ export default function Analytics() {
                   : 'bg-surface-lighter text-text-muted hover:text-text'
               }`}
             >
-              All
+              {t('common.all')}
             </button>
             {[...allMuscles].sort().map((muscle) => (
               <button
@@ -142,7 +144,7 @@ export default function Analytics() {
               <BarChart data={volumeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
                 <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
-                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: t('analytics.setsAxis'), angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
                 <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 {[...allMuscles].map((muscle) => (
@@ -156,7 +158,7 @@ export default function Analytics() {
               <BarChart data={volumeData} margin={{ top: 5, right: 60, bottom: 5, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-lighter)" />
                 <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} />
-                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: 'Sets', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: t('analytics.setsAxis'), angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
                 <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }} />
                 <Bar dataKey={selectedMuscle} fill={MUSCLE_COLORS[selectedMuscle] || '#f59e0b'} radius={[4, 4, 0, 0]} />
                 {volume?.volume_landmarks?.[selectedMuscle] && (
@@ -171,12 +173,12 @@ export default function Analytics() {
             </ResponsiveContainer>
           )
         ) : (
-          <p className="text-text-muted text-sm text-center py-8">No volume data yet.</p>
+          <p className="text-text-muted text-sm text-center py-8">{t('analytics.noVolumeData')}</p>
         )}
       </Card>
 
       {/* Tonnage trend */}
-      <Card title="Weekly Tonnage">
+      <Card title={t('analytics.weeklyTonnage')}>
         {tonnage?.weeks?.length ? (
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={tonnage.weeks.map((w) => ({
@@ -188,19 +190,19 @@ export default function Analytics() {
               <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} label={{ value: unitLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--color-text-muted)' }} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-surface-lighter)', borderRadius: 8, fontSize: 11 }}
-                formatter={(value) => [`${value.toLocaleString()} ${unitLabel}`, 'Tonnage']}
+                formatter={(value) => [`${value.toLocaleString()} ${unitLabel}`, t('analytics.tonnageLegend')]}
               />
-              <Line type="monotone" dataKey="tonnage" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-accent)' }} name="Tonnage" />
+              <Line type="monotone" dataKey="tonnage" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-accent)' }} name={t('analytics.tonnageLegend')} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-text-muted text-sm text-center py-8">No tonnage data yet.</p>
+          <p className="text-text-muted text-sm text-center py-8">{t('analytics.noTonnageData')}</p>
         )}
       </Card>
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* Strength radar */}
-        <Card title="Strength Standards" variant="rivendell">
+        <Card title={t('analytics.strengthStandards')} variant="rivendell">
           {radarData.length ? (
             <>
               <ResponsiveContainer width="100%" height={280}>
@@ -232,38 +234,38 @@ export default function Analytics() {
                         }`}>
                           {d.confidence?.label}
                         </span>
-                        {d.is_stale && <span className="text-[9px] text-warning">stale</span>}
+                        {d.is_stale && <span className="text-[9px] text-warning">{t('analytics.stale')}</span>}
                         <span className="text-[9px] text-text-muted">
-                          {d.source_type === 'manual' ? 'manual' : `via ${d.source_exercise}`}
+                          {d.source_type === 'manual' ? t('analytics.manual') : `${t('analytics.via')} ${d.source_exercise}`}
                         </span>
                       </span>
                     ) : (
-                      <span className="text-text-muted text-[10px]">No data</span>
+                      <span className="text-text-muted text-[10px]">{t('common.noData')}</span>
                     )}
                   </div>
                 ))}
               </div>
               {strength?.overall_classification && (
                 <p className="text-xs text-text-muted mt-3 text-center">
-                  Overall: <span className="font-medium text-accent-light capitalize">{strength.overall_classification}</span>
+                  {t('analytics.overall')}: <span className="font-medium text-accent-light capitalize">{strength.overall_classification}</span>
                 </p>
               )}
               {strength?.categories_missing?.length > 0 && (
                 <p className="text-[10px] text-warning mt-3 text-center">
-                  Missing: {strength.categories_missing.join(', ')} — add known 1RMs in Settings
+                  {t('analytics.missing')}: {strength.categories_missing.join(', ')} — {t('analytics.addKnownOneRMs')}
                 </p>
               )}
             </>
           ) : (
             <p className="text-text-muted text-sm text-center py-8">
-              {strength ? 'Set bodyweight in Body Metrics to see standards.' : 'Log compound lifts or enter 1RMs in Settings.'}
+              {strength ? t('analytics.strengthSetBodyweight') : t('analytics.strengthEmpty')}
             </p>
           )}
         </Card>
 
         {/* DOTS Score */}
         {strength?.dots && (
-          <Card title="DOTS Score">
+          <Card title={t('analytics.dotsScore')}>
             <div className="flex flex-col items-center py-4">
               <span className="text-4xl font-bold text-accent-light">
                 {strength.dots.score}
@@ -278,15 +280,15 @@ export default function Analytics() {
               </span>
               <div className="mt-4 w-full space-y-1.5 text-xs text-text-muted">
                 <div className="flex justify-between">
-                  <span>Est. Total</span>
+                  <span>{t('analytics.estTotal')}</span>
                   <span className="text-text">{convert(strength.dots.total_kg)} {unitLabel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Bodyweight</span>
+                  <span>{t('analytics.bodyweight')}</span>
                   <span className="text-text">{convert(strength.bodyweight_kg)} {unitLabel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Lifts used</span>
+                  <span>{t('analytics.liftsUsed')}</span>
                   <span className="text-text capitalize">{strength.dots.lifts_included?.join(', ')}</span>
                 </div>
               </div>
@@ -298,35 +300,35 @@ export default function Analytics() {
         )}
 
         {/* Muscle balance */}
-        <Card title="Muscle Balance">
+        <Card title={t('analytics.muscleBalance')}>
           {balance ? (
             <div className="space-y-6 py-4">
               <BalanceGauge
-                label="Push : Pull"
+                label={t('analytics.pushPull')}
                 ratio={balance.push_pull_ratio}
                 target={1.0}
-                left={`Push ${balance.push_sets}s`}
-                right={`Pull ${balance.pull_sets}s`}
+                left={`${t('analytics.pushSets')} ${balance.push_sets}s`}
+                right={`${t('analytics.pullSets')} ${balance.pull_sets}s`}
                 assessment={balance.assessment?.push_pull}
               />
               <BalanceGauge
-                label="Quad : Ham"
+                label={t('analytics.quadHam')}
                 ratio={balance.quad_ham_ratio}
                 target={0.7}
-                left={`Quad ${balance.quad_sets}s`}
-                right={`Ham ${balance.ham_sets}s`}
+                left={`${t('analytics.quadSets')} ${balance.quad_sets}s`}
+                right={`${t('analytics.hamSets')} ${balance.ham_sets}s`}
                 assessment={balance.assessment?.quad_ham}
               />
             </div>
           ) : (
-            <p className="text-text-muted text-sm text-center py-8">No balance data yet.</p>
+            <p className="text-text-muted text-sm text-center py-8">{t('analytics.noBalanceData')}</p>
           )}
         </Card>
       </div>
 
       {/* Bodyweight trend */}
       {bodyMetrics?.length > 0 && (
-        <Card title="Bodyweight Trend">
+        <Card title={t('analytics.bodyweightTrend')}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={[...(bodyMetrics || [])].reverse().map((m) => ({
               date: m.date,

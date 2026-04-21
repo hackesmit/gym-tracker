@@ -10,9 +10,11 @@ import ErrorMessage from '../components/ErrorMessage';
 import { useApp } from '../context/AppContext';
 import { getProgress, getSchedule, getExerciseCatalog, getStrengthStandards } from '../api/client';
 import { exportToCSV } from '../utils/export';
+import { useT } from '../i18n';
 
 export default function Progress() {
   const { activeProgram, convert, unitLabel } = useApp();
+  const t = useT();
   const [exercises, setExercises] = useState([]);
   const [selected, setSelected] = useState('');
   const [data, setData] = useState(null);
@@ -100,7 +102,7 @@ export default function Progress() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Journey Progress</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('progress.title')}</h2>
 
       <div className="grid md:grid-cols-[240px_1fr] gap-6">
         {/* Exercise list */}
@@ -111,7 +113,7 @@ export default function Progress() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
+              placeholder={t('progress.search')}
               className="w-full bg-surface-light border border-surface-lighter rounded-lg pl-8 pr-3 py-2 text-xs text-text focus:ring-1 focus:ring-accent outline-none"
             />
           </div>
@@ -156,7 +158,7 @@ export default function Progress() {
           {loading ? <LoadingSpinner /> : !data ? (
             <Card>
               <p className="text-text-muted text-sm text-center py-8">
-                {selected ? `No logged data for "${selected}" yet.` : 'Select an exercise to view progress.'}
+                {selected ? t('progress.noDataForX').replace('{name}', selected) : t('progress.selectExercise')}
               </p>
             </Card>
           ) : (
@@ -169,22 +171,22 @@ export default function Progress() {
                       <Trophy size={16} className="text-warning" />
                       <div>
                         <div className="text-lg font-bold">{convert(prs.all_time_e1rm)} {unitLabel}</div>
-                        <div className="text-[10px] text-text-muted">All-time e1RM</div>
+                        <div className="text-[10px] text-text-muted">{t('progress.allTimeE1RM')}</div>
                       </div>
                     </div>
                   </Card>
                   {prs.recent_4wk_e1rm && (
                     <Card>
                       <div className="text-lg font-bold">{convert(prs.recent_4wk_e1rm)} {unitLabel}</div>
-                      <div className="text-[10px] text-text-muted">Recent best (4 wk)</div>
+                      <div className="text-[10px] text-text-muted">{t('progress.recentBest')}</div>
                     </Card>
                   )}
                   {prs.is_recent_pr && (
                     <Card>
                       <div className="text-sm font-medium text-success flex items-center gap-1">
-                        <ArrowUpRight size={14} /> New PR!
+                        <ArrowUpRight size={14} /> {t('progress.newPR')}
                       </div>
-                      <div className="text-[10px] text-text-muted">In the last 4 weeks</div>
+                      <div className="text-[10px] text-text-muted">{t('progress.newPRDesc')}</div>
                     </Card>
                   )}
                   {strengthGrade && (
@@ -199,11 +201,11 @@ export default function Progress() {
                         }`} />
                         <div>
                           <div className="text-sm font-bold capitalize">{strengthGrade.classification}</div>
-                          <div className="text-[10px] text-text-muted capitalize">{strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}x BW</div>
+                          <div className="text-[10px] text-text-muted capitalize">{strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}{t('progress.xBW')}</div>
                         </div>
                       </div>
                       {strengthGrade.isStale && (
-                        <div className="text-[9px] text-warning mt-1">Data is stale (&gt;12 weeks)</div>
+                        <div className="text-[9px] text-warning mt-1">{t('progress.staleNotice')}</div>
                       )}
                     </Card>
                   )}
@@ -224,7 +226,7 @@ export default function Progress() {
                     <div>
                       <div className="text-sm font-bold capitalize">{strengthGrade.classification}</div>
                       <div className="text-[10px] text-text-muted capitalize">
-                        Strength Standard · {strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}x BW
+                        {t('progress.strengthStandard')} · {strengthGrade.category} · {strengthGrade.ratio?.toFixed(2)}{t('progress.xBW')}
                       </div>
                     </div>
                   </div>
@@ -232,7 +234,7 @@ export default function Progress() {
               )}
 
               {/* Chart */}
-              <Card title={`Estimated 1RM - ${selected}`}>
+              <Card title={`${t('progress.estOneRM')} - ${selected}`}>
                 {chartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>
@@ -247,18 +249,18 @@ export default function Progress() {
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-text-muted text-sm text-center py-8">Need at least 2 data points for a chart.</p>
+                  <p className="text-text-muted text-sm text-center py-8">{t('progress.needMoreData')}</p>
                 )}
               </Card>
 
               {/* Projections */}
               {projections?.["4_weeks"] && (
-                <Card title="Projections">
+                <Card title={t('progress.projections')}>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     {[
-                      { label: '4 Week', value: projections["4_weeks"] },
-                      { label: '8 Week', value: projections["8_weeks"] },
-                      { label: '12 Week', value: projections["12_weeks"] },
+                      { label: t('progress.4week'), value: projections["4_weeks"] },
+                      { label: t('progress.8week'), value: projections["8_weeks"] },
+                      { label: t('progress.12week'), value: projections["12_weeks"] },
                     ].map(({ label, value }) => (
                       <div key={label}>
                         <div className="text-xs text-text-muted mb-1">{label}</div>
@@ -272,7 +274,7 @@ export default function Progress() {
               )}
 
               {/* Raw data table */}
-              <Card title="Logged Sets" action={
+              <Card title={t('progress.loggedSets')} action={
                 data.data_points?.length > 0 && (
                   <button
                     onClick={() => exportToCSV(
@@ -283,7 +285,7 @@ export default function Progress() {
                     className="text-xs text-accent hover:text-accent-light flex items-center gap-1"
                   >
                     <Download size={12} />
-                    Export CSV
+                    {t('progress.exportCsv')}
                   </button>
                 )
               }>
@@ -291,10 +293,10 @@ export default function Progress() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-text-muted border-b border-surface-lighter">
-                        <th className="text-left py-2 pr-4">Date</th>
-                        <th className="text-right py-2 pr-4">Load</th>
-                        <th className="text-right py-2 pr-4">Reps</th>
-                        <th className="text-right py-2">e1RM</th>
+                        <th className="text-left py-2 pr-4">{t('progress.date')}</th>
+                        <th className="text-right py-2 pr-4">{t('progress.load')}</th>
+                        <th className="text-right py-2 pr-4">{t('progress.reps')}</th>
+                        <th className="text-right py-2">{t('progress.e1rm')}</th>
                       </tr>
                     </thead>
                     <tbody>

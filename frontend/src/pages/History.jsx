@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { displayToKg } from '../utils/units';
-import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Clock, Dumbbell, Trophy, Trash2, Pencil, Check, X, BookOpen } from 'lucide-react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { getCalendar, getTrackerWeek, undoSession, updateSessionDate, updateSet } from '../api/client';
 import { Chronicle as ChronicleIcon } from '../components/LotrIcons';
+import { useT } from '../i18n';
 
 const STATUS_STYLES = {
   completed: 'bg-success/20 text-success',
@@ -41,7 +42,11 @@ function groupByDate(sessions) {
 }
 
 export default function History() {
-  const { activeProgram, convert, unitLabel, units } = useApp();
+  const { activeProgram, convert, unitLabel, units, themeMode } = useApp();
+  const lotr = themeMode === 'lotr';
+  const t = useT();
+  const pageTitle = lotr ? t('history.chronicle') : t('nav.history');
+  const HeaderIcon = lotr ? ChronicleIcon : BookOpen;
   const { addToast } = useToast();
   const [calendar, setCalendar] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -163,12 +168,12 @@ export default function History() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <ChronicleIcon size={24} className="text-accent" />
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Chronicle</h2>
+          <HeaderIcon size={24} className="text-accent" />
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{pageTitle}</h2>
         </div>
         <Card>
           <p className="text-text-muted text-sm text-center py-8">
-            No active program found. Import a program to get started.
+            {t('history.noProgram')}
           </p>
         </Card>
       </div>
@@ -184,14 +189,14 @@ export default function History() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <ChronicleIcon size={24} className="text-accent" />
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Chronicle</h2>
+          <HeaderIcon size={24} className="text-accent" />
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{pageTitle}</h2>
         </div>
         <Card>
           <div className="text-center py-12">
             <Calendar size={40} className="mx-auto text-text-muted mb-3" />
             <p className="text-text-muted text-sm">
-              No workout sessions logged yet. Start logging to see your history here.
+              {t('history.empty')}
             </p>
           </div>
         </Card>
@@ -203,10 +208,10 @@ export default function History() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Workout History</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{lotr ? t('history.chronicle') : t('history.title')}</h2>
 
       <p className="text-sm text-text-muted">
-        {loggedSessions.length} session{loggedSessions.length !== 1 ? 's' : ''} logged
+        {t('history.sessionsLogged').replace('{n}', loggedSessions.length)}
       </p>
 
       <div className="space-y-4">

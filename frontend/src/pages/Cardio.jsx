@@ -3,6 +3,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { listCardio, createCardio, updateCardio, deleteCardio, getCardioSummary } from '../api/client';
 import { Trash2, Pencil } from 'lucide-react';
+import { useT } from '../i18n';
 
 const MODALITIES = ['run', 'bike', 'swim', 'other'];
 
@@ -19,6 +20,7 @@ const emptyForm = () => ({
 });
 
 export default function Cardio() {
+  const t = useT();
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function Cardio() {
   };
 
   const remove = async (id) => {
-    if (!confirm('Delete this cardio log?')) return;
+    if (!confirm(t('cardio.deleteConfirm'))) return;
     try {
       await deleteCardio(id);
       await load();
@@ -103,25 +105,25 @@ export default function Cardio() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">Cardio</h2>
+      <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('cardio.title')}</h2>
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Card title="This week — duration">
+        <Card title={t('cardio.weekDuration')}>
           <p className="text-2xl font-bold">
             {summary?.week?.duration_minutes != null ? `${Math.round(summary.week.duration_minutes)} min` : '--'}
           </p>
         </Card>
-        <Card title="This week — distance">
+        <Card title={t('cardio.weekDistance')}>
           <p className="text-2xl font-bold">
             {summary?.week?.distance_km != null ? `${summary.week.distance_km.toFixed(1)} km` : '--'}
           </p>
         </Card>
-        <Card title="Personal bests">
+        <Card title={t('cardio.personalBests')}>
           {(() => {
             const pbs = summary?.pbs || {};
             const entries = Object.entries(pbs).filter(([, v]) => v);
-            if (!entries.length) return <p className="text-xs text-text-muted">No PBs yet.</p>;
+            if (!entries.length) return <p className="text-xs text-text-muted">{t('cardio.noPBs')}</p>;
             return (
               <ul className="text-xs space-y-0.5">
                 {entries.map(([m, pb]) => {
@@ -142,45 +144,45 @@ export default function Cardio() {
       </div>
 
       {/* Form */}
-      <Card title={editingId ? 'Edit cardio session' : 'Log cardio'}>
+      <Card title={editingId ? t('cardio.edit') : t('cardio.log')}>
         <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Field label="Date">
+          <Field label={t('cardio.date')}>
             <input type="date" value={form.date} onChange={(e) => handleChange('date', e.target.value)} className={inputCls} required />
           </Field>
-          <Field label="Modality">
+          <Field label={t('cardio.modality')}>
             <select value={form.modality} onChange={(e) => handleChange('modality', e.target.value)} className={inputCls}>
-              {MODALITIES.map((m) => <option key={m} value={m}>{m}</option>)}
+              {MODALITIES.map((m) => <option key={m} value={m}>{t(`cardio.modality.${m}`)}</option>)}
             </select>
           </Field>
-          <Field label="Duration (min)">
+          <Field label={t('cardio.duration')}>
             <input type="number" step="0.1" value={form.duration_minutes} onChange={(e) => handleChange('duration_minutes', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Distance (km)">
+          <Field label={t('cardio.distance')}>
             <input type="number" step="0.01" value={form.distance_km} onChange={(e) => handleChange('distance_km', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Elevation (m)">
+          <Field label={t('cardio.elevation')}>
             <input type="number" step="1" value={form.elevation_m} onChange={(e) => handleChange('elevation_m', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Avg HR (bpm)">
+          <Field label={t('cardio.avgHr')}>
             <input type="number" step="1" value={form.avg_hr} onChange={(e) => handleChange('avg_hr', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Calories">
+          <Field label={t('cardio.calories')}>
             <input type="number" step="1" value={form.calories} onChange={(e) => handleChange('calories', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="RPE (1-10)">
+          <Field label={t('cardio.rpe')}>
             <input type="number" min="1" max="10" step="1" value={form.rpe} onChange={(e) => handleChange('rpe', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Notes" className="sm:col-span-3">
+          <Field label={t('cardio.notes')} className="sm:col-span-3">
             <input type="text" value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} className={inputCls} />
           </Field>
           {err && <p className="text-sm text-danger sm:col-span-3">{err}</p>}
           <div className="sm:col-span-3 flex gap-2">
             <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-accent text-surface-dark text-sm font-semibold disabled:opacity-60">
-              {saving ? 'Saving…' : editingId ? 'Update' : 'Log'}
+              {saving ? t('common.saving') : editingId ? t('cardio.updateBtn') : t('cardio.logBtn')}
             </button>
             {editingId && (
               <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); }} className="px-4 py-2 rounded-lg bg-surface-light text-sm">
-                Cancel
+                {t('common.cancel')}
               </button>
             )}
           </div>
@@ -188,18 +190,18 @@ export default function Cardio() {
       </Card>
 
       {/* Recent logs */}
-      <Card title="Recent sessions">
+      <Card title={t('cardio.recent')}>
         {logs.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-text-muted text-left">
-                  <th className="py-2">Date</th>
-                  <th>Modality</th>
-                  <th>Duration</th>
-                  <th>Distance</th>
-                  <th>HR</th>
-                  <th>RPE</th>
+                  <th className="py-2">{t('cardio.table.date')}</th>
+                  <th>{t('cardio.table.modality')}</th>
+                  <th>{t('cardio.table.duration')}</th>
+                  <th>{t('cardio.table.distance')}</th>
+                  <th>{t('cardio.table.hr')}</th>
+                  <th>{t('cardio.table.rpe')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -207,7 +209,7 @@ export default function Cardio() {
                 {logs.map((l) => (
                   <tr key={l.id} className="border-t border-surface-lighter">
                     <td className="py-2">{(l.date || '').slice(0, 10)}</td>
-                    <td className="capitalize">{l.modality}</td>
+                    <td>{t(`cardio.modality.${l.modality}`) || l.modality}</td>
                     <td>{l.duration_minutes != null ? `${l.duration_minutes} min` : '--'}</td>
                     <td>{l.distance_km != null ? `${l.distance_km.toFixed(2)} km` : '--'}</td>
                     <td>{l.avg_hr ?? '--'}</td>
@@ -222,7 +224,7 @@ export default function Cardio() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-text-muted">No cardio logged yet.</p>
+          <p className="text-sm text-text-muted">{t('cardio.empty')}</p>
         )}
       </Card>
     </div>
