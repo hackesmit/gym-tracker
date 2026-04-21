@@ -85,6 +85,11 @@ export const absorbAccount = (source_username, source_password) =>
   request('/auth/absorb', { method: 'POST', body: JSON.stringify({ source_username, source_password }) });
 export const adminResetPassword = (target_username, new_password) =>
   request('/auth/admin-reset', { method: 'POST', body: JSON.stringify({ target_username, new_password }) });
+export const adminWipeUser = (target_username) =>
+  request('/auth/admin-wipe-user', { method: 'POST', body: JSON.stringify({ target_username }) });
+export const getUsernameCaptcha = () => request('/auth/username-captcha');
+export const changeUsername = (new_username, challenge, answer) =>
+  request('/auth/change-username', { method: 'POST', body: JSON.stringify({ new_username, challenge, answer }) });
 
 // Dashboard consolidated
 export const getDashboard = () => request('/dashboard');

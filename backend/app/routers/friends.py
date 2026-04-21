@@ -73,7 +73,7 @@ def send_request(
         target = db.get(User, int(body.username_or_id))
     if not target:
         target = db.query(User).filter(User.username == body.username_or_id).first()
-    if not target:
+    if not target or (target.username or "").lower() == "preset":
         raise HTTPException(status_code=404, detail="User not found")
     if target.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot friend yourself")

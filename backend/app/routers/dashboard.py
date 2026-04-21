@@ -155,7 +155,13 @@ def get_dashboard(
         ],
     }
 
-    # Muscle ranks
+    # Muscle ranks — recompute first so engine-revision staleness never
+    # leaks through (see ranks.py for the same guard).
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, uid)
+    except Exception:
+        pass
     ranks = db.query(MuscleScore).filter(MuscleScore.user_id == uid).all()
     muscle_ranks = [
         {"group": r.muscle_group, "rank": r.rank, "score": round(r.score, 1)}

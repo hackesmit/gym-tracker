@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import Card from '../components/Card';
 import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palmtree } from 'lucide-react';
-import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount, adminResetPassword } from '../api/client';
+import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount, adminResetPassword, getUsernameCaptcha, changeUsername } from '../api/client';
 import { useT } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 
@@ -379,6 +379,8 @@ export default function Settings() {
         </button>
       </Card>
 
+      <ChangeUsernameCard addToast={addToast} />
+
       {/* Import existing data from another account */}
       <AbsorbCard addToast={addToast} />
 
@@ -423,6 +425,115 @@ export default function Settings() {
     </div>
   );
 }
+
+function ChangeUsernameCard({ addToast }) {
+  const t = useT();
+  const { user, updateUser } = useAuth();
+  const [newUsername, setNewUsername] = useState('');
+  const [problem, setProblem] = useState('');
+  const [challenge, setChallenge] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const fetchNewProblem = async () => {
+    setLoading(true);
+    setAnswer('');
+    try {
+      const { problem: p, challenge: c } = await getUsernameCaptcha();
+      setProblem(p);
+      setChallenge(c);
+    } catch (err) {
+      addToast(err.message || 'Failed to fetch captcha', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submit = async () => {
+    if (!newUsername || !challenge || !answer || busy) return;
+    setBusy(true);
+    try {
+      const updated = await changeUsername(newUsername.trim(), challenge, answer.trim());
+      updateUser?.(updated);
+      addToast(`Username changed to ${updated.username}`, 'success');
+      setNewUsername('');
+      setAnswer('');
+      setProblem('');
+      setChallenge('');
+    } catch (err) {
+      addToast(err.message || 'Change failed', 'error');
+      // On wrong-answer, fetch a new problem so they can retry
+      if ((err.message || '').toLowerCase().includes('answer')) {
+        fetchNewProblem();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title={t('settings.changeUsername', 'Change username')}>
+      <p className="text-sm text-text-muted mb-3">
+        Your current username: <span className="text-accent-light font-medium">{user?.username || '—'}</span>
+      </p>
+      <div className="space-y-2">
+        <input
+          type="text"
+          placeholder={t('settings.changeUsername.new', 'New username')}
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value)}
+          className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+          autoComplete="off"
+          maxLength={40}
+        />
+        {!problem && (
+          <button
+            onClick={fetchNewProblem}
+            disabled={loading || !newUsername.trim()}
+            className="w-full py-2.5 rounded-lg bg-accent/15 text-accent-light text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? 'Loading…' : 'Get word problem'}
+          </button>
+        )}
+        {problem && (
+          <div className="space-y-2">
+            <div className="rounded-lg bg-surface-light border border-surface-lighter px-3 py-3 text-sm text-text">
+              {problem}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Your answer"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                className="flex-1 bg-surface-light border border-surface-lighter rounded-lg px-3 py-2 text-sm"
+                autoComplete="off"
+              />
+              <button
+                onClick={fetchNewProblem}
+                disabled={loading}
+                className="px-3 py-2 rounded-lg bg-surface-light border border-surface-lighter text-xs text-text-muted hover:text-text"
+                title="New problem"
+              >
+                ↻
+              </button>
+            </div>
+            <button
+              onClick={submit}
+              disabled={busy || !newUsername.trim() || !answer.trim()}
+              className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+            >
+              {busy ? 'Changing…' : 'Change username'}
+            </button>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 
 function AdminResetCard({ addToast }) {
   const t = useT();

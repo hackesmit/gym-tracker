@@ -34,12 +34,11 @@ def my_ranks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    rows = _serialize(current_user.id, db)
-    if not rows:
-        # Initial compute
-        recompute_for_user(db, current_user.id)
-        rows = _serialize(current_user.id, db)
-    return {"groups": rows}
+    # Always recompute on read: stored rows can be stale across engine
+    # revisions (e.g. the 2026-04-21 threshold rewrite left pre-existing
+    # percentile-era rows frozen at Champion). The engine is cheap.
+    recompute_for_user(db, current_user.id)
+    return {"groups": _serialize(current_user.id, db)}
 
 
 @router.post("/recompute")

@@ -49,8 +49,13 @@ class TokenResponse(BaseModel):
     user: UserOut
 
 
+RESERVED_USERNAMES = {"preset", "system", "admin"}
+
+
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(payload: RegisterPayload, db: Session = Depends(get_db)):
+    if payload.username.lower() in RESERVED_USERNAMES:
+        raise HTTPException(status_code=409, detail="Username already taken")
     existing = db.query(User).filter(User.username == payload.username).first()
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
@@ -85,6 +90,42 @@ def login(payload: LoginPayload, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+class ChangeUsernamePayload(BaseModel):
+    new_username: str = Field(..., min_length=2, max_length=40)
+    challenge: str
+    answer: str
+
+
+@router.get("/username-captcha")
+def username_captcha(current_user: User = Depends(get_current_user)):
+    from ..captcha import generate_challenge
+    problem, challenge = generate_challenge()
+    return {"problem": problem, "challenge": challenge}
+
+
+@router.post("/change-username", response_model=UserOut)
+def change_username(
+    payload: ChangeUsernamePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from ..captcha import verify_challenge
+
+    new_username = payload.new_username.strip()
+    if not new_username or new_username == current_user.username:
+        raise HTTPException(status_code=400, detail="Username unchanged")
+    if new_username.lower() in RESERVED_USERNAMES:
+        raise HTTPException(status_code=409, detail="Username already taken")
+    if not verify_challenge(payload.challenge, payload.answer):
+        raise HTTPException(status_code=400, detail="Incorrect answer — try a new problem")
+    if db.query(User).filter(User.username == new_username, User.id != current_user.id).first():
+        raise HTTPException(status_code=409, detail="Username already taken")
+    current_user.username = new_username
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 
@@ -138,6 +179,116 @@ def admin_reset(
     target.password_hash = hash_password(payload.new_password)
     db.commit()
     return {"ok": True, "username": target.username}
+
+
+class WipeUserPayload(BaseModel):
+    target_username: str
+
+
+@router.get("/admin-users")
+def admin_list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: list all users (id, username, name) for ops tooling."""
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only")
+    rows = db.query(User).order_by(User.id).all()
+    return {
+        "users": [
+            {"id": u.id, "username": u.username, "name": u.name}
+            for u in rows
+        ]
+    }
+
+
+@router.post("/admin-wipe-user")
+def admin_wipe_user(
+    payload: WipeUserPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reset a target user's per-user data without deleting their account.
+
+    Admin-only. Preserves the User row + username/password so they can still
+    log in. Wipes: programs (+ children), all logs, achievements, medals held,
+    body metrics, cardio, vacations, feed, ranks, friendships, and any chat
+    messages they authored. Refuses to touch admin usernames or the preset
+    system user.
+    """
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    from sqlalchemy import or_
+
+    from ..models import (
+        Achievement,
+        BodyMetric,
+        CardioLog,
+        ChatMessage,
+        FeedEvent,
+        Friendship,
+        MedalCurrentHolder,
+        MedalRecord,
+        MuscleScore,
+        Program,
+        ProgramExercise,
+        ProgramProgress,
+        SessionLog,
+        VacationPeriod,
+        WorkoutLog,
+    )
+
+    target = db.query(User).filter(User.username == payload.target_username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if (target.username or "").lower() in ADMIN_USERNAMES:
+        raise HTTPException(status_code=400, detail="Refusing to wipe an admin")
+    if (target.username or "").lower() == "preset":
+        raise HTTPException(status_code=400, detail="Refusing to wipe preset owner")
+
+    program_ids = [p.id for p in db.query(Program.id).filter(Program.user_id == target.id).all()]
+
+    counts: dict[str, int] = {}
+
+    def _delete(model, *filters, label: str) -> None:
+        n = db.query(model).filter(*filters).delete(synchronize_session=False)
+        if n:
+            counts[label] = n
+
+    _delete(WorkoutLog, WorkoutLog.user_id == target.id, label="workout_logs")
+    _delete(SessionLog, SessionLog.user_id == target.id, label="session_logs")
+    _delete(Achievement, Achievement.user_id == target.id, label="achievements")
+    _delete(MuscleScore, MuscleScore.user_id == target.id, label="muscle_scores")
+    _delete(BodyMetric, BodyMetric.user_id == target.id, label="body_metrics")
+    _delete(CardioLog, CardioLog.user_id == target.id, label="cardio_logs")
+    _delete(VacationPeriod, VacationPeriod.user_id == target.id, label="vacation_periods")
+    _delete(FeedEvent, FeedEvent.user_id == target.id, label="feed_events")
+    _delete(ChatMessage, ChatMessage.user_id == target.id, label="chat_messages")
+    _delete(MedalRecord, MedalRecord.user_id == target.id, label="medal_records")
+    _delete(MedalCurrentHolder, MedalCurrentHolder.user_id == target.id, label="medal_holders")
+    _delete(
+        Friendship,
+        or_(Friendship.requester_id == target.id, Friendship.addressee_id == target.id),
+        label="friendships",
+    )
+
+    if program_ids:
+        _delete(ProgramProgress, ProgramProgress.program_id.in_(program_ids), label="program_progress")
+        _delete(ProgramExercise, ProgramExercise.program_id.in_(program_ids), label="program_exercises")
+        _delete(Program, Program.id.in_(program_ids), label="programs")
+
+    # Clear optional user-profile-ish fields that are "per-user data" rather
+    # than identity. Keep username + password so they can still log in.
+    target.bodyweight_kg = None
+    target.height_cm = None
+    target.sex = None
+    target.birth_date = None
+    target.training_age_months = None
+    target.manual_1rm = None
+
+    db.commit()
+    return {"wiped": target.username, "counts": counts}
 
 
 class AbsorbPayload(BaseModel):

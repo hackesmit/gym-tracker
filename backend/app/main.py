@@ -28,6 +28,7 @@ from .routers import (
     vacation,
 )
 from .seed_catalog import seed_exercise_catalog
+from .seed_presets import seed_preset_programs
 
 
 def _run_migrations(db):
@@ -144,6 +145,7 @@ async def lifespan(app: FastAPI):
         seed_exercise_catalog(db)
         seed_medal_catalog(db)
         _backfill_default_user(db)
+        seed_preset_programs(db)
     finally:
         db.close()
     yield

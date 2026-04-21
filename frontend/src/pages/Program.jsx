@@ -11,6 +11,7 @@ import ProgramBuilder from '../components/ProgramBuilder';
 import ProgramUpload from '../components/ProgramUpload';
 import ProgramShareModal from '../components/ProgramShareModal';
 import ImportSharedProgram from '../components/ImportSharedProgram';
+import NippardPresetPicker from '../components/NippardPresetPicker';
 import { useApp } from '../context/AppContext';
 import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
 import { useT } from '../i18n';
@@ -130,13 +131,16 @@ export default function Program() {
           <p className="text-text-muted text-sm mb-4">
             {t('program.importDesc')}
           </p>
-          <button
-            onClick={() => setShowBuilder(true)}
-            className="w-full py-3 rounded-lg bg-accent text-surface font-semibold text-sm mb-3"
-          >
-            {t('program.createCustom')}
-          </button>
-          <div className="pt-3 border-t border-surface-lighter">
+          <NippardPresetPicker onImported={() => refreshPrograms()} />
+          <div className="pt-3 mt-3 border-t border-surface-lighter">
+            <button
+              onClick={() => setShowBuilder(true)}
+              className="w-full py-3 rounded-lg bg-accent text-surface font-semibold text-sm"
+            >
+              {t('program.createCustom')}
+            </button>
+          </div>
+          <div className="pt-3 mt-3 border-t border-surface-lighter">
             <p className="text-xs text-text-muted mb-2">{t('program.importTitle')}</p>
             <ProgramUpload onUploaded={() => { refreshPrograms(); }} />
           </div>

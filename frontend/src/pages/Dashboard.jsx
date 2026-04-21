@@ -7,6 +7,7 @@ import {
 import Card from '../components/Card';
 import ProgramUpload from '../components/ProgramUpload';
 import ImportSharedProgram from '../components/ImportSharedProgram';
+import NippardPresetPicker from '../components/NippardPresetPicker';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { getDashboard } from '../api/client';
@@ -63,13 +64,18 @@ export default function Dashboard() {
   if (loading) return <LoadingSpinner />;
 
   if (!programs.length && !data?.today_quest) {
+    const reloadAfterPick = () => { window.location.reload(); };
     return (
       <div className="max-w-md mx-auto mt-12 space-y-4">
         <Card title={t('dashboard.getStarted')}>
           <p className="text-text-muted text-sm mb-4">
             {t('dashboard.getStartedDesc')}
           </p>
-          <ProgramUpload />
+          <NippardPresetPicker onImported={reloadAfterPick} />
+          <div className="pt-3 mt-3 border-t border-surface-lighter">
+            <p className="text-xs text-text-muted mb-2">Upload your own program (.xlsx)</p>
+            <ProgramUpload />
+          </div>
           <div className="pt-3 mt-3 border-t border-surface-lighter">
             <p className="text-xs text-text-muted mb-2">Have a share code from a friend?</p>
             <ImportSharedProgram />
