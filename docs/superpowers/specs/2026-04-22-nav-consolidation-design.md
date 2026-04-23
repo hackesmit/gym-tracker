@@ -65,7 +65,7 @@ No redirect for `/recovery` — Recovery is deleted outright.
 
 ### Hub component
 
-New `frontend/src/components/HubLayout.jsx` (~60 lines). Accepts a `tabs` prop like:
+New `frontend/src/components/HubLayout.jsx` (~40 lines). Accepts a `tabs` prop like:
 
 ```jsx
 [
@@ -77,9 +77,10 @@ New `frontend/src/components/HubLayout.jsx` (~60 lines). Accepts a `tabs` prop l
 
 Renders:
 
-1. Realm-themed `PageHeader` (already exists in `RealmBorder.jsx`).
-2. Horizontal sub-tab strip that reuses the existing `nav-active` pill styling for visual consistency with the sidebar. `overflow-x-auto` so narrow mobile screens scroll rather than wrap.
-3. `<Outlet />` for the active child route.
+1. Horizontal sub-tab strip that reuses the existing `nav-active` pill styling for visual consistency with the sidebar. `overflow-x-auto` so narrow mobile screens scroll rather than wrap.
+2. `<Outlet />` for the active child route.
+
+No separate page title — the sub-tab pill is the heading. Content pages are not modified; they render below the strip exactly as they do today. (`PageHeader` exists in `RealmBorder.jsx` but is not currently used by any content page, so there is nothing to strip.)
 
 The three hub page files (`StatsHub.jsx`, `ProfileHub.jsx`, `SocialHub.jsx`) are thin wrappers that declare their `tabs` array and render `<HubLayout>`.
 
@@ -107,9 +108,10 @@ Friend profile moves to a dedicated route: `/users/:id`. A redirect from `/profi
 - `frontend/src/components/Layout.jsx` — cut `lotrNavItems` and `neutralNavItems` from 15 entries to 9. Pick icons for the three hubs (suggest: BarChart3 / UserIcon / Users for neutral; NavEye / UserProfile crest / Horn for LOTR — open to bikeshedding during implementation). Drop any imports that become unused.
 - `frontend/src/i18n.js` — add keys `nav.stats`, `nav.social`, and sub-tab labels (`stats.progress`, `stats.analytics`, `stats.history`, `profile.me`, `profile.achievements`, `profile.medals`, `social.friends`, `social.chat`) in both `en` and `es`. Remove `nav.recovery` (both locales).
 
-**Content pages — strip outer header only:**
+**Content pages — not modified:**
 
-- `Progress.jsx`, `Analytics.jsx`, `History.jsx`, `Achievements.jsx`, `Medals.jsx`, `Friends.jsx`, `Chat.jsx`, `Profile.jsx` — remove each page's outer `PageHeader`; the hub now owns the title. Business logic, data fetching, layout, and tests untouched.
+- `Progress.jsx`, `Analytics.jsx`, `History.jsx`, `Achievements.jsx`, `Medals.jsx`, `Friends.jsx`, `Chat.jsx` are untouched. They don't currently render a `PageHeader`, so no header strip is needed. The hub's tab-strip above their content serves as navigation context.
+- `Profile.jsx` is split: the self-profile content stays at `/profile/me` (rendered inside `ProfileHub`); the friend-profile branch (current `userId` search-param path) moves to a new `UserProfile.jsx` mounted at `/users/:id`. See "Friend profile split" above. This is the only content-page change.
 
 **Recovery removal (frontend):**
 
