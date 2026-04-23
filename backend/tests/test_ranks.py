@@ -16,6 +16,38 @@ from app.muscle_rank_config import (
 from app.rank_engine import MVP_GROUPS, aggregate_elo, recompute_for_user
 
 
+# ---------------------------------------------------------------------------
+# GET /api/ranks/standards — reference endpoint
+# ---------------------------------------------------------------------------
+
+def test_standards_returns_all_mvp_groups(db, client):
+    """GET /api/ranks/standards returns all 6 MVP groups with metric + thresholds."""
+    response = client.get("/api/ranks/standards")
+    assert response.status_code == 200
+    body = response.json()
+    group_keys = {g["key"] for g in body["groups"]}
+    assert group_keys == set(MVP_GROUPS)
+    for g in body["groups"]:
+        assert g.get("label")
+        assert g.get("metric")
+        assert isinstance(g.get("qualifying_exercises"), list)
+        assert isinstance(g.get("thresholds"), dict)
+
+
+def test_standards_tier_order_matches_rank_order(db, client):
+    """Tiers are returned in ascending Copper→Champion order with subdivision count."""
+    body = client.get("/api/ranks/standards").json()
+    assert body["tiers"] == RANK_ORDER
+    assert body["subdivisions_per_tier"] == SUBDIVISION_COUNT
+
+
+def test_standards_chest_thresholds_match_config(db, client):
+    """Chest thresholds in the payload match the config file byte-for-byte."""
+    body = client.get("/api/ranks/standards").json()
+    chest = next(g for g in body["groups"] if g["key"] == "chest")
+    assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
+
+
 VALID_RANKS = set(RANK_ORDER)
 
 

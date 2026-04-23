@@ -7,7 +7,10 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..models import MuscleScore, User
 from ..muscle_rank_config import (
+    EXERCISE_MAP,
     MUSCLE_RANK_THRESHOLDS,
+    RANK_ORDER,
+    SUBDIVISION_COUNT,
     continuous_score,
     rank_score,
     subdivided_rank,
@@ -17,6 +20,49 @@ from ..rank_engine import MVP_GROUPS, aggregate_elo, recompute_for_user
 from .friends import get_friend_ids
 
 router = APIRouter(prefix="/api/ranks", tags=["ranks"])
+
+
+_GROUP_LABELS = {
+    "chest": "Chest",
+    "back": "Back",
+    "shoulders": "Shoulders",
+    "quads": "Quads",
+    "hamstrings": "Hamstrings",
+    "arms": "Arms",
+}
+
+_METRIC_HUMAN = {
+    "bench_press_1rm_over_bodyweight":       "Barbell bench 1RM ÷ bodyweight",
+    "back_squat_1rm_over_bodyweight":        "Back squat 1RM ÷ bodyweight",
+    "deadlift_1rm_over_bodyweight":          "Deadlift 1RM ÷ bodyweight",
+    "overhead_press_1rm_over_bodyweight":    "Strict press 1RM ÷ bodyweight",
+    "weighted_pullup_added_over_bodyweight": "Weighted pull-up added load ÷ bodyweight",
+    "weighted_dip_added_over_bodyweight":    "Weighted dip added load ÷ bodyweight",
+}
+
+
+@router.get("/standards")
+def standards(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the full rank-standards reference for the profile page."""
+    groups = []
+    for key in MVP_GROUPS:
+        cfg = MUSCLE_RANK_THRESHOLDS.get(key, {})
+        metric_key = cfg.get("metric") or ""
+        groups.append({
+            "key": key,
+            "label": _GROUP_LABELS.get(key, key.title()),
+            "metric": _METRIC_HUMAN.get(metric_key, metric_key),
+            "qualifying_exercises": sorted(EXERCISE_MAP.get(key, {}).keys()),
+            "thresholds": cfg.get("thresholds", {}),
+        })
+    return {
+        "tiers": list(RANK_ORDER),
+        "subdivisions_per_tier": SUBDIVISION_COUNT,
+        "groups": groups,
+    }
 
 
 def _serialize(user_id: int, db: Session) -> list[dict]:
