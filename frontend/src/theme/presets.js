@@ -24,7 +24,7 @@ export const MINIMAL_PRESETS = [
   { key: 'indigo',  name: 'Indigo',  accent: '#8b7cff', ink: '#fff' },
   { key: 'magenta', name: 'Magenta', accent: '#ff4ac4', ink: '#fff' },
   { key: 'rose',    name: 'Rose',    accent: '#ff8fa3', ink: '#000' },
-  { key: 'ivory',   name: 'Ivory',   accent: '#e8e4d8', ink: '#000' }, // monochrome
+  { key: 'ivory',   name: 'Ivory',   accent: '#e8e4d8', ink: '#000' }, // monochrome — very light; hover shades derived via color-mix are near-identical to base. Intentional.
 ];
 
 export const THEME_KEYS = MINIMAL_PRESETS.map((p) => p.key);

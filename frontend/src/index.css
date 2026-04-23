@@ -83,14 +83,15 @@
 :root {
   /* JS writes --color-accent, --color-accent-ink, --color-accent-tint, --color-accent-border.
      Everything else derives from --color-accent via color-mix. */
-  --color-accent-tint:   rgba(212, 255, 74, 0.07);
-  --color-accent-border: rgba(212, 255, 74, 0.20);
+  --color-accent-tint:   color-mix(in srgb, var(--color-accent)  7%, transparent 93%);
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 20%, transparent 80%);
   --color-accent-light:  color-mix(in srgb, var(--color-accent) 85%, white 15%);
   --color-accent-dark:   color-mix(in srgb, var(--color-accent) 85%, black 15%);
   --color-primary:       var(--color-accent);
   --color-primary-light: var(--color-accent-light);
   --color-primary-dark:  var(--color-accent-dark);
   --border-dashed:       rgba(255, 255, 255, 0.08);
+  --color-accent-ink: #000000;
 }
 
 /* ============================================================
@@ -320,19 +321,12 @@ input[type="number"] { -moz-appearance: textfield; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .animate-fade-in  { animation: fade-in 0.5s ease-in; }
 
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 15%, transparent 85%); }
-  50%      { box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent 70%); }
-}
-@keyframes subtle-shine {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
 
 /* ============================================================
    CARD / PANEL VARIANTS
-   Default (minimal mode): flat editorial cards.
-   LOTR mode overrides add gradients, glows, decorative borders.
+   Flat editorial cards in both modes. LOTR realms differ only by surface
+   + accent palette; no gradient or glow variants. `.timer-card` retains
+   a gradient as the one hero exception.
    ============================================================ */
 
 .stone-panel,
@@ -358,7 +352,7 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 /* ============================================================
-   ORNAMENT UTILITIES (neutral in minimal, decorative in LOTR)
+   ORNAMENT UTILITIES (flat in both modes)
    ============================================================ */
 
 /* Engraved border */
@@ -380,8 +374,7 @@ input[type="number"] { -moz-appearance: textfield; }
 .row-divider-top { border-top: 1px dashed var(--border-dashed); }
 
 /* ============================================================
-   BADGE / TIER MATERIAL STYLES
-   Flat in minimal, glowing in LOTR.
+   BADGE / TIER MATERIAL STYLES (flat in both modes)
    ============================================================ */
 .tier-iron   { border-color: #6b7280; color: #9ca3af; }
 .tier-silver { border-color: #94a3b8; color: #cbd5e1; }
