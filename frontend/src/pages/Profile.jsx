@@ -190,7 +190,7 @@ export default function Profile() {
       {/* Trophy case */}
       <Card
         title="Trophy case"
-        action={<Link to="/medals" className="text-xs text-accent">View all</Link>}
+        action={<Link to="/profile/medals" className="text-xs text-accent">View all</Link>}
       >
         {medals.length ? (
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">

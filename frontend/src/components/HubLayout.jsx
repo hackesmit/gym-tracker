@@ -13,7 +13,7 @@ export default function HubLayout({ tabs }) {
   const t = useT();
   return (
     <div>
-      <nav className="flex gap-1 overflow-x-auto border-b border-surface-lighter pb-2 mb-4">
+      <nav aria-label="Sub-tabs" className="flex gap-1 overflow-x-auto border-b border-surface-lighter pb-2 mb-4">
         {tabs.map(({ to, labelKey, end }) => (
           <NavLink
             key={to}

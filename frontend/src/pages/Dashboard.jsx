@@ -163,7 +163,7 @@ export default function Dashboard() {
 
       {/* Medals + Muscle ranks */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title={t('dashboard.medalShowcase')} action={<Link to="/medals" className="text-xs text-accent flex items-center gap-1">{t('common.all')} <ArrowRight size={12} /></Link>}>
+        <Card title={t('dashboard.medalShowcase')} action={<Link to="/profile/medals" className="text-xs text-accent flex items-center gap-1">{t('common.all')} <ArrowRight size={12} /></Link>}>
           {medals.length ? (
             <ul className="space-y-2">
               {medals.slice(0, 3).map((m, i) => (
@@ -210,7 +210,7 @@ export default function Dashboard() {
               {lotr ? <Sword size={16} className="text-accent" /> : <Trophy size={16} className="text-accent" />}
               <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">{t('dashboard.recentPRs')}</h3>
             </div>
-            <Link to="/achievements" className="text-xs text-accent flex items-center gap-1">
+            <Link to="/profile/achievements" className="text-xs text-accent flex items-center gap-1">
               {t('common.viewAll')} <ArrowRight size={12} />
             </Link>
           </div>

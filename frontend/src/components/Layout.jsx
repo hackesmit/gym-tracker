@@ -101,7 +101,7 @@ export default function Layout() {
             <AppLogo /> {appName}
           </h1>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav aria-label="Primary" className="flex-1 p-2 space-y-0.5">
           {navItems.map(({ to, icon: Icon, labelKey }) => (
             <NavLink
               key={to}
@@ -174,7 +174,7 @@ export default function Layout() {
       {/* Mobile nav overlay */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileOpen(false)}>
-          <nav className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
+          <nav aria-label="Mobile menu" className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
                onClick={(e) => e.stopPropagation()}>
             {navItems.map(({ to, icon: Icon, labelKey }) => (
               <NavLink
