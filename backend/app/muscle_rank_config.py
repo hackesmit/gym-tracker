@@ -132,21 +132,66 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
 # — everything else in the catalog is ignored by the rank engine even if
 # its muscle_group_primary matches.
 EXERCISE_MAP: dict[str, dict[str, float]] = {
+    # 2026-04-22: coverage expansion. DB values encode per-hand load
+    # convention: spec = 2 × transferability. Machine values reflect
+    # reduced stabilization demand — a 150 kg heavy machine press ≈
+    # 0.65 × 150 = ~98 kg effective barbell bench equivalent.
     "chest": {
-        "BARBELL BENCH PRESS":       1.00,
-        "BENCH PRESS":               1.00,
-        "FLAT BARBELL BENCH PRESS":  1.00,
-        "PAUSED BENCH PRESS":        1.00,
-        "CLOSE-GRIP BENCH PRESS":    0.95,
-        "INCLINE BARBELL PRESS":     0.90,
-        "INCLINE BARBELL BENCH PRESS": 0.90,
+        "BARBELL BENCH PRESS":             1.00,
+        "BENCH PRESS":                     1.00,
+        "FLAT BARBELL BENCH PRESS":        1.00,
+        "PAUSED BENCH PRESS":              1.00,
+        "CLOSE-GRIP BENCH PRESS":          0.95,
+        "INCLINE BARBELL PRESS":           0.90,
+        "INCLINE BARBELL BENCH PRESS":     0.90,
+        # Dumbbell variants (per-hand load × 2 × transferability)
+        "FLAT DB PRESS (HEAVY)":           1.60,
+        "FLAT DB PRESS (GET OFF)":         1.50,
+        "INCLINE DB PRESS":                1.45,
+        "INCLINE DB CHEST PRESS":          1.45,
+        "INCLINE DUMBBELL PRESS":          1.45,
+        "SLIGHT INCLINE DB PRESS (HEAVY)": 1.55,
+        "SLIGHT INCLINE DB PRESS (BACK OFF)": 1.45,
+        # Smith machine (guided barbell — retains bar, some stability loss)
+        "SMITH MACHINE CHEST PRESS":       0.85,
+        "INCLINE SMITH MACHINE PRESS":     0.80,
+        # Selectorized / plate-loaded machine press
+        "INCLINE MACHINE PRESS":           0.70,
+        "MACHINE CHEST PRESS (HEAVY)":     0.65,
+        "MACHINE CHEST PRESS (BACK OFF)":  0.60,
+        "MACHINE PRESS":                   0.65,
+        "MACHINE PRESS (BACK OFF)":        0.60,
+        # Cable press
+        "CABLE CHEST PRESS":               0.50,
     },
     "quads": {
-        "BARBELL BACK SQUAT":  1.00,
-        "BACK SQUAT":          1.00,
-        "PAUSED BACK SQUAT":   1.00,
-        "FRONT SQUAT":         0.88,
-        "SAFETY BAR SQUAT":    0.95,
+        "BARBELL BACK SQUAT":             1.00,
+        "BACK SQUAT":                     1.00,
+        "PAUSED BACK SQUAT":              1.00,
+        "FRONT SQUAT":                    0.88,
+        "SAFETY BAR SQUAT":               0.95,
+        # Smith-machine squat (guided barbell)
+        "SMITH MACHINE SQUAT (HEAVY)":    0.85,
+        "SMITH MACHINE SQUAT (BACK OFF)": 0.80,
+        "NARROW STANCE SMITH SQUAT":      0.80,
+        # Hack / machine squat
+        "HACK SQUAT (HEAVY)":             0.70,
+        "HACK SQUAT (BACK OFF)":          0.65,
+        "CLOSE STANCE HACK SQUAT":        0.70,
+        "MACHINE SQUAT (HEAVY)":          0.70,
+        "MACHINE SQUAT (BACK OFF)":       0.65,
+        # Leg press (high load, limited ROM, sled-supported)
+        "LEG PRESS (HEAVY)":              0.40,
+        "LEG PRESS":                      0.40,
+        "LEG PRESS (BACK OFF)":           0.35,
+        "SINGLE-LEG LEG PRESS (HEAVY)":   0.60,
+        "SINGLE-LEG LEG PRESS (BACK OFF)": 0.55,
+        # Unilateral loaded movements
+        "DB BULGARIAN SPLIT SQUAT":       0.60,
+        "DB WALKING LUNGE":               0.55,
+        "WALKING LUNGES":                 0.45,
+        "DB STEP UP":                     0.50,
+        "GOBLET SQUAT":                   0.40,
     },
     "hamstrings": {
         "CONVENTIONAL DEADLIFT":  1.00,
@@ -155,14 +200,24 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "TRAP BAR DEADLIFT":      0.95,
         "PAUSED DEADLIFT":        1.00,
         "ROMANIAN DEADLIFT":      0.85,
+        # DB Romanian deadlift (per-hand × 2 × 0.85)
+        "DB ROMANIAN DEADLIFT":   1.70,
     },
     "shoulders": {
-        "OVERHEAD PRESS":         1.00,
-        "STRICT PRESS":           1.00,
-        "BARBELL OVERHEAD PRESS": 1.00,
-        "STANDING BARBELL OHP":   1.00,
-        "SEATED BARBELL OHP":     1.00,
-        "MILITARY PRESS":         1.00,
+        "OVERHEAD PRESS":             1.00,
+        "STRICT PRESS":               1.00,
+        "BARBELL OVERHEAD PRESS":     1.00,
+        "STANDING BARBELL OHP":       1.00,
+        "SEATED BARBELL OHP":         1.00,
+        "MILITARY PRESS":             1.00,
+        # Dumbbell press (per-hand × 2 × transferability)
+        "SEATED DB SHOULDER PRESS":   1.20,
+        "STANDING DB SHOULDER PRESS": 1.30,
+        "DB SHOULDER PRESS":          1.30,
+        "STANDING DB ARNOLD PRESS":   1.20,
+        # Cable / machine shoulder press
+        "CABLE SHOULDER PRESS":       0.50,
+        "MACHINE SHOULDER PRESS":     0.65,
     },
 }
 
@@ -206,6 +261,51 @@ ARMS_CLOSE_GRIP_BENCH: set[str] = {
     "CLOSE-GRIP BENCH PRESS",
     "CLOSE GRIP BENCH PRESS",
     "CLOSEGRIP BENCH PRESS",
+}
+
+# 2026-04-22: row / pulldown pathway for the back rank. Ratio contributed =
+# (e1rm × spec) / BW, taken against the same tier thresholds as weighted
+# pullups. Specificity encodes how much a strong row/pulldown implies a
+# strong weighted-pullup — a barbell row at 0.50 lets a 100 kg × BW 80 row
+# contribute ratio 0.625 (Gold II), which is realistic: a strong rower is
+# not yet a Diamond-tier pullup athlete. DB row values bake in the
+# per-hand × 2 convention (spec 1.00 = 2 × 0.50 transferability).
+BACK_ROWS_PULLDOWNS: dict[str, float] = {
+    # Barbell rows (two-handed, free)
+    "BARBELL ROW":                      0.50,
+    "BENT-OVER BARBELL ROW":            0.50,
+    "BENT OVER BARBELL ROW":            0.50,
+    "PENDLAY ROW":                      0.50,
+    # T-bar and machine rows
+    "T-BAR ROW":                        0.45,
+    "MEADOWS ROW":                      0.40,
+    "SEATED CABLE ROW":                 0.40,
+    # DB rows (per-hand convention)
+    "HELMS DB ROW":                     1.00,
+    "INCLINE CHEST-SUPPORTED DB ROW":   1.00,
+    "SINGLE-ARM DB ROW":                1.00,
+    "DB ROW":                           1.00,
+    # Lat pulldowns (machine-supported; body-weight-equivalent loads)
+    "LAT PULLDOWN":                     0.35,
+    "NEUTRAL GRIP LAT PULLDOWN":        0.35,
+    "2-GRIP LAT PULLDOWN":              0.35,
+    "MACHINE PULLDOWN":                 0.30,
+    "1-ARM HALF KNEELING LAT PULLDOWN": 0.50,
+}
+
+# 2026-04-22: compound tricep pathway for the arms rank. Skull crushers,
+# JM press and DB variants — isolation curls and pushdowns stay excluded
+# (a strong pushdown doesn't imply a strong weighted dip). Ratio = spec ×
+# e1rm / BW, against the same arms thresholds as weighted dips. Caps out
+# around Silver / low Gold from isolation work alone; Diamond / Champion
+# still require weighted dips or heavy close-grip bench.
+ARMS_TRICEP_COMPOUND: dict[str, float] = {
+    "EZ BAR SKULL CRUSHER":   0.45,
+    "SKULL CRUSHER":          0.45,
+    "DB SKULL CRUSHER":       0.55,
+    "DB FRENCH PRESS":        0.40,
+    "EZ BAR FRENCH PRESS":    0.35,
+    "SMITH MACHINE JM PRESS": 0.55,
 }
 
 # Manual 1RM keys on `User.manual_1rm` per group. The existing schema uses

@@ -29,8 +29,10 @@ from .models import (
 from .muscle_rank_config import (
     ARMS_BODYWEIGHT_DIPS,
     ARMS_CLOSE_GRIP_BENCH,
+    ARMS_TRICEP_COMPOUND,
     ARMS_WEIGHTED_DIPS,
     BACK_BODYWEIGHT_PULLUPS,
+    BACK_ROWS_PULLDOWNS,
     BACK_WEIGHTED_PULLUPS,
     CHAMPION_POINTS,
     EXERCISE_MAP,
@@ -206,18 +208,28 @@ def _best_weighted_calisthenic(
     bodyweight: set[str],
     close_grip_fallback: set[str] | None,
     manual_added_key: str | None,
+    compound_map: dict[str, float] | None = None,
 ) -> _Result:
     """Back / arms — added-load-over-bodyweight ratio with fallbacks.
 
     Priority per the config spec:
-      1. Weighted pullup / weighted dip (primary)
-      2. Close-grip bench (arms only)
-      3. Bodyweight pullup rep fallback (back only)
+      1. Weighted pullup / weighted dip (primary, no specificity discount)
+      2. Close-grip bench proxy (arms only; shifted by -1.0 × BW to align
+         with the added-load scale)
+      3. Row / pulldown or tricep-compound pathway (`compound_map` — each
+         entry contributes ratio = spec × e1rm / BW, max against the above)
+      4. Bodyweight pullup/dip rep-count fallback (back only)
     """
     thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
     fallback_rep_thresholds = MUSCLE_RANK_THRESHOLDS[group].get("fallback_reps")
 
-    candidate_names = list(weighted | bodyweight | (close_grip_fallback or set()))
+    compound_map = compound_map or {}
+    candidate_names = list(
+        weighted
+        | bodyweight
+        | (close_grip_fallback or set())
+        | set(compound_map.keys())
+    )
     rows = []
     if candidate_names:
         rows = (
@@ -287,6 +299,26 @@ def _best_weighted_calisthenic(
                 best_added_ratio = shifted
                 best_weighted_source = f"proxy_close_grip_bench:{name}"
 
+        elif name in compound_map and load is not None and load > 0:
+            # Row / pulldown (back) or skull-crusher / JM press (arms).
+            # ratio = spec × e1rm / BW, compared directly to the group's
+            # added-load thresholds. Specificity encodes transferability
+            # plus the DB per-hand × 2 convention where relevant.
+            spec = compound_map[name]
+            if spec <= 0:
+                continue
+            if reps > MAX_REPS_FOR_E1RM:
+                continue
+            e1rm = _epley_e1rm(load, reps)
+            if e1rm <= 0:
+                continue
+            ratio = (e1rm * spec) / bw_kg
+            if ratio > MAX_RATIO_CAP:
+                continue
+            if ratio > best_added_ratio:
+                best_added_ratio = ratio
+                best_weighted_source = f"compound:{name}"
+
     # Manual added-load 1RM (e.g. user types "pullup": +40 kg).
     if manual_added_key:
         user = db.get(User, user_id)
@@ -331,6 +363,7 @@ def _compute_group(
             bodyweight=BACK_BODYWEIGHT_PULLUPS,
             close_grip_fallback=None,
             manual_added_key=MANUAL_1RM_KEY.get("back_added"),
+            compound_map=BACK_ROWS_PULLDOWNS,
         )
     if group == "arms":
         return _best_weighted_calisthenic(
@@ -339,6 +372,7 @@ def _compute_group(
             bodyweight=ARMS_BODYWEIGHT_DIPS,
             close_grip_fallback=ARMS_CLOSE_GRIP_BENCH,
             manual_added_key=MANUAL_1RM_KEY.get("arms_added"),
+            compound_map=ARMS_TRICEP_COMPOUND,
         )
     return _best_barbell_ratio(db, user_id, group, bw_kg, cutoff)
 
