@@ -233,10 +233,37 @@ top of the current cohort.
 - Window: best valid lift in last **90 days**. Epley for reps up to 10; >10 reps rejected.
 - Manual 1RM from `User.manual_1rm` is first-class, not a fallback.
 - Outlier guard: ratio > 5× bodyweight is discarded.
-- Tiers: `Copper → Bronze → Silver → Gold → Platinum → Emerald → Diamond → Champion`
+- Tiers: `Copper → Bronze → Silver → Gold → Platinum → Diamond → Champion` (7 tiers; Emerald was dropped on 2026-04-22 to match the badge system)
+- Each non-Champion tier subdivides into 5 equal slots (V → I). Champion is a single elite rank.
 - Source of truth: `backend/app/muscle_rank_config.py`. Do **not** inline thresholds elsewhere.
 - `recompute_for_user(db, user_id)` is called inside `logging.py` after every log write.
+- Reference endpoint: `GET /api/ranks/standards` returns the full 7-tier × 6-group table (thresholds + qualifying exercises) sourced from `muscle_rank_config.py`. Consumed by the Profile page's new "Rank standards" expandable card (`frontend/src/components/RankStandards.jsx`).
 - Tested in `tests/test_ranks.py` (6 tests).
+
+## Editorial Theme System (2026-04-23)
+The frontend ships two coexisting modes, defaulting to minimal.
+
+**Minimal mode (default):** 13 accent presets in `frontend/src/theme/presets.js`
+— lime (default), amber, cyan, crimson, ember, saffron, mint, teal, sky,
+indigo, magenta, rose, ivory. `AppContext.setThemeColor` writes 4 CSS
+variables on `<html>` (`--color-accent`, `--color-accent-ink`,
+`--color-accent-tint`, `--color-accent-border`); all other accent
+derivatives (`--color-accent-light`, `--color-accent-dark`,
+`--color-primary*`) are computed via CSS `color-mix` in `:root`. Adding
+a 14th preset = one array entry in `presets.js` + 2 i18n strings in
+`i18n.js` (en + es). No CSS edits required.
+
+**LOTR mode (opt-in, editorial):** 5 realms — gondor, rohan, rivendell,
+mordor, shire — each with a unique surface + accent palette. Flat visuals
+(no gradients, no glows); heraldic icons + Cinzel display font + mode-
+conditional copy swaps ("Today's Quest", "Hall of Heroes") are the visual
+identity.
+
+Rank badges carry a subtle tier-colored `filter: drop-shadow` halo in
+both modes (the one "meaningful moment" carve-out from the no-glow rule).
+
+Known limitation: first-paint FOUC when the stored preset is not lime —
+see `docs/known-bugs.md`.
 
 ## LOTR Theme System
 Subtle Tolkien atmosphere over a modern fitness UI. 5 switchable realms with 6 panel variants
