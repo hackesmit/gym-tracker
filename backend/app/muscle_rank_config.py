@@ -6,8 +6,14 @@ self-normalisation here — the point of this module is that Champion is a
 real, earned tier, not the top of the current user population.
 
 All threshold logic lives in THIS file. Callers must not inline their own
-tier mappings; they must go through `rank_from_threshold` /
-`rank_from_reps` / the `MUSCLE_RANK_THRESHOLDS` table.
+tier mappings; they must go through `rank_from_threshold`,
+`rank_from_reps`, `subdivided_rank`, `rank_score`, `continuous_score`, or
+the `MUSCLE_RANK_THRESHOLDS` table.
+
+2026-04-22 rewrite: dropped the `Emerald` intermediate tier to match the
+external 7-tier badge system. Each tier is now subdivided into 5 equal
+intervals (V → I) between its floor and the next tier's floor. Champion
+is a single elite rank (no subdivisions).
 """
 
 from __future__ import annotations
@@ -25,10 +31,16 @@ RANK_ORDER = [
     "Silver",
     "Gold",
     "Platinum",
-    "Emerald",
     "Diamond",
     "Champion",
 ]
+
+# Subdivisions inside each non-Champion tier. Order is V (weakest) → I
+# (strongest). `sub_index` is the 0-based index within the tier, so
+# Copper V = (Copper, 0) and Diamond I = (Diamond, 4). Champion is always
+# (Champion, 0) — it is a single undivided elite rank.
+SUBDIVISIONS = ["V", "IV", "III", "II", "I"]
+SUBDIVISION_COUNT = 5
 
 # Per-group rank thresholds.  Each tier value is the MINIMUM metric value
 # required to earn that tier.  Anything below the Bronze cutoff collapses
@@ -41,7 +53,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   0.75,
             "Gold":     1.00,
             "Platinum": 1.25,
-            "Emerald":  1.50,
             "Diamond":  1.75,
             "Champion": 2.00,
         },
@@ -53,7 +64,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   1.25,
             "Gold":     1.75,
             "Platinum": 2.00,
-            "Emerald":  2.25,
             "Diamond":  2.50,
             "Champion": 3.00,
         },
@@ -65,7 +75,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   1.50,
             "Gold":     2.00,
             "Platinum": 2.25,
-            "Emerald":  2.50,
             "Diamond":  2.75,
             "Champion": 3.25,
         },
@@ -77,7 +86,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   0.50,
             "Gold":     0.75,
             "Platinum": 0.90,
-            "Emerald":  1.00,
             "Diamond":  1.10,
             "Champion": 1.25,
         },
@@ -92,7 +100,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   0.25,
             "Gold":     0.50,
             "Platinum": 0.75,
-            "Emerald":  1.00,
             "Diamond":  1.25,
             "Champion": 1.50,
         },
@@ -101,14 +108,11 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   4,
             "Gold":     7,
             "Platinum": 11,
-            "Emerald":  16,
             "Diamond":  21,
             "Champion": 30,
         },
     },
-    # Arms — weighted dip ADDED-load / bodyweight. Fallback proxies
-    # (close-grip bench) are supported by the engine; the displayed tier
-    # uses the same "+ added BW" scale.
+    # Arms — weighted dip ADDED-load / bodyweight.
     "arms": {
         "metric": "weighted_dip_added_over_bodyweight",
         "thresholds": {
@@ -116,7 +120,6 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   0.25,
             "Gold":     0.50,
             "Platinum": 0.75,
-            "Emerald":  1.00,
             "Diamond":  1.25,
             "Champion": 1.50,
         },
@@ -226,6 +229,13 @@ MIN_BODYWEIGHT_KG   = 30.0
 MAX_BODYWEIGHT_KG   = 300.0
 MAX_RATIO_CAP       = 5.0     # sanity ceiling; suspicious values are dropped
 
+# Continuous ELO point system. Each of the 30 non-Champion subdivisions is
+# worth 100 base points, Champion adds a 100-point bonus. Per-muscle ELO
+# therefore ranges 0..3100, and the aggregate across MVP_GROUPS is
+# 0..18,600.
+POINTS_PER_SUBDIVISION = 100
+CHAMPION_POINTS        = 3000 + POINTS_PER_SUBDIVISION   # 3100
+
 
 def rank_from_threshold(value: float, thresholds: dict[str, float]) -> str:
     """Map a numeric `value` to a tier using the fixed threshold dict.
@@ -277,3 +287,100 @@ def max_rank(*tiers: str) -> str:
             best_idx = idx
             best_name = t
     return best_name
+
+
+def _next_threshold(tier: str, thresholds: dict[str, float]) -> float | None:
+    """Return the numeric floor of the tier immediately above `tier`."""
+    if tier == "Champion":
+        return None
+    idx = RANK_ORDER.index(tier)
+    for next_tier in RANK_ORDER[idx + 1:]:
+        cutoff = thresholds.get(next_tier)
+        if cutoff is not None:
+            return float(cutoff)
+    return None
+
+
+def subdivided_rank(
+    value: float, thresholds: dict[str, float]
+) -> tuple[str, int]:
+    """Return `(tier, sub_index)` with sub_index in [0, 4].
+
+    Subdivisions partition each tier's numeric range into 5 equal slots.
+    V is the bottom slot (just entered the tier), I is the top slot
+    (about to promote). Champion is always (Champion, 0).
+
+    Copper has no official "tier floor" — we use 0 as the floor and the
+    Bronze cutoff as the ceiling so Copper still subdivides smoothly.
+    """
+    tier = rank_from_threshold(value, thresholds)
+    if tier == "Champion":
+        return (tier, 0)
+
+    if tier == "Copper":
+        floor = 0.0
+        ceiling = thresholds.get("Bronze")
+    else:
+        floor = float(thresholds.get(tier, 0.0))
+        ceiling = _next_threshold(tier, thresholds)
+
+    if ceiling is None or ceiling <= floor:
+        return (tier, 0)
+
+    progress = max(0.0, min(1.0, (float(value) - floor) / (ceiling - floor)))
+    # Nudge by a tiny epsilon so a value that lands exactly on a subdivision
+    # boundary (e.g. 0.85 on a 0.05-step tier) doesn't slip back to the
+    # previous slot due to FP rounding. Stays safely inside [0, 4].
+    raw = progress * SUBDIVISION_COUNT + 1e-9
+    sub_index = int(raw)
+    return (tier, max(0, min(SUBDIVISION_COUNT - 1, sub_index)))
+
+
+def subdivision_label(sub_index: int) -> str:
+    """Map 0..4 → V..I. Any other value collapses to V."""
+    if 0 <= sub_index < SUBDIVISION_COUNT:
+        return SUBDIVISIONS[sub_index]
+    return SUBDIVISIONS[0]
+
+
+def rank_score(tier: str, sub_index: int) -> int:
+    """Discrete rank index 1..31 (Copper V = 1 … Diamond I = 30, Champion = 31)."""
+    if tier == "Champion":
+        return 6 * SUBDIVISION_COUNT + 1   # 31
+    ti = tier_index(tier)
+    if ti <= 0:
+        # Copper
+        return max(1, min(SUBDIVISION_COUNT, sub_index + 1))
+    # Bronze starts at 6, Silver 11, ..., Diamond 26
+    base = ti * SUBDIVISION_COUNT + 1      # 6, 11, 16, 21, 26
+    return base + max(0, min(SUBDIVISION_COUNT - 1, sub_index))
+
+
+def continuous_score(
+    value: float, thresholds: dict[str, float]
+) -> float:
+    """Continuous ELO-style score in [0, CHAMPION_POINTS] (0..3100).
+
+    Equals `(rank_score - 1) * POINTS_PER_SUBDIVISION` plus linear
+    progress inside the current subdivision, so the score ticks up
+    smoothly as the user's ratio improves — no plateau between promotions.
+    """
+    tier, sub_index = subdivided_rank(value, thresholds)
+    if tier == "Champion":
+        return float(CHAMPION_POINTS)
+
+    if tier == "Copper":
+        floor = 0.0
+        ceiling = thresholds.get("Bronze")
+    else:
+        floor = float(thresholds.get(tier, 0.0))
+        ceiling = _next_threshold(tier, thresholds)
+    if ceiling is None or ceiling <= floor:
+        return 0.0
+
+    tier_step = (ceiling - floor) / SUBDIVISION_COUNT
+    sub_floor = floor + sub_index * tier_step
+    within = max(0.0, min(1.0, (float(value) - sub_floor) / tier_step)) if tier_step > 0 else 0.0
+
+    base_points = (rank_score(tier, sub_index) - 1) * POINTS_PER_SUBDIVISION
+    return float(base_points + within * POINTS_PER_SUBDIVISION)

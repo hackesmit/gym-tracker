@@ -3,8 +3,17 @@
 from datetime import date, timedelta
 
 from app.models import ExerciseCatalog, Program, ProgramExercise, User, WorkoutLog
-from app.muscle_rank_config import MUSCLE_RANK_THRESHOLDS, RANK_ORDER
-from app.rank_engine import MVP_GROUPS, recompute_for_user
+from app.muscle_rank_config import (
+    CHAMPION_POINTS,
+    MUSCLE_RANK_THRESHOLDS,
+    RANK_ORDER,
+    SUBDIVISION_COUNT,
+    continuous_score,
+    rank_score,
+    subdivided_rank,
+    subdivision_label,
+)
+from app.rank_engine import MVP_GROUPS, aggregate_elo, recompute_for_user
 
 
 VALID_RANKS = set(RANK_ORDER)
@@ -48,6 +57,10 @@ def test_returns_all_mvp_groups(db):
     for v in result.values():
         assert v["rank"] in VALID_RANKS
         assert 0 <= v["score"] <= 100
+        assert 0 <= v["sub_index"] < SUBDIVISION_COUNT
+        assert v["sub_label"] in ("V", "IV", "III", "II", "I")
+        assert 1 <= v["rank_index"] <= 31
+        assert 0 <= v["elo"] <= CHAMPION_POINTS
 
 
 def test_missing_bodyweight_defaults_to_copper(db):
@@ -83,6 +96,16 @@ def test_thresholds_match_spec():
     assert MUSCLE_RANK_THRESHOLDS["arms"]["thresholds"]["Champion"] == 1.50
 
 
+def test_rank_ladder_has_no_emerald():
+    """2026-04-22: ladder rewrite dropped Emerald to match badge system."""
+    assert "Emerald" not in RANK_ORDER
+    assert RANK_ORDER == [
+        "Copper", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Champion",
+    ]
+    for group_cfg in MUSCLE_RANK_THRESHOLDS.values():
+        assert "Emerald" not in group_cfg["thresholds"]
+
+
 def test_weak_lift_maps_below_bronze_to_copper(db):
     """Bench at 0.3x BW should be Copper, not Bronze."""
     user = db.query(User).first()
@@ -101,3 +124,75 @@ def test_outlier_ratio_is_rejected(db):
     _seed_bench(db, user, load_kg=500, reps=1)  # 6.25x BW — impossible
     result = recompute_for_user(db, user.id)
     assert result["chest"]["rank"] == "Copper"
+
+
+# ---------------------------------------------------------------------------
+# Subdivision + ELO unit tests (pure functions, no DB)
+# ---------------------------------------------------------------------------
+
+CHEST_THRESHOLDS = MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
+
+
+def test_subdivisions_split_tier_into_five_equal_steps():
+    """Silver spans 0.75..1.00 for chest → 5 slots of 0.05."""
+    # Exact subdivision floors
+    assert subdivided_rank(0.75, CHEST_THRESHOLDS) == ("Silver", 0)   # Silver V
+    assert subdivided_rank(0.80, CHEST_THRESHOLDS) == ("Silver", 1)   # Silver IV
+    assert subdivided_rank(0.85, CHEST_THRESHOLDS) == ("Silver", 2)   # Silver III
+    assert subdivided_rank(0.90, CHEST_THRESHOLDS) == ("Silver", 3)   # Silver II
+    assert subdivided_rank(0.95, CHEST_THRESHOLDS) == ("Silver", 4)   # Silver I
+    # Next tier floor promotes out of Silver
+    assert subdivided_rank(1.00, CHEST_THRESHOLDS) == ("Gold", 0)
+
+
+def test_champion_has_no_subdivision():
+    assert subdivided_rank(2.00, CHEST_THRESHOLDS) == ("Champion", 0)
+    assert subdivided_rank(2.50, CHEST_THRESHOLDS) == ("Champion", 0)
+
+
+def test_rank_score_spans_1_to_31():
+    assert rank_score("Copper", 0) == 1
+    assert rank_score("Copper", 4) == 5
+    assert rank_score("Bronze", 0) == 6
+    assert rank_score("Silver", 2) == 13   # Silver III
+    assert rank_score("Gold", 0) == 16
+    assert rank_score("Platinum", 4) == 25
+    assert rank_score("Diamond", 4) == 30
+    assert rank_score("Champion", 0) == 31
+
+
+def test_subdivision_labels_map_v_to_i():
+    assert subdivision_label(0) == "V"
+    assert subdivision_label(4) == "I"
+
+
+def test_continuous_score_is_monotonic_and_bounded():
+    """ELO must rise smoothly across the whole chest curve."""
+    samples = [0.0, 0.25, 0.5, 0.76, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0]
+    scores = [continuous_score(s, CHEST_THRESHOLDS) for s in samples]
+    assert all(scores[i] <= scores[i + 1] for i in range(len(scores) - 1))
+    assert all(0 <= s <= CHAMPION_POINTS for s in scores)
+    # Champion floor gives the max.
+    assert continuous_score(3.0, CHEST_THRESHOLDS) == CHAMPION_POINTS
+
+
+def test_continuous_score_interpolates_within_subdivision():
+    """A value midway through Silver III should sit midway through its 100pt band."""
+    # Silver III floor = 0.85, Silver II floor = 0.90 → mid = 0.875
+    score = continuous_score(0.875, CHEST_THRESHOLDS)
+    silver_iii_base = (rank_score("Silver", 2) - 1) * 100   # 1200
+    # Half way through the 100-point band.
+    assert abs(score - (silver_iii_base + 50)) < 0.5
+
+
+def test_aggregate_elo_sums_all_muscles(db):
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _seed_bench(db, user, load_kg=80, reps=5)   # chest → Gold
+    ranks = recompute_for_user(db, user.id)
+    agg = aggregate_elo(ranks)
+    assert agg["total"] == round(sum(v["elo"] for v in ranks.values()), 1)
+    assert agg["mean"] > 0
+    assert agg["max"] == len(MVP_GROUPS) * CHAMPION_POINTS
+    assert agg["dominant_tier"] in VALID_RANKS

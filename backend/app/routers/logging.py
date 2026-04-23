@@ -739,6 +739,17 @@ def update_manual_1rm(
             }
     user.manual_1rm = current
     db.commit()
+
+    from ..medal_engine import _update_holder
+    from ..models import Medal
+
+    for category, entry in payload.lifts.items():
+        if entry is None:
+            continue
+        medal = db.query(Medal).filter(Medal.metric_type == f"strength_1rm:{category}").first()
+        if medal:
+            _update_holder(db, medal, user.id, float(entry.value_kg), "manual_1rm", None)
+
     return {"manual_1rm": user.manual_1rm}
 
 

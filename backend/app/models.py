@@ -320,6 +320,9 @@ class Medal(Base):
     unit: Mapped[str] = mapped_column(String, nullable=False)
     higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Category groups medals in the UI — one of {strength, endurance,
+    # consistency, performance}. Set on seed; never recomputed from metric.
+    category: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
 
 class MedalRecord(Base):
@@ -359,6 +362,12 @@ class MuscleScore(Base):
     score_f: Mapped[float] = mapped_column(Float, default=0.0)
     score: Mapped[float] = mapped_column(Float, default=0.0)
     rank: Mapped[str] = mapped_column(String, default="Copper")
+    # 2026-04-22: V→I subdivision within the tier (0 = V, 4 = I).
+    # Champion is always 0.
+    sub_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Continuous ELO-style score (0..3100). Aggregate across muscle groups
+    # powers the Profile page's total ELO display.
+    elo: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

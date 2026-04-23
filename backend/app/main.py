@@ -85,6 +85,17 @@ def _run_migrations(db):
     _ensure_column("users", "last_login_at", "TIMESTAMP")
     _ensure_column("users", "manual_1rm", "JSON" if not is_sqlite else "TEXT")
 
+    # muscle_scores: 2026-04-22 ladder rewrite — subdivision index + continuous
+    # ELO score columns. Default 0 so existing rows are valid until the next
+    # recompute_for_user call overwrites them.
+    _ensure_column("muscle_scores", "sub_index", "INTEGER", default="0")
+    _ensure_column("muscle_scores", "elo", "FLOAT", default="0")
+
+    # medals: category column added when the catalog expanded from 11 to 21
+    # medals (adding Endurance 5K/10K, Strength PL Total / Relative, Most
+    # Sessions All-Time, Perfect Week, and the Performance trio).
+    _ensure_column("medals", "category", "VARCHAR")
+
     # Compound indexes for dashboard / analytics performance
     index_stmts = [
         "CREATE INDEX IF NOT EXISTS idx_workout_logs_user_date ON workout_logs (user_id, date)",

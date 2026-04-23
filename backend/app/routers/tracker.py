@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import (
+    BodyMetric,
+    CardioLog,
     Program,
     ProgramExercise,
     ProgramProgress,
@@ -629,6 +631,116 @@ def get_calendar(
         "calendar": calendar,
         "program_start": str(program.start_date),
         "program_end_projected": str(program_end_projected),
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/tracker/calendar-overview
+#
+# Cross-program per-day training summary for the Profile calendar view.
+# Flags each date with the training types logged that day so the UI can
+# paint differentiator dots for strength vs cardio vs body metric.
+# ---------------------------------------------------------------------------
+
+@router.get("/calendar-overview")
+def get_calendar_overview(
+    days: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Cap at one year so a bad query can't scan the whole logs table.
+    days = max(7, min(int(days or 90), 365))
+    today = date.today()
+    cutoff = today - timedelta(days=days - 1)
+
+    # Strength: one date per completed SessionLog (most faithful proxy for a
+    # "workout day"). If the user logged sets but never marked the session,
+    # fall back to WorkoutLog dates.
+    session_rows = (
+        db.query(SessionLog.date, SessionLog.status)
+        .filter(
+            SessionLog.user_id == current_user.id,
+            SessionLog.date >= cutoff,
+        )
+        .all()
+    )
+    workout_dates = {
+        row[0]
+        for row in db.query(WorkoutLog.date)
+        .filter(
+            WorkoutLog.user_id == current_user.id,
+            WorkoutLog.date >= cutoff,
+        )
+        .distinct()
+    }
+
+    cardio_rows = (
+        db.query(CardioLog.date, CardioLog.modality, CardioLog.duration_minutes, CardioLog.distance_km)
+        .filter(
+            CardioLog.user_id == current_user.id,
+            CardioLog.date >= cutoff,
+        )
+        .all()
+    )
+
+    metric_dates = {
+        row[0]
+        for row in db.query(BodyMetric.date)
+        .filter(
+            BodyMetric.user_id == current_user.id,
+            BodyMetric.date >= cutoff,
+        )
+        .distinct()
+    }
+
+    # Build a date → summary dict.
+    summary: dict[str, dict] = {}
+    for d, status in session_rows:
+        key = str(d)
+        entry = summary.setdefault(key, {
+            "date": key, "strength": False, "cardio": [], "body_metric": False, "session_status": None,
+        })
+        entry["strength"] = True
+        # Keep the best status (completed > partial > skipped).
+        rank = {"completed": 3, "partial": 2, "skipped": 1}
+        if rank.get(status or "", 0) > rank.get(entry["session_status"] or "", 0):
+            entry["session_status"] = status
+
+    for d in workout_dates:
+        key = str(d)
+        entry = summary.setdefault(key, {
+            "date": key, "strength": False, "cardio": [], "body_metric": False, "session_status": None,
+        })
+        entry["strength"] = True
+
+    for d, modality, duration_min, distance in cardio_rows:
+        key = str(d)
+        entry = summary.setdefault(key, {
+            "date": key, "strength": False, "cardio": [], "body_metric": False, "session_status": None,
+        })
+        entry["cardio"].append({
+            "modality": modality,
+            "duration_minutes": float(duration_min) if duration_min is not None else None,
+            "distance_km": float(distance) if distance is not None else None,
+        })
+
+    for d in metric_dates:
+        key = str(d)
+        entry = summary.setdefault(key, {
+            "date": key, "strength": False, "cardio": [], "body_metric": False, "session_status": None,
+        })
+        entry["body_metric"] = True
+
+    days_list = sorted(summary.values(), key=lambda e: e["date"])
+    return {
+        "from": str(cutoff),
+        "to": str(today),
+        "days": days_list,
+        "counts": {
+            "strength": sum(1 for e in days_list if e["strength"]),
+            "cardio":   sum(1 for e in days_list if e["cardio"]),
+            "body":     sum(1 for e in days_list if e["body_metric"]),
+        },
     }
 
 

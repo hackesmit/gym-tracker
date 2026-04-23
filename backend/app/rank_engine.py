@@ -32,6 +32,7 @@ from .muscle_rank_config import (
     ARMS_WEIGHTED_DIPS,
     BACK_BODYWEIGHT_PULLUPS,
     BACK_WEIGHTED_PULLUPS,
+    CHAMPION_POINTS,
     EXERCISE_MAP,
     LOOKBACK_DAYS,
     MANUAL_1RM_KEY,
@@ -42,9 +43,13 @@ from .muscle_rank_config import (
     MUSCLE_RANK_THRESHOLDS,
     MVP_GROUPS,
     RANK_ORDER,
+    continuous_score,
     max_rank,
     rank_from_reps,
     rank_from_threshold,
+    rank_score,
+    subdivided_rank,
+    subdivision_label,
     tier_index,
 )
 
@@ -53,6 +58,7 @@ __all__ = [
     "RANK_ORDER",
     "recompute_for_user",
     "recompute_all",
+    "aggregate_elo",
 ]
 
 
@@ -344,7 +350,8 @@ def _compute_group(
 def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
     """Recompute & persist fixed-threshold muscle ranks for a single user.
 
-    Returns `{group: {"score": 0-100, "rank": tier, "ratio": raw, "source": str}}`.
+    Returns `{group: {"score", "rank", "sub_index", "sub_label",
+                       "rank_index", "elo", "ratio", "source"}}`.
     """
     user = db.get(User, user_id)
     if user is None:
@@ -367,7 +374,26 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
             result = _compute_group(db, user_id, group, bw, cutoff)
 
         thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+        # Back/arms have Bronze floor = 0.00, so a zero-ratio "no data"
+        # result would falsely subdivide into Bronze. Snap to Copper V
+        # whenever the resolver explicitly reported no usable data.
+        if result.source in ("no_data", "missing_bodyweight") or result.ratio <= 0:
+            tier, sub_idx = "Copper", 0
+        else:
+            tier, sub_idx = subdivided_rank(result.ratio, thresholds)
+        # `_compute_group` may return a tier derived from a rep-count fallback
+        # (back). Keep that tier if it wins, and align the subdivision with
+        # whatever wins.
+        if tier_index(result.tier) > tier_index(tier):
+            tier = result.tier
+            sub_idx = 0
         score = _score_from_ratio(result.ratio, thresholds)
+        elo = continuous_score(result.ratio, thresholds) if result.ratio > 0 else 0.0
+        # Snap ELO to the tier's discrete base if the rep-count fallback
+        # pushed us into a higher tier than the ratio alone would support.
+        min_elo_for_tier = (rank_score(tier, sub_idx) - 1) * 100
+        if elo < min_elo_for_tier:
+            elo = float(min_elo_for_tier)
 
         ms = existing.get(group)
         if ms is None:
@@ -378,7 +404,9 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
                 score_i=float(result.ratio),
                 score_f=0.0,
                 score=score,
-                rank=result.tier,
+                rank=tier,
+                sub_index=sub_idx,
+                elo=elo,
             )
             db.add(ms)
         else:
@@ -386,17 +414,52 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
             ms.score_i = float(result.ratio)
             ms.score_f = 0.0
             ms.score = score
-            ms.rank = result.tier
+            ms.rank = tier
+            ms.sub_index = sub_idx
+            ms.elo = elo
 
         out[group] = {
             "score": round(score, 2),
-            "rank": result.tier,
+            "rank": tier,
+            "sub_index": sub_idx,
+            "sub_label": subdivision_label(sub_idx),
+            "rank_index": rank_score(tier, sub_idx),
+            "elo": round(elo, 1),
             "ratio": round(float(result.ratio), 3),
             "source": result.source,
         }
 
     db.commit()
     return out
+
+
+def aggregate_elo(ranks: dict[str, dict]) -> dict:
+    """Aggregate ELO across all muscle groups.
+
+    Accepts the dict returned by `recompute_for_user`. Returns total ELO
+    (sum), mean per-muscle, theoretical max, and the dominant tier (the
+    median tier across groups — gives the user a one-word summary).
+    """
+    values = [float(v.get("elo") or 0.0) for v in ranks.values() if v]
+    if not values:
+        return {"total": 0.0, "mean": 0.0, "max": 0, "dominant_tier": "Copper"}
+    total = sum(values)
+    mean = total / len(values)
+    theoretical_max = len(values) * CHAMPION_POINTS
+    # Dominant tier: take the rank that's closest to the mean ELO.
+    from .muscle_rank_config import SUBDIVISION_COUNT
+    sub_count = SUBDIVISION_COUNT
+    bucket = int(mean // 100)                 # 0..30
+    if bucket >= 6 * sub_count:
+        dominant = "Champion"
+    else:
+        dominant = RANK_ORDER[bucket // sub_count]
+    return {
+        "total": round(total, 1),
+        "mean": round(mean, 1),
+        "max": theoretical_max,
+        "dominant_tier": dominant,
+    }
 
 
 def recompute_all(db: Session) -> None:
