@@ -9,7 +9,9 @@ from ..models import MuscleScore, User
 from ..muscle_rank_config import (
     ARMS_BODYWEIGHT_DIPS,
     ARMS_CLOSE_GRIP_BENCH,
+    ARMS_CURL_ISOLATION,
     ARMS_TRICEP_COMPOUND,
+    ARMS_TRICEP_ISOLATION,
     ARMS_WEIGHTED_DIPS,
     BACK_BODYWEIGHT_PULLUPS,
     BACK_ROWS_PULLDOWNS,
@@ -63,6 +65,8 @@ def _group_exercises(group: str) -> list[str]:
         pool |= ARMS_BODYWEIGHT_DIPS
         pool |= ARMS_CLOSE_GRIP_BENCH
         pool |= set(ARMS_TRICEP_COMPOUND.keys())
+        pool |= set(ARMS_CURL_ISOLATION.keys())
+        pool |= set(ARMS_TRICEP_ISOLATION.keys())
     elif group == "shoulders":
         pool |= set(SHOULDERS_LATERAL_ISOLATION.keys())
     return sorted(pool)
@@ -70,7 +74,6 @@ def _group_exercises(group: str) -> list[str]:
 
 @router.get("/standards")
 def standards(
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Return the full rank-standards reference for the profile page."""

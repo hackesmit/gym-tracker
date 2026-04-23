@@ -61,6 +61,16 @@ def test_standards_back_and_arms_have_qualifying_exercises(db, client):
     assert any("DIP" in e for e in arms["qualifying_exercises"])
 
 
+def test_standards_arms_includes_isolation_pools(db, client):
+    """Arms qualifying exercises include curl + tricep isolation pools the engine actually scores."""
+    body = client.get("/api/ranks/standards").json()
+    arms = next(g for g in body["groups"] if g["key"] == "arms")
+    exercises = arms["qualifying_exercises"]
+    # Spot-check: at least one curl variant and one tricep isolation variant
+    assert any("CURL" in e for e in exercises)
+    assert any("PRESSDOWN" in e or "TRICEPS EXTENSION" in e or "TRICEP EXTENSION" in e or "KICKBACK" in e for e in exercises)
+
+
 VALID_RANKS = set(RANK_ORDER)
 
 
