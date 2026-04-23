@@ -81,7 +81,20 @@ export default function UserProfile() {
     const load = async () => {
       try {
         const normalizeGroups = (raw) => {
-          if (Array.isArray(raw)) return raw;
+          if (Array.isArray(raw)) {
+            // /social/compare/:id returns {group, rank, score} per entry —
+            // fall back to sensible defaults so labels never render as "undefined".
+            return raw.map((r) => ({
+              muscle_group: r.muscle_group || r.group,
+              rank: r.rank || 'Copper',
+              sub_index: r.sub_index ?? 0,
+              sub_label: r.sub_label ?? 'V',
+              elo: r.elo ?? 0,
+              score: r.score ?? 0,
+              ratio: r.ratio ?? 0,
+              thresholds: r.thresholds,
+            }));
+          }
           if (!raw) return [];
           // Legacy object shape — { chest: {...}, ... }
           return Object.entries(raw).map(([k, v]) => ({

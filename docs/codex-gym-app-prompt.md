@@ -231,6 +231,8 @@ Display as a radar chart and as percentile estimates.
 
 #### 2.2.5 Recovery & Readiness
 
+> ~~_Recovery UI removed 2026-04-22 (nav consolidation). `recovery_score()` still lives in `backend/app/analytics/recovery.py` and is consumed internally by deload recommendations + the leaderboard summary, but is no longer surfaced as its own page or endpoint. Algorithm retained below for reference._~~
+
 Use logged body metrics to generate a simple recovery score:
 
 ```python
