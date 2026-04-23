@@ -1,14 +1,12 @@
+// Friend-profile view only — fetches another user's data via getCompare(id).
+// Self-profile lives in Profile.jsx; routing wired in App.jsx as /users/:id.
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RankBadge from '../components/RankBadge';
 import MedalBadge from '../components/MedalBadge';
-import TrainingCalendar from '../components/TrainingCalendar';
-import { useAuth } from '../context/AuthContext';
-import {
-  getRanks, getMyMedals, getCalendarOverview,
-} from '../api/client';
+import { getCompare } from '../api/client';
 import { useT } from '../i18n';
 
 const MUSCLE_LABELS = {
@@ -20,9 +18,6 @@ const MUSCLE_LABELS = {
   arms: 'Arms',
 };
 
-// Picks the single "signature" rank for the profile hero. We use the
-// group with the highest ELO — that's the user's most impressive lift
-// and gives them a meaningful big badge at the top.
 function dominantGroup(groups) {
   if (!groups?.length) return null;
   return [...groups].sort((a, b) => (b.elo || 0) - (a.elo || 0))[0];
@@ -35,8 +30,6 @@ function RankCard({ entry }) {
   const label = MUSCLE_LABELS[muscle_group] || muscle_group;
   const fullRank = isChampion ? 'Champion' : `${rank} ${sub_label}`;
 
-  // Progress bar within the current subdivision (0..1). For Champion we
-  // show a full bar; for no-data (Copper V with 0 ratio) we show empty.
   let progress = 0;
   if (isChampion) progress = 1;
   else if (thresholds && ratio != null) {
@@ -73,13 +66,13 @@ function RankCard({ entry }) {
   );
 }
 
-export default function Profile() {
+export default function UserProfile() {
   const t = useT();
-  const { user } = useAuth();
+  const { id: targetId } = useParams();
   const [groups, setGroups] = useState([]);
   const [eloAgg, setEloAgg] = useState(null);
   const [medals, setMedals] = useState([]);
-  const [calendar, setCalendar] = useState([]);
+  const [recentPrs, setRecentPrs] = useState([]);
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -103,16 +96,13 @@ export default function Profile() {
           }));
         };
 
-        const [r, m, cal] = await Promise.all([
-          getRanks().catch(() => ({})),
-          getMyMedals().catch(() => ({ medals: [] })),
-          getCalendarOverview(90).catch(() => ({ days: [] })),
-        ]);
-        setGroups(normalizeGroups(r.groups || r.ranks || r));
-        setEloAgg(r.elo || null);
-        setMedals(m.medals || m || []);
-        setCalendar(cal.days || []);
-        setUsername(user?.username || t('profile.you'));
+        const data = await getCompare(targetId);
+        const friend = data.friend || data.other || data.them || {};
+        setGroups(normalizeGroups(friend.muscle_ranks || friend.ranks || data.them_ranks || data.them));
+        setEloAgg(friend.elo || data.them_elo || null);
+        setMedals(friend.medals || data.them_medals || []);
+        setRecentPrs(friend.recent_prs || []);
+        setUsername(friend.username || 'User');
       } catch (ex) {
         setErr(ex.message || t('profile.failedLoad'));
       } finally {
@@ -120,7 +110,7 @@ export default function Profile() {
       }
     };
     load();
-  }, [user]);
+  }, [targetId]);
 
   if (loading) return <LoadingSpinner />;
   if (err) return <p className="text-sm text-danger">{err}</p>;
@@ -182,17 +172,23 @@ export default function Profile() {
         )}
       </Card>
 
-      {/* Training calendar (self only) */}
-      <Card title="Training calendar">
-        <TrainingCalendar days={calendar} />
-      </Card>
+      {/* Recent PRs */}
+      {recentPrs.length > 0 && (
+        <Card title={t('profile.recentPRs') || 'Recent PRs'}>
+          <ul className="divide-y divide-surface-lighter">
+            {recentPrs.slice(0, 10).map((pr, i) => (
+              <li key={i} className="py-2 flex justify-between text-sm">
+                <span className="truncate">{pr.exercise}</span>
+                <span className="text-text-muted">{pr.e1rm || pr.value}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
-      {/* Trophy case */}
-      <Card
-        title="Trophy case"
-        action={<Link to="/medals" className="text-xs text-accent">View all</Link>}
-      >
-        {medals.length ? (
+      {/* Friend medals — shown if the compare endpoint returns them */}
+      {medals.length > 0 && (
+        <Card title="Medals">
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
             {medals.map((m) => (
               <div key={m.medal_id || m.id} className="flex flex-col items-center gap-1">
@@ -208,12 +204,8 @@ export default function Profile() {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-text-muted">
-            No medals held yet. Best a friend on any tracked metric to claim one.
-          </p>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

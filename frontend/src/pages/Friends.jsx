@@ -138,7 +138,7 @@ export default function Friends() {
                     <Link to={`/compare?friend=${uid}`} className="px-3 py-1.5 rounded bg-accent/15 text-accent text-xs font-semibold">
                       {t('friends.compare')}
                     </Link>
-                    <Link to={`/profile?userId=${uid}`} className="px-3 py-1.5 rounded bg-surface-light text-xs">
+                    <Link to={`/users/${uid}`} className="px-3 py-1.5 rounded bg-surface-light text-xs">
                       {t('friends.profileLink')}
                     </Link>
                     <button onClick={async () => { if (confirm(t('friends.removeConfirm'))) { await removeFriend(uid); load(); } }} className="text-text-muted hover:text-danger">

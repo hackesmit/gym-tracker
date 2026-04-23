@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
@@ -22,7 +22,18 @@ import Friends from './pages/Friends';
 import Compare from './pages/Compare';
 import Medals from './pages/Medals';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Chat from './pages/Chat';
+
+// Redirects /profile?userId=N → /users/N and bare /profile → /profile/me.
+// /profile/me is added in Task 5 (ProfileHub). Until then, bare /profile 404s,
+// which is acceptable — no UI link navigates to bare /profile without a userId.
+function ProfileQueryRedirect() {
+  const [params] = useSearchParams();
+  const uid = params.get('userId');
+  if (uid) return <Navigate to={`/users/${uid}`} replace />;
+  return <Navigate to="/profile/me" replace />;
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -54,7 +65,8 @@ export default function App() {
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/compare" element={<Compare />} />
                 <Route path="/medals" element={<Medals />} />
-                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile" element={<ProfileQueryRedirect />} />
+                <Route path="/users/:id" element={<UserProfile />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
