@@ -7,7 +7,7 @@ import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palm
 import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount, adminResetPassword, getUsernameCaptcha, changeUsername } from '../api/client';
 import { useT } from '../i18n';
 import { useAuth } from '../context/AuthContext';
-import { MINIMAL_PRESETS } from '../theme/presets';
+import { MINIMAL_PRESETS, getPreset } from '../theme/presets';
 
 const REALM_INFO = [
   { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
@@ -214,21 +214,21 @@ export default function Settings() {
           {t('settings.themeColor.desc')}
         </p>
         <div className="flex flex-wrap gap-2 items-center">
-          {MINIMAL_PRESETS.map(({ key, accent }) => (
+          {MINIMAL_PRESETS.map(({ key, accent, name }) => (
             <button
               key={key}
               type="button"
               onClick={() => setThemeColor(key)}
               data-active={themeColor === key}
-              aria-label={t(`settings.themeColor.${key}`)}
-              title={t(`settings.themeColor.${key}`)}
+              aria-label={t(`settings.themeColor.${key}`, name)}
+              title={t(`settings.themeColor.${key}`, name)}
               className="theme-swatch-tap touch-manipulation"
             >
               <span className="theme-swatch-dot" style={{ background: accent }} />
             </button>
           ))}
           <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
-            {t(`settings.themeColor.${themeColor}`)}
+            {t(`settings.themeColor.${themeColor}`, getPreset(themeColor).name)}
           </span>
         </div>
       </Card>

@@ -531,7 +531,6 @@ input[type="number"] { -moz-appearance: textfield; }
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: transform 150ms ease;
 }
 .theme-swatch-tap:hover .theme-swatch-dot {
   transform: scale(1.08);
@@ -545,6 +544,14 @@ input[type="number"] { -moz-appearance: textfield; }
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 .theme-swatch-tap[data-active="true"] .theme-swatch-dot {
+  box-shadow:
+    0 0 0 2px var(--color-surface-dark),
+    0 0 0 4px var(--color-accent);
+}
+.theme-swatch-tap:focus-visible {
+  outline: none;
+}
+.theme-swatch-tap:focus-visible .theme-swatch-dot {
   box-shadow:
     0 0 0 2px var(--color-surface-dark),
     0 0 0 4px var(--color-accent);
