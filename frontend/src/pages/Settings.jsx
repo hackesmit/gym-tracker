@@ -220,6 +220,7 @@ export default function Settings() {
               type="button"
               onClick={() => setThemeColor(key)}
               data-active={themeColor === key}
+              aria-pressed={themeColor === key}
               aria-label={t(`settings.themeColor.${key}`, name)}
               title={t(`settings.themeColor.${key}`, name)}
               className="theme-swatch-tap touch-manipulation"
