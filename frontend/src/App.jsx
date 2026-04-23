@@ -24,6 +24,7 @@ import Medals from './pages/Medals';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import Chat from './pages/Chat';
+import StatsHub from './pages/hubs/StatsHub';
 
 // Redirects /profile?userId=N → /users/N and bare /profile → /profile/me.
 // /profile/me is added in Task 5 (ProfileHub). Until then, bare /profile 404s,
@@ -56,9 +57,15 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/tracker" element={<Tracker />} />
                 <Route path="/log" element={<Logger />} />
-                <Route path="/progress" element={<Progress />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/history" element={<History />} />
+                <Route path="/stats" element={<StatsHub />}>
+                  <Route index element={<Navigate to="progress" replace />} />
+                  <Route path="progress"  element={<Progress />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="history"   element={<History />} />
+                </Route>
+                <Route path="/progress"  element={<Navigate to="/stats/progress"  replace />} />
+                <Route path="/analytics" element={<Navigate to="/stats/analytics" replace />} />
+                <Route path="/history"   element={<Navigate to="/stats/history"   replace />} />
                 <Route path="/program" element={<Program />} />
                 <Route path="/achievements" element={<Achievements />} />
                 <Route path="/cardio" element={<Cardio />} />
