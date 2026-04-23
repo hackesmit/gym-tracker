@@ -75,21 +75,6 @@ def strength_standards(
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-@router.get("/recovery")
-def recovery_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Recovery status and per-muscle-group fatigue."""
-    try:
-        return get_recovery_status(db, user_id=current_user.id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=str(exc) or "Log body metrics to get recovery insights.",
-        )
-
-
 @router.get("/overload-plan")
 def overload_plan(
     program_id: int = Query(...),

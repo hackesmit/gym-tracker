@@ -1,11 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle,
-  Home, Target, ClipboardList, TrendingUp, BarChart3, Leaf, BookOpen, Calendar, Award, Settings as SettingsIcon,
+  Home, Target, ClipboardList, TrendingUp, BarChart3, BookOpen, Calendar, Award, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
-  TodaysQuest, EyeOfSauron, Lembas,
+  TodaysQuest, EyeOfSauron,
   Chronicle as ChronicleIcon, SettingsGear,
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
@@ -53,7 +53,6 @@ const lotrNavItems = [
   { to: '/log',           icon: NavHornBlow,   labelKey: 'nav.log' },
   { to: '/progress',      icon: NavAxe,        labelKey: 'nav.progress' },
   { to: '/analytics',     icon: NavEye,        labelKey: 'nav.analytics' },
-  { to: '/recovery',      icon: Lembas,        labelKey: 'nav.recovery' },
   { to: '/history',       icon: ChronicleIcon, labelKey: 'nav.chronicle' },
   { to: '/program',       icon: NavHorn,       labelKey: 'nav.program' },
   { to: '/achievements',  icon: NavHand,       labelKey: 'nav.achievements' },
@@ -71,7 +70,6 @@ const neutralNavItems = [
   { to: '/log',           icon: ClipboardList, labelKey: 'nav.log' },
   { to: '/progress',      icon: TrendingUp,    labelKey: 'nav.progress' },
   { to: '/analytics',     icon: BarChart3,     labelKey: 'nav.analytics' },
-  { to: '/recovery',      icon: Leaf,          labelKey: 'nav.recovery' },
   { to: '/history',       icon: BookOpen,      labelKey: 'nav.history' },
   { to: '/program',       icon: Calendar,      labelKey: 'nav.program' },
   { to: '/achievements',  icon: Award,         labelKey: 'nav.achievements' },

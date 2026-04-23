@@ -229,7 +229,6 @@ export const getProgress = (exercise) => request(`/analytics/progress/${encodeUR
 export const getVolume = (weeks = 8) => request(`/analytics/volume?weeks_back=${weeks}`);
 export const getMuscleBalance = (weeks = 4) => request(`/analytics/muscle-balance?weeks_back=${weeks}`);
 export const getStrengthStandards = () => request('/analytics/strength-standards');
-export const getRecovery = () => request('/analytics/recovery');
 export const getOverloadPlan = (programId, week, sessionName) =>
   request(`/analytics/overload-plan?program_id=${programId}&week=${week}&session_name=${encodeURIComponent(sessionName)}`);
 export const getSummary = () => request('/analytics/summary');
