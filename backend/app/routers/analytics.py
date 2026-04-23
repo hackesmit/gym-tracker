@@ -1,4 +1,4 @@
-"""Analytics API endpoints — progress, volume, strength standards, recovery, overload."""
+"""Analytics API endpoints — progress, volume, strength standards, overload."""
 
 from typing import Optional
 
