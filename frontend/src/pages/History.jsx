@@ -45,7 +45,7 @@ export default function History() {
   const { activeProgram, convert, unitLabel, units, themeMode } = useApp();
   const lotr = themeMode === 'lotr';
   const t = useT();
-  const pageTitle = lotr ? t('history.chronicle') : t('nav.history');
+  const pageTitle = lotr ? t('history.chronicle') : t('stats.history');
   const HeaderIcon = lotr ? ChronicleIcon : BookOpen;
   const { addToast } = useToast();
   const [calendar, setCalendar] = useState(null);
