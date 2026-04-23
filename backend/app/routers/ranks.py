@@ -7,9 +7,17 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..models import MuscleScore, User
 from ..muscle_rank_config import (
+    ARMS_BODYWEIGHT_DIPS,
+    ARMS_CLOSE_GRIP_BENCH,
+    ARMS_TRICEP_COMPOUND,
+    ARMS_WEIGHTED_DIPS,
+    BACK_BODYWEIGHT_PULLUPS,
+    BACK_ROWS_PULLDOWNS,
+    BACK_WEIGHTED_PULLUPS,
     EXERCISE_MAP,
     MUSCLE_RANK_THRESHOLDS,
     RANK_ORDER,
+    SHOULDERS_LATERAL_ISOLATION,
     SUBDIVISION_COUNT,
     continuous_score,
     rank_score,
@@ -41,6 +49,25 @@ _METRIC_HUMAN = {
 }
 
 
+# Per-group qualifying exercise pools. These extend EXERCISE_MAP to cover
+# the pathway-specific catalogs (pullups/rows for back, dips/close-grip/compound
+# tricep work for arms, lateral isolation for shoulders).
+def _group_exercises(group: str) -> list[str]:
+    pool: set[str] = set(EXERCISE_MAP.get(group, {}).keys())
+    if group == "back":
+        pool |= BACK_WEIGHTED_PULLUPS
+        pool |= BACK_BODYWEIGHT_PULLUPS
+        pool |= set(BACK_ROWS_PULLDOWNS.keys())
+    elif group == "arms":
+        pool |= ARMS_WEIGHTED_DIPS
+        pool |= ARMS_BODYWEIGHT_DIPS
+        pool |= ARMS_CLOSE_GRIP_BENCH
+        pool |= set(ARMS_TRICEP_COMPOUND.keys())
+    elif group == "shoulders":
+        pool |= set(SHOULDERS_LATERAL_ISOLATION.keys())
+    return sorted(pool)
+
+
 @router.get("/standards")
 def standards(
     db: Session = Depends(get_db),
@@ -55,7 +82,7 @@ def standards(
             "key": key,
             "label": _GROUP_LABELS.get(key, key.title()),
             "metric": _METRIC_HUMAN.get(metric_key, metric_key),
-            "qualifying_exercises": sorted(EXERCISE_MAP.get(key, {}).keys()),
+            "qualifying_exercises": _group_exercises(key),
             "thresholds": cfg.get("thresholds", {}),
         })
     return {

@@ -48,6 +48,19 @@ def test_standards_chest_thresholds_match_config(db, client):
     assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
 
 
+def test_standards_back_and_arms_have_qualifying_exercises(db, client):
+    """Back and arms pull their qualifying exercises from pathway-specific catalogs."""
+    body = client.get("/api/ranks/standards").json()
+    back = next(g for g in body["groups"] if g["key"] == "back")
+    arms = next(g for g in body["groups"] if g["key"] == "arms")
+    # Sanity — each group should have at least a handful of named lifts
+    assert len(back["qualifying_exercises"]) >= 5
+    assert len(arms["qualifying_exercises"]) >= 5
+    # Spot-check: back should include a pullup variant; arms should include dips
+    assert any("PULLUP" in e or "PULL-UP" in e or "PULL UP" in e for e in back["qualifying_exercises"])
+    assert any("DIP" in e for e in arms["qualifying_exercises"])
+
+
 VALID_RANKS = set(RANK_ORDER)
 
 
