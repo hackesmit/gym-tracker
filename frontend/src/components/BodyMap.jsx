@@ -7,12 +7,14 @@ const RANK_COLORS = {
   Silver:    '#c0c0c0',
   Gold:      '#d4af37',
   Platinum:  '#8abfd1',
-  Emerald:   '#50c878',
   Diamond:   '#b9f2ff',
   Champion:  '#ff4d4d',
 };
-const NEUTRAL = '#3a3a3a';
-const STROKE = '#0a0a0a';
+// Surface tokens — follow the active theme's dark palette so the silhouette
+// reads the same on lime as it does on, say, a rivendell-teal realm.
+const NEUTRAL = 'var(--color-surface-lighter)';
+const STROKE  = 'var(--color-surface-dark)';
+const HEAD_FILL = 'var(--color-surface-light)';
 
 /**
  * BodyMap — stylized anatomical SVG, front + back views.
@@ -117,9 +119,9 @@ export default function BodyMap({
         style={{ display: 'block' }}
       >
         {/* Head */}
-        <ellipse cx="100" cy="25" rx="16" ry="20" fill="#2a2a2a" stroke={STROKE} strokeWidth="1.5" />
+        <ellipse cx="100" cy="25" rx="16" ry="20" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1.5" />
         {/* Neck */}
-        <rect x="93" y="42" width="14" height="10" fill="#2a2a2a" stroke={STROKE} strokeWidth="1" />
+        <rect x="93" y="42" width="14" height="10" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1" />
 
         {view === 'front' ? (
           <FrontView regionProps={regionProps} />
@@ -173,11 +175,11 @@ function FrontView({ regionProps }) {
         {...regionProps('arms', 'Arms')}
       />
       {/* Forearms */}
-      <ellipse cx="58" cy="130" rx="8" ry="18" fill="#2a2a2a" stroke={STROKE} strokeWidth="1" />
-      <ellipse cx="142" cy="130" rx="8" ry="18" fill="#2a2a2a" stroke={STROKE} strokeWidth="1" />
+      <ellipse cx="58" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1" />
+      <ellipse cx="142" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1" />
 
       {/* Hip block */}
-      <path d="M 82 142 L 118 142 L 120 160 L 80 160 Z" fill="#2a2a2a" stroke={STROKE} strokeWidth="1" />
+      <path d="M 82 142 L 118 142 L 120 160 L 80 160 Z" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1" />
 
       {/* Quads */}
       <path
@@ -220,8 +222,8 @@ function BackView({ regionProps }) {
       {/* Arms (triceps) */}
       <ellipse cx="62" cy="95" rx="10" ry="22" {...regionProps('arms', 'Arms')} />
       <ellipse cx="138" cy="95" rx="10" ry="22" {...regionProps('arms', 'Arms')} />
-      <ellipse cx="58" cy="130" rx="8" ry="18" fill="#2a2a2a" stroke={STROKE_LOCAL} strokeWidth="1" />
-      <ellipse cx="142" cy="130" rx="8" ry="18" fill="#2a2a2a" stroke={STROKE_LOCAL} strokeWidth="1" />
+      <ellipse cx="58" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE_LOCAL} strokeWidth="1" />
+      <ellipse cx="142" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE_LOCAL} strokeWidth="1" />
 
       {/* Glutes */}
       <path
