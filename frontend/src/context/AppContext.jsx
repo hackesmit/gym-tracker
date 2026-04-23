@@ -10,33 +10,49 @@ export function AppProvider({ children }) {
   const [programs, setPrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null);
 
-  // Theme mode: 'neutral' (default) or 'lotr'
+  // Theme mode: 'neutral' (minimal — default) or 'lotr'
   const [themeMode, setThemeModeState] = useState(() => localStorage.getItem('gym-theme-mode') || 'neutral');
+
+  // Minimal-mode accent presets
+  const THEME_COLORS = ['lime', 'amber', 'cyan', 'crimson'];
+  const [themeColor, setThemeColorState] = useState(() => {
+    const stored = localStorage.getItem('gym-tracker-theme');
+    return THEME_COLORS.includes(stored) ? stored : 'lime';
+  });
 
   // LOTR realm themes
   const REALMS = ['gondor', 'rohan', 'rivendell', 'mordor', 'shire'];
   const [realm, setRealmState] = useState(() => localStorage.getItem('gym-realm') || 'gondor');
 
-  const applyTheme = (mode, r) => {
+  const applyTheme = (mode, r, color) => {
+    const html = document.documentElement;
+    html.setAttribute('data-mode', mode === 'lotr' ? 'lotr' : 'minimal');
     if (mode === 'lotr') {
-      document.documentElement.removeAttribute('data-theme');
-      document.documentElement.setAttribute('data-realm', r);
+      html.removeAttribute('data-theme');
+      html.setAttribute('data-realm', r);
     } else {
-      document.documentElement.removeAttribute('data-realm');
-      document.documentElement.setAttribute('data-theme', 'neutral');
+      html.removeAttribute('data-realm');
+      html.setAttribute('data-theme', color);
     }
   };
 
   const setThemeMode = (val) => {
     setThemeModeState(val);
     localStorage.setItem('gym-theme-mode', val);
-    applyTheme(val, realm);
+    applyTheme(val, realm, themeColor);
+  };
+
+  const setThemeColor = (val) => {
+    if (!THEME_COLORS.includes(val)) return;
+    setThemeColorState(val);
+    localStorage.setItem('gym-tracker-theme', val);
+    if (themeMode !== 'lotr') applyTheme(themeMode, realm, val);
   };
 
   const setRealm = (val) => {
     setRealmState(val);
     localStorage.setItem('gym-realm', val);
-    if (themeMode === 'lotr') applyTheme('lotr', val);
+    if (themeMode === 'lotr') applyTheme('lotr', val, themeColor);
   };
   const cycleRealm = () => {
     const idx = REALMS.indexOf(realm);
@@ -45,7 +61,7 @@ export function AppProvider({ children }) {
 
   // Apply on mount
   useEffect(() => {
-    applyTheme(themeMode, realm);
+    applyTheme(themeMode, realm, themeColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -109,6 +125,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       programs, activeProgram, setActiveProgram, refreshPrograms,
       themeMode, setThemeMode,
+      themeColor, setThemeColor, THEME_COLORS,
       theme, realm, setRealm, cycleRealm, REALMS,
       units, setUnits, convert, unitLabel,
       defaultRestSeconds, setDefaultRestSeconds,

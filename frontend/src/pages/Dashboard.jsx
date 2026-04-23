@@ -105,23 +105,21 @@ export default function Dashboard() {
     <div className="space-y-6">
       {err && <p className="text-sm text-danger">{err}</p>}
 
-      {/* Wisdom (LOTR mode only — quotes are all Tolkien-attributed) */}
-      {lotr && (
-        <div className="text-center py-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-accent font-semibold mb-3">{t('dashboard.wisdom')}</p>
-          <p className="text-sm sm:text-base italic text-text/90 max-w-lg mx-auto leading-relaxed">
-            &ldquo;{quote.text}&rdquo;
-          </p>
-          <p className="text-xs text-text-muted mt-2">— {quote.author}</p>
-          <button
-            onClick={() => setQuote(getRandomQuote(quote))}
-            className="mt-2 text-text-muted/50 hover:text-accent"
-            title="Another quote"
-          >
-            <RefreshCw size={12} />
-          </button>
-        </div>
-      )}
+      {/* Wisdom quote — visible in both modes. Editorial serif in minimal, Cinzel in LOTR. */}
+      <div className="text-center py-4">
+        <p className="section-label mb-3">{t('dashboard.wisdom')}</p>
+        <p className="font-display italic text-base sm:text-lg text-text/90 max-w-lg mx-auto leading-relaxed" style={{ fontWeight: 400 }}>
+          &ldquo;{quote.text}&rdquo;
+        </p>
+        <p className="text-xs text-text-muted mt-2 mono-data">— {quote.author}</p>
+        <button
+          onClick={() => setQuote(getRandomQuote(quote))}
+          className="mt-2 text-text-muted/50 hover:text-accent transition-colors"
+          title="Another quote"
+        >
+          <RefreshCw size={12} />
+        </button>
+      </div>
 
       {/* Today's Quest / Today's Workout */}
       {today && (

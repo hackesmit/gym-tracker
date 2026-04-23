@@ -1,62 +1,184 @@
 @import "tailwindcss";
 
 /* ============================================================
-   LOTR THEME SYSTEM — Anabolic Analyzer
-   Primary: Gondor (noble slate + antique gold)
-   Secondary: Rivendell (teal-green accents)
-   Accent: Dwarven (bronze/copper for strength)
+   GYM TRACKER — THEME TOKENS
+   ------------------------------------------------------------
+   Two modes live side-by-side:
+
+     1. MINIMAL MODE (default)
+        Editorial, dark, serif-led. Four accent presets
+        change only --color-accent (everything else stays flat):
+          - lime    (#d4ff4a, default)
+          - amber   (#f5b544)
+          - cyan    (#4ad4ff)
+          - crimson (#ff4a5a)
+
+     2. LOTR MODE (opt-in)
+        Five Middle-earth realms, each with their own palette
+        and decorative gradients/glows:
+          - gondor, rohan, rivendell, mordor, shire
+
+   Mode is applied via html[data-mode="minimal"|"lotr"].
+   Within minimal mode, html[data-theme="<preset>"] picks the accent.
+   Within LOTR mode, html[data-realm="<realm>"] picks the palette.
+
+   TO ADD A NEW MINIMAL PRESET (e.g. "violet"):
+     1. Add a `[data-theme="violet"] { --color-accent: #… }` block below.
+     2. Include --color-accent-light, --color-accent-dark,
+        --color-accent-tint, --color-accent-border so every surface
+        type picks up the new accent consistently.
+     3. Add it to THEME_COLORS in src/context/AppContext.jsx.
    ============================================================ */
 
-/* --- Gondor Theme (Primary) --- */
 @theme {
-  /* Core surfaces */
+  /* --- Core surfaces (minimal / default) --- */
+  --color-surface-dark: #0d0d0d;        /* page background */
+  --color-surface: #141414;              /* card background */
+  --color-surface-light: #1a1a1a;        /* inputs, muted panels */
+  --color-surface-lighter: #1f1f1f;      /* borders */
+
+  /* --- Text --- */
+  --color-text: #f0f0f0;
+  --color-text-muted: #888888;
+
+  /* --- Accent (Lime default) --- */
+  --color-accent: #d4ff4a;
+  --color-accent-light: #e1ff7a;
+  --color-accent-dark: #b8e533;
+  --color-accent-ink: #0a0a0a;           /* text color on accent fills */
+
+  /* --- Primary (mirrors accent for legacy utilities) --- */
+  --color-primary: #d4ff4a;
+  --color-primary-light: #e1ff7a;
+  --color-primary-dark: #b8e533;
+
+  /* --- Secondary (neutral grey) --- */
+  --color-secondary: #6b6b6b;
+  --color-secondary-light: #9a9a9a;
+
+  /* --- Legacy LOTR accent aliases (kept so components don't 404) --- */
+  --color-rivendell: #888888;
+  --color-rivendell-light: #aaaaaa;
+  --color-rivendell-dark: #666666;
+  --color-dwarven: #888888;
+  --color-dwarven-light: #aaaaaa;
+  --color-dwarven-dark: #666666;
+
+  /* --- Semantic --- */
+  --color-success: #65d46b;
+  --color-warning: #f5b544;
+  --color-danger:  #ff5a5a;
+  --color-info:    #4ad4ff;
+
+  /* --- Shadows (flat in minimal mode) --- */
+  --shadow-glow: 0 0 0 0 transparent;
+  --shadow-panel: none;
+
+  /* --- Fonts --- */
+  --font-display: 'Fraunces', 'Georgia', serif;
+  --font-body:    'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* --- Non-generated tokens (kept outside @theme so they can be
+       overridden per mode/theme without generating utilities) --- */
+:root {
+  --color-accent-tint:   rgba(212, 255, 74, 0.07);
+  --color-accent-border: rgba(212, 255, 74, 0.20);
+  --border-dashed:       rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   MINIMAL-MODE ACCENT PRESETS
+   Only --color-accent + derivatives change; everything else is
+   inherited from :root defaults above.
+   ============================================================ */
+[data-theme="lime"] {
+  --color-accent: #d4ff4a;
+  --color-accent-light: #e1ff7a;
+  --color-accent-dark: #b8e533;
+  --color-accent-tint: rgba(212, 255, 74, 0.07);
+  --color-accent-border: rgba(212, 255, 74, 0.20);
+  --color-primary: #d4ff4a;
+  --color-primary-light: #e1ff7a;
+  --color-primary-dark: #b8e533;
+}
+[data-theme="amber"] {
+  --color-accent: #f5b544;
+  --color-accent-light: #ffc866;
+  --color-accent-dark: #d99828;
+  --color-accent-tint: rgba(245, 181, 68, 0.07);
+  --color-accent-border: rgba(245, 181, 68, 0.22);
+  --color-primary: #f5b544;
+  --color-primary-light: #ffc866;
+  --color-primary-dark: #d99828;
+}
+[data-theme="cyan"] {
+  --color-accent: #4ad4ff;
+  --color-accent-light: #7de2ff;
+  --color-accent-dark: #33b3db;
+  --color-accent-tint: rgba(74, 212, 255, 0.07);
+  --color-accent-border: rgba(74, 212, 255, 0.22);
+  --color-primary: #4ad4ff;
+  --color-primary-light: #7de2ff;
+  --color-primary-dark: #33b3db;
+}
+[data-theme="crimson"] {
+  --color-accent: #ff4a5a;
+  --color-accent-light: #ff7580;
+  --color-accent-dark: #d9323f;
+  --color-accent-tint: rgba(255, 74, 90, 0.07);
+  --color-accent-border: rgba(255, 74, 90, 0.22);
+  --color-primary: #ff4a5a;
+  --color-primary-light: #ff7580;
+  --color-primary-dark: #d9323f;
+}
+
+/* ============================================================
+   LOTR MODE — base overrides + realm palettes
+   ============================================================ */
+
+/* Base overrides that apply to every realm */
+[data-realm] {
+  --color-accent-tint:   color-mix(in srgb, var(--color-accent) 8%, transparent 92%);
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 25%, transparent 75%);
+  --border-dashed:       color-mix(in srgb, var(--color-accent) 15%, transparent 85%);
+  --font-display: 'Cinzel', 'Georgia', serif;
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* --- Gondor (LOTR default) --- */
+[data-realm="gondor"] {
   --color-surface-dark: #0f1119;
   --color-surface: #1a1d2e;
   --color-surface-light: #232740;
   --color-surface-lighter: #2e3354;
-
-  /* Text */
   --color-text: #e8e2d6;
   --color-text-muted: #8d8a7e;
-
-  /* Accent — antique gold */
   --color-accent: #c9a84c;
   --color-accent-light: #dfc06a;
   --color-accent-dark: #a68a3a;
-
-  /* Primary maps to accent for Tailwind compat */
+  --color-accent-ink: #0f1119;
   --color-primary: #c9a84c;
   --color-primary-light: #dfc06a;
   --color-primary-dark: #a68a3a;
-
-  /* Steel blue secondary */
   --color-secondary: #6b7fa3;
   --color-secondary-light: #8a9bba;
-
-  /* Realm accents */
   --color-rivendell: #5ba3a0;
   --color-rivendell-light: #7bbfbc;
   --color-rivendell-dark: #3d7d7a;
   --color-dwarven: #b87333;
   --color-dwarven-light: #d4955c;
   --color-dwarven-dark: #8c5626;
-
-  /* Semantic */
   --color-success: #6dba5e;
   --color-warning: #c9a84c;
   --color-danger: #c45252;
   --color-info: #6b9fd4;
-
-  /* Shadows */
   --shadow-glow: 0 0 20px rgba(201, 168, 76, 0.08);
   --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.3);
-
-  /* Font families */
-  --font-display: 'Cinzel', 'Georgia', serif;
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* --- Rohan Theme --- */
+/* --- Rohan --- */
 [data-realm="rohan"] {
   --color-surface-dark: #12110d;
   --color-surface: #1c1a15;
@@ -67,6 +189,7 @@
   --color-accent: #d4a843;
   --color-accent-light: #e6c05a;
   --color-accent-dark: #b08a30;
+  --color-accent-ink: #12110d;
   --color-primary: #d4a843;
   --color-primary-light: #e6c05a;
   --color-primary-dark: #b08a30;
@@ -86,7 +209,7 @@
   --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* --- Rivendell Theme --- */
+/* --- Rivendell --- */
 [data-realm="rivendell"] {
   --color-surface-dark: #0d151a;
   --color-surface: #151d22;
@@ -97,6 +220,7 @@
   --color-accent: #5ba3a0;
   --color-accent-light: #7bbfbc;
   --color-accent-dark: #3d7d7a;
+  --color-accent-ink: #0d151a;
   --color-primary: #5ba3a0;
   --color-primary-light: #7bbfbc;
   --color-primary-dark: #3d7d7a;
@@ -116,7 +240,7 @@
   --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* --- Mordor Theme --- */
+/* --- Mordor --- */
 [data-realm="mordor"] {
   --color-surface-dark: #0a0808;
   --color-surface: #121010;
@@ -127,6 +251,7 @@
   --color-accent: #c44a2b;
   --color-accent-light: #e06040;
   --color-accent-dark: #a03820;
+  --color-accent-ink: #0a0808;
   --color-primary: #c44a2b;
   --color-primary-light: #e06040;
   --color-primary-dark: #a03820;
@@ -146,7 +271,7 @@
   --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* --- Shire Theme --- */
+/* --- Shire --- */
 [data-realm="shire"] {
   --color-surface-dark: #100e0b;
   --color-surface: #1a1714;
@@ -157,6 +282,7 @@
   --color-accent: #6d9b4a;
   --color-accent-light: #88b462;
   --color-accent-dark: #558038;
+  --color-accent-ink: #100e0b;
   --color-primary: #6d9b4a;
   --color-primary-light: #88b462;
   --color-primary-dark: #558038;
@@ -177,9 +303,7 @@
 }
 
 /* ============================================================
-   MEDAL CATEGORY ACCENTS (consistent across realms)
-   Matches `Medals.html` design — red/orange · blue · green · purple.
-   Used by the medal grid, trophy case, and training calendar dots.
+   MEDAL CATEGORY ACCENTS (consistent across all modes)
    ============================================================ */
 :root {
   --cat-strength:    #d96848;
@@ -191,57 +315,15 @@
 /* ============================================================
    BASE STYLES
    ============================================================ */
-
 body {
   background: var(--color-surface-dark);
   color: var(--color-text);
   min-height: 100vh;
   font-family: var(--font-body);
+  font-feature-settings: 'ss01', 'cv11';  /* Inter Tight refinements (no-op on other fonts) */
   margin: 0;
   -webkit-text-size-adjust: 100%;
-}
-
-/* Display font utility */
-.font-display {
-  font-family: var(--font-display);
-}
-
-/* ============================================================
-   SCROLLBAR
-   ============================================================ */
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-surface-lighter); border-radius: 3px; }
-
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* ============================================================
-   MOBILE INPUT FIXES
-   ============================================================ */
-
-@media (max-width: 767px) {
-  input[type="number"],
-  input[type="text"],
-  select,
-  textarea {
-    font-size: 16px;
-  }
-}
-
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 html, body, #root {
@@ -249,87 +331,100 @@ html, body, #root {
   max-width: 100vw;
 }
 
+/* Theme-change smoothing */
+[data-theme], [data-realm] {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--color-surface-lighter); border-radius: 3px; }
+.scrollbar-hide            { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ============================================================
+   MOBILE INPUT FIXES
+   ============================================================ */
+@media (max-width: 767px) {
+  input[type="number"], input[type="text"], select, textarea { font-size: 16px; }
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
 /* ============================================================
    ANIMATIONS
    ============================================================ */
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.animate-fade-in {
-  animation: fade-in 0.5s ease-in;
-}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.animate-fade-in  { animation: fade-in 0.5s ease-in; }
 
 @keyframes glow-pulse {
   0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 15%, transparent 85%); }
-  50% { box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent 70%); }
+  50%      { box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent 70%); }
 }
-
 @keyframes subtle-shine {
-  0% { background-position: -200% center; }
+  0%   { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
 
 /* ============================================================
-   REALM SURFACE VARIANTS
-   Reusable panel/card surface classes
+   CARD / PANEL VARIANTS
+   Default (minimal mode): flat editorial cards.
+   LOTR mode overrides add gradients, glows, decorative borders.
    ============================================================ */
 
-/* Gondor stone panel — default elevated surface */
-.stone-panel {
+.stone-panel,
+.heraldic-card,
+.rivendell-card,
+.forged-panel,
+.parchment-panel,
+.chronicle-card {
   background: var(--color-surface);
   border: 1px solid var(--color-surface-lighter);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-panel);
+  border-radius: 14px;
 }
 
-/* Parchment panel — warm, chronicle-like */
-.parchment-panel {
+/* LOTR: restore decorative panel treatments */
+[data-realm] .stone-panel {
+  box-shadow: var(--shadow-panel);
+}
+[data-realm] .parchment-panel {
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--color-surface-light) 90%, var(--color-accent) 10%),
     var(--color-surface-light)
   );
   border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--color-surface-lighter) 80%);
-  border-radius: 0.75rem;
   box-shadow: var(--shadow-panel);
 }
-
-/* Forged stone panel — dwarven, dark granite + bronze */
-.forged-panel {
+[data-realm] .forged-panel {
   background: linear-gradient(
     160deg,
     var(--color-surface) 0%,
     color-mix(in srgb, var(--color-surface) 95%, var(--color-dwarven) 5%) 100%
   );
   border: 1px solid color-mix(in srgb, var(--color-dwarven) 30%, var(--color-surface-lighter) 70%);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-panel), inset 0 1px 0 color-mix(in srgb, var(--color-dwarven) 10%, transparent 90%);
+  box-shadow: var(--shadow-panel),
+              inset 0 1px 0 color-mix(in srgb, var(--color-dwarven) 10%, transparent 90%);
 }
-
-/* Heraldic card — gold-trimmed noble card */
-.heraldic-card {
-  background: var(--color-surface);
+[data-realm] .heraldic-card {
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-surface-lighter) 65%);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-panel), 0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent 92%);
+  box-shadow: var(--shadow-panel),
+              0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent 92%);
 }
-
-/* Rivendell card — teal-accented elven surface */
-.rivendell-card {
+[data-realm] .rivendell-card {
   background: linear-gradient(
     135deg,
     var(--color-surface) 0%,
     color-mix(in srgb, var(--color-surface) 96%, var(--color-rivendell) 4%) 100%
   );
   border: 1px solid color-mix(in srgb, var(--color-rivendell) 25%, var(--color-surface-lighter) 75%);
-  border-radius: 0.75rem;
   box-shadow: var(--shadow-panel);
 }
-
-/* Chronicle card — session summary treatment */
-.chronicle-card {
+[data-realm] .chronicle-card {
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--color-surface-light) 92%, var(--color-accent) 8%),
@@ -337,72 +432,55 @@ html, body, #root {
   );
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-surface-lighter) 75%);
   border-top: 2px solid color-mix(in srgb, var(--color-accent) 50%, var(--color-surface-lighter) 50%);
-  border-radius: 0.75rem;
   box-shadow: var(--shadow-panel);
 }
 
+/* Timer card: elevated gradient (both modes — it's a core UI moment) */
+.timer-card {
+  background: linear-gradient(135deg, var(--color-surface), var(--color-surface-dark));
+  border: 1px solid var(--color-surface-lighter);
+  border-radius: 14px;
+}
+
 /* ============================================================
-   ORNAMENT UTILITIES
+   ORNAMENT UTILITIES (neutral in minimal, decorative in LOTR)
    ============================================================ */
 
-/* Engraved border — double-line effect */
+/* Engraved border */
 .engraved-border {
   border: 1px solid var(--color-surface-lighter);
+  border-radius: 14px;
+}
+[data-realm] .engraved-border {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent 88%);
-  border-radius: 0.75rem;
 }
 
-/* Gold top accent line on cards */
-.gold-trim {
-  border-top: 2px solid var(--color-accent);
-}
+/* Top-trim strip (accent line) */
+.gold-trim     { border-top: 2px solid var(--color-accent); }
+.bronze-trim   { border-top: 2px solid var(--color-dwarven); }
+.teal-trim     { border-top: 2px solid var(--color-rivendell); }
 
-.bronze-trim {
-  border-top: 2px solid var(--color-dwarven);
-}
+/* Left-accent strip */
+.accent-left-gold   { border-left: 3px solid var(--color-accent); }
+.accent-left-bronze { border-left: 3px solid var(--color-dwarven); }
+.accent-left-teal   { border-left: 3px solid var(--color-rivendell); }
 
-.teal-trim {
-  border-top: 2px solid var(--color-rivendell);
-}
-
-/* Realm-colored left accent */
-.accent-left-gold {
-  border-left: 3px solid var(--color-accent);
-}
-
-.accent-left-bronze {
-  border-left: 3px solid var(--color-dwarven);
-}
-
-.accent-left-teal {
-  border-left: 3px solid var(--color-rivendell);
-}
+/* Dashed divider used between list rows inside cards */
+.row-divider-top { border-top: 1px dashed var(--border-dashed); }
 
 /* ============================================================
    BADGE / TIER MATERIAL STYLES
+   Flat in minimal, glowing in LOTR.
    ============================================================ */
+.tier-iron   { border-color: #6b7280; color: #9ca3af; }
+.tier-silver { border-color: #94a3b8; color: #cbd5e1; }
+.tier-gold   { border-color: var(--color-accent); color: var(--color-accent-light); }
+.tier-elite  { border-color: var(--color-accent-light); color: var(--color-accent-light); }
 
-.tier-iron {
-  border-color: #6b7280;
-  color: #9ca3af;
-}
-
-.tier-silver {
-  border-color: #94a3b8;
-  color: #cbd5e1;
-  box-shadow: 0 0 8px rgba(148, 163, 184, 0.1);
-}
-
-.tier-gold {
-  border-color: var(--color-accent);
-  color: var(--color-accent-light);
-  box-shadow: 0 0 12px rgba(201, 168, 76, 0.15);
-}
-
-.tier-elite {
-  border-color: var(--color-accent-light);
-  color: var(--color-accent-light);
-  box-shadow: 0 0 16px rgba(201, 168, 76, 0.2);
+[data-realm] .tier-silver { box-shadow: 0 0 8px rgba(148, 163, 184, 0.1); }
+[data-realm] .tier-gold   { box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 18%, transparent 82%); }
+[data-realm] .tier-elite  {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 22%, transparent 78%);
   background: linear-gradient(
     135deg,
     var(--color-surface-light) 0%,
@@ -413,12 +491,58 @@ html, body, #root {
 /* ============================================================
    TYPOGRAPHY HELPERS
    ============================================================ */
+.font-display    { font-family: var(--font-display); }
+.font-body       { font-family: var(--font-body); }
+/* `font-mono` already generated by Tailwind v4 via --font-mono */
 
-.text-display {
+/* Minimal-mode editorial serif display (Fraunces 900, -0.03em, lh 0.95) */
+.serif-display {
   font-family: var(--font-display);
-  letter-spacing: 0.02em;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+.serif-display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--color-text-muted);
 }
 
+/* Uppercase mono label (10-11px, 0.2em tracking, reduced opacity) */
+.mono-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+.mono-label-strong {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 10px;
+  opacity: 0.55;
+}
+
+/* Mono data (set rows, metadata, timer digits) */
+.mono-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section label — used above major blocks */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+/* LOTR realm title treatment */
 .text-realm-title {
   font-family: var(--font-display);
   font-weight: 600;
@@ -428,35 +552,36 @@ html, body, #root {
 /* ============================================================
    NAV STYLING
    ============================================================ */
-
 .nav-gondor {
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-surface-lighter);
+}
+[data-realm] .nav-gondor {
   background: linear-gradient(
     180deg,
     var(--color-surface) 0%,
     color-mix(in srgb, var(--color-surface) 97%, var(--color-accent) 3%) 100%
   );
-  border-right: 1px solid var(--color-surface-lighter);
 }
 
 .nav-active {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent 88%);
+  background: var(--color-accent-tint);
   color: var(--color-accent-light);
   border-left: 2px solid var(--color-accent);
 }
 
 /* ============================================================
-   BUTTON VARIANTS
+   BUTTONS
    ============================================================ */
-
 .btn-gold {
   background: var(--color-accent);
-  color: var(--color-surface-dark);
+  color: var(--color-accent-ink);
   font-weight: 600;
-  border-radius: 0.5rem;
-  transition: all 0.15s ease;
+  border-radius: 12px;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
-.btn-gold:hover {
-  background: var(--color-accent-light);
+.btn-gold:hover { background: var(--color-accent-light); }
+[data-realm] .btn-gold:hover {
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 20%, transparent 80%);
 }
 
@@ -464,25 +589,75 @@ html, body, #root {
   background: var(--color-surface-light);
   color: var(--color-text);
   border: 1px solid var(--color-surface-lighter);
-  border-radius: 0.5rem;
-  transition: all 0.15s ease;
+  border-radius: 12px;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 .btn-stone:hover {
   background: var(--color-surface-lighter);
   border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-lighter) 70%);
 }
 
-/* ============================================================
-   LOTR PNG NAV ICONS
-   ============================================================ */
+/* Primary CTA — spec: mono 700, 12px, uppercase, 0.15em tracking */
+.btn-primary-cta {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.btn-primary-cta:hover:not(:disabled) { background: var(--color-accent-light); }
+.btn-primary-cta:disabled             { opacity: 0.5; cursor: not-allowed; }
 
+/* Ghost "Add set" style button */
+.btn-ghost-dashed {
+  background: transparent;
+  border: 1px dashed #333;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  border-radius: 10px;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.btn-ghost-dashed:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+/* ============================================================
+   THEME SWATCH (4 color dots in Settings)
+   ============================================================ */
+.theme-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--color-surface-lighter);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.theme-swatch:hover { transform: scale(1.05); }
+.theme-swatch[data-active="true"] {
+  box-shadow: 0 0 0 2px var(--color-surface-dark),
+              0 0 0 4px var(--color-accent);
+}
+
+/* ============================================================
+   LOTR NAV ICONS (only visible in LOTR mode by where they're rendered)
+   ============================================================ */
 .lotr-nav-icon {
   opacity: 0.7;
   transition: opacity 0.2s ease, filter 0.2s ease;
   filter: grayscale(20%);
 }
-
-/* Brighten on hover (parent link handles hover) */
 a:hover .lotr-nav-icon,
 .nav-active .lotr-nav-icon {
   opacity: 1;
@@ -490,42 +665,6 @@ a:hover .lotr-nav-icon,
 }
 
 /* ============================================================
-   JOURNEY PROGRESSION
+   JOURNEY / MISC
    ============================================================ */
-
-.shadow-glow {
-  box-shadow: var(--shadow-glow);
-}
-
-/* ============================================================
-   NEUTRAL THEME (default — no LOTR)
-   ============================================================ */
-[data-theme="neutral"] {
-  --color-surface-dark: #0b0d10;
-  --color-surface: #15181d;
-  --color-surface-light: #1e2229;
-  --color-surface-lighter: #2a2f38;
-  --color-text: #e7e9ec;
-  --color-text-muted: #8a8f99;
-  --color-accent: #3b82f6;
-  --color-accent-light: #60a5fa;
-  --color-accent-dark: #2563eb;
-  --color-primary: #3b82f6;
-  --color-primary-light: #60a5fa;
-  --color-primary-dark: #2563eb;
-  --color-secondary: #6b7280;
-  --color-secondary-light: #9ca3af;
-  --color-rivendell: #3b82f6;
-  --color-rivendell-light: #60a5fa;
-  --color-rivendell-dark: #2563eb;
-  --color-dwarven: #3b82f6;
-  --color-dwarven-light: #60a5fa;
-  --color-dwarven-dark: #2563eb;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #38bdf8;
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.1);
-  --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.4);
-}
-
+.shadow-glow { box-shadow: var(--shadow-glow); }

@@ -267,7 +267,7 @@ export default function Program() {
               <button
                 onClick={() => handleStatusChange('active')}
                 disabled={updating}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-dark transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-accent text-accent-ink hover:bg-accent-dark transition-colors disabled:opacity-50"
               >
                 <Play size={14} /> Resume
               </button>

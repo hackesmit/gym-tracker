@@ -96,7 +96,7 @@ export default function Tracker() {
           <button
             onClick={() => setView('grid')}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              view === 'grid' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'
+              view === 'grid' ? 'bg-accent text-accent-ink' : 'text-text-muted hover:text-text'
             }`}
           >
             <Grid3X3 size={14} />
@@ -104,7 +104,7 @@ export default function Tracker() {
           <button
             onClick={() => setView('calendar')}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              view === 'calendar' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'
+              view === 'calendar' ? 'bg-accent text-accent-ink' : 'text-text-muted hover:text-text'
             }`}
           >
             <CalIcon size={14} />

@@ -16,6 +16,13 @@ const REALM_INFO = [
   { key: 'shire',     label: 'Shire',     icon: '🍺', desc: 'Hobbit green & amber',   colors: ['#6d9b4a', '#1a1714', '#c49a5c'] },
 ];
 
+const THEME_COLOR_INFO = [
+  { key: 'lime',    hex: '#d4ff4a' },
+  { key: 'amber',   hex: '#f5b544' },
+  { key: 'cyan',    hex: '#4ad4ff' },
+  { key: 'crimson', hex: '#ff4a5a' },
+];
+
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const LIFT_CATEGORIES = [
   { key: 'bench', label: 'Bench Press' },
@@ -39,7 +46,7 @@ function isStale(dateStr) {
 }
 
 export default function Settings() {
-  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm, themeMode, setThemeMode, language, setLanguage } = useApp();
+  const { units, setUnits, defaultRestSeconds, setDefaultRestSeconds, unitLabel, realm, setRealm, themeMode, setThemeMode, themeColor, setThemeColor, language, setLanguage } = useApp();
   const t = useT();
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -205,6 +212,30 @@ export default function Settings() {
           </button>
         </div>
       </Card>
+
+      {themeMode !== 'lotr' && (
+      <Card title={t('settings.themeColor')}>
+        <p className="text-sm text-text-muted mb-4">
+          {t('settings.themeColor.desc')}
+        </p>
+        <div className="flex gap-4 items-center">
+          {THEME_COLOR_INFO.map(({ key, hex }) => (
+            <button
+              key={key}
+              onClick={() => setThemeColor(key)}
+              data-active={themeColor === key}
+              aria-label={t(`settings.themeColor.${key}`)}
+              title={t(`settings.themeColor.${key}`)}
+              className="theme-swatch touch-manipulation"
+              style={{ background: hex }}
+            />
+          ))}
+          <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+            {t(`settings.themeColor.${themeColor}`)}
+          </span>
+        </div>
+      </Card>
+      )}
 
       {themeMode === 'lotr' && (
       <Card title={t('settings.realm')}>
@@ -373,7 +404,7 @@ export default function Settings() {
         </div>
         <button
           onClick={saveOrm}
-          className="mt-4 w-full py-3 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors touch-manipulation"
+          className="mt-4 w-full py-3 rounded-lg bg-accent text-accent-ink text-sm font-medium hover:bg-accent-dark transition-colors touch-manipulation"
         >
           {ormSaved ? t('common.saved') : t('settings.knownOneRM.save')}
         </button>
@@ -523,7 +554,7 @@ function ChangeUsernameCard({ addToast }) {
             <button
               onClick={submit}
               disabled={busy || !newUsername.trim() || !answer.trim()}
-              className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg bg-accent text-accent-ink text-sm font-medium disabled:opacity-50"
             >
               {busy ? 'Changing…' : 'Change username'}
             </button>
@@ -602,7 +633,7 @@ function AdminResetCard({ addToast }) {
         <button
           onClick={run}
           disabled={busy || !target || !newPass || newPass !== confirm}
-          className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+          className="w-full py-2.5 rounded-lg bg-accent text-accent-ink text-sm font-medium disabled:opacity-50"
         >
           {busy ? t('settings.adminReset.running') : t('settings.adminReset.run')}
         </button>
@@ -660,7 +691,7 @@ function AbsorbCard({ addToast }) {
         <button
           onClick={run}
           disabled={busy || !srcUser || !srcPass}
-          className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+          className="w-full py-2.5 rounded-lg bg-accent text-accent-ink text-sm font-medium disabled:opacity-50"
         >
           {busy ? t('settings.import.running') : t('settings.import.run')}
         </button>

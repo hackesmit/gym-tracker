@@ -31,6 +31,16 @@ function getWeightHint(exerciseName, catalog) {
   return null;
 }
 
+function isBodyweightExercise(exerciseName, catalog) {
+  if (!exerciseName || !catalog || !catalog.length) return false;
+  const entry = catalog.find((ex) => {
+    const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+    return name === exerciseName;
+  });
+  if (!entry || typeof entry === 'string') return false;
+  return entry.equipment === 'bodyweight';
+}
+
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
   const t = useT();
@@ -196,18 +206,23 @@ export default function Logger() {
         week: currentWeek,
         session_name: selectedSession.session_name,
         date: new Date().toISOString().split('T')[0],
-        sets: sets.filter((s) => s.load_kg > 0 || s.is_bodyweight).map((s) => ({
-          program_exercise_id: s.program_exercise_id,
-          set_number: s.set_number,
-          load_kg: displayToKg(s.load_kg, units),
-          reps_completed: +s.reps_completed,
-          rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
-          is_bodyweight: s.is_bodyweight,
-          is_dropset: s.is_dropset,
-          dropset_load_kg: s.is_dropset && s.dropset_load_kg
-            ? displayToKg(s.dropset_load_kg, units)
-            : null,
-        })),
+        sets: sets
+          .filter((s) => {
+            const bw = s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData);
+            return s.load_kg > 0 || (bw && +s.reps_completed > 0);
+          })
+          .map((s) => ({
+            program_exercise_id: s.program_exercise_id,
+            set_number: s.set_number,
+            load_kg: displayToKg(s.load_kg, units),
+            reps_completed: +s.reps_completed,
+            rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
+            is_bodyweight: s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData),
+            is_dropset: s.is_dropset,
+            dropset_load_kg: s.is_dropset && s.dropset_load_kg
+              ? displayToKg(s.dropset_load_kg, units)
+              : null,
+          })),
       };
       const result = await logBulkSession(payload);
       setSaved(true);
@@ -318,11 +333,11 @@ export default function Logger() {
         <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('logger.title')}</h2>
         <div className="flex gap-1 bg-surface-light rounded-lg p-1">
           <button onClick={() => setTab('workout')}
-            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-accent text-white' : 'text-text-muted'}`}>
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'workout' ? 'bg-accent text-accent-ink' : 'text-text-muted'}`}>
             Workout
           </button>
           <button onClick={() => setTab('metrics')}
-            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'metrics' ? 'bg-accent text-white' : 'text-text-muted'}`}>
+            className={`px-3 py-2 sm:px-4 rounded text-xs sm:text-sm font-medium touch-manipulation ${tab === 'metrics' ? 'bg-accent text-accent-ink' : 'text-text-muted'}`}>
             Metrics
           </button>
         </div>
@@ -349,8 +364,8 @@ export default function Logger() {
                 onChange={(v) => setMetrics((m) => ({ ...m, soreness_level: v }))} />
               <button onClick={handleMetricsSave}
                 disabled={!metrics.bodyweight_kg}
-                className="w-full py-3 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50 hover:bg-accent-dark transition-colors touch-manipulation">
-                Save Metrics
+                className="btn-primary-cta touch-manipulation">
+                {t('common.save')}
               </button>
             </div>
           )}
@@ -381,7 +396,7 @@ export default function Logger() {
                   onClick={() => { setSelectedSession(s); setSaved(false); }}
                   className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors touch-manipulation ${
                     selectedSession?.session_name === s.session_name
-                      ? 'bg-accent text-white' : 'bg-surface-light text-text-muted hover:text-text'
+                      ? 'bg-accent text-accent-ink' : 'bg-surface-light text-text-muted hover:text-text'
                   }`}
                 >
                   {s.session_name}
@@ -466,6 +481,11 @@ export default function Logger() {
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Dumbbell size={14} className="text-accent-light shrink-0" />
                           <span className="truncate">{group.name}</span>
+                          {isBodyweightExercise(group.name, catalogData) && (
+                            <span className="text-[9px] uppercase tracking-wider text-accent-light bg-accent/10 px-1.5 py-0.5 rounded shrink-0">
+                              {t('logger.bodyweight')}
+                            </span>
+                          )}
                           <button
                             onClick={() => openSwapModal(group.name)}
                             title={t('logger.swap')}
@@ -617,11 +637,14 @@ export default function Logger() {
               <div className="sticky bottom-4 z-10">
                 <button
                   onClick={handleSave}
-                  disabled={saving || !sets.some((s) => s.load_kg > 0 || s.is_bodyweight)}
-                  className="w-full py-3.5 rounded-xl bg-accent text-white font-medium disabled:opacity-50 hover:bg-accent-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-accent/20 touch-manipulation"
+                  disabled={saving || !sets.some((s) => {
+                    const bw = s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData);
+                    return s.load_kg > 0 || (bw && +s.reps_completed > 0);
+                  })}
+                  className="btn-primary-cta flex items-center justify-center gap-2 touch-manipulation"
                 >
-                  <Save size={18} />
-                  {saving ? 'Saving...' : 'Save Session'}
+                  <Save size={14} />
+                  {saving ? t('common.saving') : t('logger.finish')}
                 </button>
               </div>
             </>
