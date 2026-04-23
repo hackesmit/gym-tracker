@@ -16,6 +16,19 @@ const RANKS = ['Copper', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'];
 
 export const SUBDIVISIONS = ['V', 'IV', 'III', 'II', 'I'];
 
+// Tier-colored halo — the one carve-out from the "no glows" rule. Rank tier
+// is a meaningful moment (spec: "loud only on meaningful moments"). Applied
+// in both minimal and LOTR modes.
+const TIER_GLOW = {
+  Copper:   '#7a3d1e',
+  Bronze:   '#8a5a2b',
+  Silver:   '#8a92a0',
+  Gold:     '#a78025',
+  Platinum: '#3a6bb8',
+  Diamond:  '#7a4ac8',
+  Champion: '#ff4fa8',
+};
+
 const MATERIALS = {
   Copper:   { base:'#7a3d1e', dark:'#3d1f0e', mid:'#a85a2e', light:'#d8884a', hilite:'#f1b17a', accent:'#2a1208', plate:'#2e1c14', emblem:'#e9a06b' },
   Bronze:   { base:'#8a5a2b', dark:'#4a2f14', mid:'#b07a3a', light:'#d9a365', hilite:'#f0c58a', accent:'#2e1c0a', plate:'#2f2214', emblem:'#e8be7b' },
@@ -222,6 +235,9 @@ export default function RankBadge({
   const safeSub = Math.max(0, Math.min(4, subIndex));
   const label = isChampion ? 'Champion' : `${rank} ${SUBDIVISIONS[safeSub]}`;
 
+  const glowColor = TIER_GLOW[rank] || TIER_GLOW.Copper;
+  const badgeStyle = { filter: `drop-shadow(0 0 10px ${glowColor}59)` };
+
   return (
     <svg
       viewBox="0 0 200 220"
@@ -231,6 +247,7 @@ export default function RankBadge({
       width={size}
       height={(size * 220) / 200}
       className={className}
+      style={badgeStyle}
     >
       {isChampion ? (
         <ChampionBadge uid={uid} />
