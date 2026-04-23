@@ -308,6 +308,116 @@ ARMS_TRICEP_COMPOUND: dict[str, float] = {
     "SMITH MACHINE JM PRESS": 0.55,
 }
 
+# 2026-04-23: hybrid arms/shoulders scoring.
+#
+#   arms      = 0.5 × biceps  + 0.5 × triceps
+#   biceps    = 0.7 × back_elo + 0.3 × curl_elo
+#   triceps   = 0.7 × max(chest, shoulder-press)_elo + 0.3 × tricep_elo
+#   shoulders = 0.7 × shoulder-press_elo + 0.3 × lateral_elo
+#
+# `tricep_elo` combines the existing weighted-dip / close-grip / heavy
+# compound pathway with low-signal isolation (pushdowns, extensions,
+# kickbacks) — the max across those against ARMS_THRESHOLDS is used.
+# Blend happens in ELO space so each component keeps its own calibrated
+# threshold table; ELOs are averaged then reverse-mapped back to a tier.
+HYBRID_WEIGHTS: dict[str, dict[str, float]] = {
+    "arms": {
+        "biceps_pull":    0.35,    # 0.5 × 0.7
+        "biceps_curl":    0.15,    # 0.5 × 0.3
+        "triceps_press":  0.35,
+        "triceps_direct": 0.15,
+    },
+    "shoulders": {
+        "press":   0.70,
+        "lateral": 0.30,
+    },
+}
+
+# Biceps curl isolation pool. DB variants bake in the per-hand × 2 ×
+# transferability convention. Cable / machine are heavily discounted —
+# stack calibration varies too much to treat them on par with free
+# weights.  A pure curler maxes out around Platinum / low Diamond on the
+# biceps pathway — top tiers still require pull-up / row strength.
+ARMS_CURL_ISOLATION: dict[str, float] = {
+    # Barbell-class
+    "BARBELL CURL":           1.00,
+    "BB CURL":                1.00,
+    "STANDING BB CURL":       1.00,
+    "EZ BAR CURL":            0.95,
+    "REVERSE GRIP EZ BAR CURL": 0.85,
+    "EZ BAR PREACHER CURL":   0.90,
+    "PREACHER CURL":          0.90,
+    "SPIDER CURL":            0.90,     # assumed barbell/EZ
+    # Dumbbell-class (per-hand × 2 × transferability)
+    "DB BICEP CURL":          1.60,
+    "DB CURL":                1.60,
+    "DB INCLINE CURL":        1.40,
+    "DB SPIDER CURL":         1.40,
+    "DB PREACHER CURL":       1.40,
+    "HAMMER CURL":            1.60,
+    "DB HAMMER CURL":         1.60,
+    "ZOTTMAN CURL":           1.40,
+    "INVERSE ZOTTMAN CURL":   1.40,
+    # Cable (stack calibration varies — heavy discount)
+    "BAYESIAN CABLE CURL":    0.50,
+    "CABLE EZ CURL":          0.50,
+    "CABLE CURL":             0.50,
+    # Machine
+    "MACHINE CURL":           0.60,
+    "MACHINE BICEP CURL":     0.60,
+}
+
+CURL_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.30,    # ~24 kg BB curl / 7.5 kg DB per-hand @ 80 kg BW
+    "Silver":   0.45,    # ~36 kg BB / 11 kg DB
+    "Gold":     0.65,    # ~52 kg BB / 16 kg DB
+    "Platinum": 0.85,    # ~68 kg BB / 21 kg DB
+    "Diamond":  1.05,    # ~84 kg BB / 26 kg DB
+    "Champion": 1.25,    # ~100 kg BB / 31 kg DB (exceptional)
+}
+
+# Tricep isolation pool — low-signal lifts that supplement the
+# ARMS_TRICEP_COMPOUND pathway. Pushdowns/extensions cap out Platinum on
+# their own; dips or heavy skull crushers remain required for Diamond+.
+ARMS_TRICEP_ISOLATION: dict[str, float] = {
+    "TRICEPS PRESSDOWN":               0.25,
+    "TRICEP PRESSDOWN":                0.25,
+    "MACHINE TRICEPS EXTENSION":       0.35,
+    "OVERHEAD CABLE TRICEPS EXTENSIONS": 0.25,
+    "OVERHEAD CABLE TRICEP EXTENSION": 0.25,
+    "DB TRICEPS KICKBACK":             0.35,
+    "CABLE TRICEPS KICKBACK":          0.20,
+}
+
+TRICEP_ISOLATION_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.08,
+    "Silver":   0.15,
+    "Gold":     0.22,
+    "Platinum": 0.30,
+    "Diamond":  0.40,
+    "Champion": 0.55,
+}
+
+# Shoulder lateral-raise isolation. Lateral raises use the DB per-hand ×
+# 2 convention — a 20 kg per-hand lateral at 80 kg BW produces ratio 0.4
+# (Gold). Cable/machine discounted.
+SHOULDERS_LATERAL_ISOLATION: dict[str, float] = {
+    "DB LATERAL RAISE":          1.60,
+    "STANDING DB LATERAL RAISE": 1.60,
+    "SEATED DB LATERAL RAISE":   1.50,
+    "CABLE LATERAL RAISE":       0.50,
+    "MACHINE LATERAL RAISE":     0.60,
+}
+
+LATERAL_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.10,    # ~5 kg per-hand @ 80 kg BW
+    "Silver":   0.20,    # ~10 kg per-hand
+    "Gold":     0.35,    # ~17.5 kg per-hand
+    "Platinum": 0.50,    # ~25 kg per-hand
+    "Diamond":  0.65,    # ~32.5 kg per-hand
+    "Champion": 0.85,    # ~42.5 kg per-hand (exceptional)
+}
+
 # Manual 1RM keys on `User.manual_1rm` per group. The existing schema uses
 # category keys {bench, squat, deadlift, ohp, row}. Pullup/dip are optional
 # extensions — treated as ADDED load in kg (same unit as logged weighted
@@ -454,6 +564,52 @@ def rank_score(tier: str, sub_index: int) -> int:
     # Bronze starts at 6, Silver 11, ..., Diamond 26
     base = ti * SUBDIVISION_COUNT + 1      # 6, 11, 16, 21, 26
     return base + max(0, min(SUBDIVISION_COUNT - 1, sub_index))
+
+
+def tier_sub_from_elo(elo: float) -> tuple[str, int]:
+    """Inverse of `rank_score`: project a continuous ELO onto (tier, sub_index).
+
+    Each non-Champion tier occupies 500 points (5 subs × 100). Champion is
+    anything ≥ 3000 (3000–3100 range). Values below 0 collapse to Copper V.
+    """
+    if elo >= 3000:
+        return ("Champion", 0)
+    if elo <= 0:
+        return ("Copper", 0)
+    tier_idx = int(elo // 500)
+    if tier_idx >= len(RANK_ORDER) - 1:
+        return ("Champion", 0)
+    tier = RANK_ORDER[tier_idx]
+    within = int((elo - tier_idx * 500) // 100)
+    return (tier, max(0, min(SUBDIVISION_COUNT - 1, within)))
+
+
+def elo_to_ratio(elo: float, thresholds: dict[str, float]) -> float:
+    """Reverse-map an ELO back into a ratio for a given threshold table.
+
+    The Profile progress bar computes sub-tier progress from `ratio` vs
+    thresholds, so hybrid rankings need a ratio that lands at the same
+    sub-tier as the blended ELO. Linear interpolation inside each tier.
+    """
+    if elo <= 0:
+        return 0.0
+    tier, sub_index = tier_sub_from_elo(elo)
+    if tier == "Champion":
+        return float(thresholds.get("Champion", 1.0))
+    if tier == "Copper":
+        floor = 0.0
+        ceiling = thresholds.get("Bronze")
+    else:
+        floor = float(thresholds.get(tier, 0.0))
+        ceiling = _next_threshold(tier, thresholds)
+    if ceiling is None or ceiling <= floor:
+        return float(floor)
+    tier_step = (ceiling - floor) / SUBDIVISION_COUNT
+    sub_floor = floor + sub_index * tier_step
+    # Elo progress inside the subdivision (0..1)
+    within_elo = elo - ((rank_score(tier, sub_index) - 1) * POINTS_PER_SUBDIVISION)
+    within_frac = max(0.0, min(1.0, within_elo / POINTS_PER_SUBDIVISION))
+    return float(sub_floor + within_frac * tier_step)
 
 
 def continuous_score(

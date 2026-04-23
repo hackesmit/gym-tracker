@@ -74,16 +74,23 @@ def test_missing_bodyweight_defaults_to_copper(db):
 
 
 def test_bench_ratio_maps_to_expected_tier(db):
-    """A ~1.17x bodyweight bench e1RM should land in Gold."""
+    """A ~1.17x bodyweight bench e1RM should land chest in Gold.
+
+    Under the 2026-04-23 hybrid arms scoring, bench also transfers to arms
+    via the triceps-press pathway, so arms climbs to Bronze (~half of the
+    triceps-only tier, since no biceps pathway is present). Quads, hams,
+    shoulders, back stay Copper — bench doesn't feed them.
+    """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
     _seed_bench(db, user, load_kg=80, reps=5)  # e1rm ≈ 93.3 kg → 1.17x BW
     result = recompute_for_user(db, user.id)
     assert result["chest"]["rank"] == "Gold"
-    # Chest has no logging in arms/quads/etc — all Copper.
-    for g in ("quads", "hamstrings", "shoulders", "back", "arms"):
+    for g in ("quads", "hamstrings", "shoulders", "back"):
         assert result[g]["rank"] == "Copper"
+    # Bench → triceps-press pathway → ~half of chest tier into arms.
+    assert result["arms"]["rank"] == "Bronze"
 
 
 def test_thresholds_match_spec():
@@ -331,21 +338,82 @@ def test_db_row_ranks_back(db):
 
 
 def test_skull_crusher_ranks_arms(db):
-    """EZ-bar skull crusher 50 kg × spec 0.45 / BW 80 → 0.28 → Silver V."""
+    """EZ-bar skull crusher 50 kg → direct_tricep pathway at Silver.
+
+    Under the 2026-04-23 hybrid, direct_tricep alone feeds the triceps head
+    at 100% (renormalized). Arms = 0.5 × triceps since biceps pathway is
+    absent, so the skull crusher Silver tier halves to Bronze overall.
+    """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
     _seed_exercise(db, user, "EZ BAR SKULL CRUSHER", "triceps", load_kg=50, reps=1)
     result = recompute_for_user(db, user.id)
-    assert result["arms"]["rank"] == "Silver"
+    assert result["arms"]["rank"] == "Bronze"
+    assert result["arms"]["elo"] > 500
 
 
-def test_isolation_curl_does_not_rank_arms(db):
-    """DB bicep curl is NOT in any map — user should stay Copper V."""
+def test_isolation_curl_contributes_to_arms(db):
+    """2026-04-23: Under hybrid scoring, curls feed the biceps pathway.
+
+    A solid DB curl alone (25 kg/hand × 5 reps → e1rm 29.2 × spec 1.60 /
+    BW 80 ≈ 0.584 — Silver tier on CURL_THRESHOLDS) should lift arms off
+    Copper V, but only about half a tier (no triceps pathway).
+    """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
     _seed_exercise(db, user, "DB BICEP CURL", "biceps", load_kg=25, reps=5)
     result = recompute_for_user(db, user.id)
-    assert result["arms"]["rank"] == "Copper"
-    assert result["arms"]["sub_index"] == 0   # Copper V, no data
+    assert result["arms"]["rank"] == "Bronze"
+    assert result["arms"]["elo"] > 500        # above Bronze floor
+
+
+def test_pure_press_ranks_arms_via_triceps_transfer(db):
+    """OHP-only lifter gets arms credit via the triceps-press pathway."""
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _seed_exercise(db, user, "OVERHEAD PRESS", "shoulders", load_kg=50, reps=1)
+    result = recompute_for_user(db, user.id)
+    # Shoulder OHP anchor → Silver-ish, arms picks up ~half.
+    assert result["shoulders"]["rank"] in ("Silver", "Gold")
+    assert result["arms"]["rank"] in ("Bronze", "Silver")
+    assert result["arms"]["elo"] > 500
+
+
+def test_lateral_raise_lifts_shoulders_off_copper(db):
+    """Lateral raises alone (no pressing) should now register on shoulders."""
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    # 15 kg per-hand × 5 reps → e1rm 17.5 × spec 1.60 / 80 = 0.35 → Gold V.
+    _seed_exercise(db, user, "DB LATERAL RAISE", "shoulders", load_kg=15, reps=5)
+    result = recompute_for_user(db, user.id)
+    assert result["shoulders"]["rank"] != "Copper"
+    assert result["shoulders"]["elo"] > 500
+
+
+def test_mixed_arms_training_beats_single_pathway(db):
+    """Hybrid intent: a lifter with curls + dips + rows + press beats a
+    lifter with only one pathway at the same per-pathway tier."""
+    # Lifter A: pure dips
+    user_a = db.query(User).first()
+    user_a.bodyweight_kg = 80.0
+    db.commit()
+    _seed_exercise(db, user_a, "WEIGHTED DIP", "arms", load_kg=40, reps=1, day_offset=2)
+    result_a = recompute_for_user(db, user_a.id)
+
+    # Lifter B: dips + pull-ups + bench + curls (all similar strength tier)
+    user_b = User(
+        username="mixed", name="Mixed", password_hash="x",
+        bodyweight_kg=80.0,
+    )
+    db.add(user_b)
+    db.commit()
+    _seed_exercise(db, user_b, "WEIGHTED DIP", "arms", load_kg=40, reps=1, day_offset=3)
+    _seed_exercise(db, user_b, "WEIGHTED PULLUP", "back", load_kg=40, reps=1, day_offset=4)
+    _seed_exercise(db, user_b, "BENCH PRESS", "chest", load_kg=100, reps=1, day_offset=5)
+    _seed_exercise(db, user_b, "BARBELL CURL", "biceps", load_kg=50, reps=1, day_offset=6)
+    result_b = recompute_for_user(db, user_b.id)
+    assert result_b["arms"]["elo"] > result_a["arms"]["elo"]

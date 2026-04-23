@@ -29,13 +29,18 @@ from .models import (
 from .muscle_rank_config import (
     ARMS_BODYWEIGHT_DIPS,
     ARMS_CLOSE_GRIP_BENCH,
+    ARMS_CURL_ISOLATION,
     ARMS_TRICEP_COMPOUND,
+    ARMS_TRICEP_ISOLATION,
     ARMS_WEIGHTED_DIPS,
     BACK_BODYWEIGHT_PULLUPS,
     BACK_ROWS_PULLDOWNS,
     BACK_WEIGHTED_PULLUPS,
     CHAMPION_POINTS,
+    CURL_THRESHOLDS,
     EXERCISE_MAP,
+    HYBRID_WEIGHTS,
+    LATERAL_THRESHOLDS,
     LOOKBACK_DAYS,
     MANUAL_1RM_KEY,
     MAX_BODYWEIGHT_KG,
@@ -45,7 +50,10 @@ from .muscle_rank_config import (
     MUSCLE_RANK_THRESHOLDS,
     MVP_GROUPS,
     RANK_ORDER,
+    SHOULDERS_LATERAL_ISOLATION,
+    TRICEP_ISOLATION_THRESHOLDS,
     continuous_score,
+    elo_to_ratio,
     max_rank,
     rank_from_reps,
     rank_from_threshold,
@@ -53,6 +61,7 @@ from .muscle_rank_config import (
     subdivided_rank,
     subdivision_label,
     tier_index,
+    tier_sub_from_elo,
 )
 
 __all__ = [
@@ -353,6 +362,234 @@ def _best_weighted_calisthenic(
     return _Result(float(best_rep_count), final_tier, best_rep_source or "bodyweight_reps")
 
 
+def _weighted_avg_present(components: list[tuple[float, float]]) -> float:
+    """Weighted average of (weight, elo) pairs, ignoring missing pathways.
+
+    A pathway with elo <= 0 is treated as "no data" and its weight is NOT
+    applied. Remaining pathways' weights are implicitly renormalized by
+    dividing by their sum. This matches the user's spec: isolation is
+    supplementary to the compound anchor — a lifter who does only
+    compound work should still rank on compound strength, not be punished
+    for skipping isolation. Symmetric for a pure-isolation lifter.
+    """
+    total_w = 0.0
+    weighted = 0.0
+    for weight, elo in components:
+        if elo > 0 and weight > 0:
+            total_w += weight
+            weighted += weight * elo
+    return weighted / total_w if total_w > 0 else 0.0
+
+
+def _best_isolation_ratio(
+    db: Session,
+    user_id: int,
+    bw_kg: float,
+    cutoff: date,
+    exercise_specs: dict[str, float],
+) -> tuple[float, str | None]:
+    """Best `e1rm × spec / BW` across a dict of {canonical_name: spec}.
+
+    Returns (ratio, source) with ratio=0.0 and source=None when no valid log exists.
+    """
+    if not exercise_specs:
+        return (0.0, None)
+    rows = (
+        db.query(
+            ProgramExercise.exercise_name_canonical,
+            WorkoutLog.load_kg,
+            WorkoutLog.reps_completed,
+        )
+        .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(
+            WorkoutLog.user_id == user_id,
+            WorkoutLog.date >= cutoff,
+            WorkoutLog.reps_completed > 0,
+            WorkoutLog.reps_completed <= MAX_REPS_FOR_E1RM,
+            WorkoutLog.load_kg > 0,
+            ProgramExercise.exercise_name_canonical.in_(list(exercise_specs.keys())),
+        )
+        .all()
+    )
+    best_ratio = 0.0
+    best_source: str | None = None
+    for name, load, reps in rows:
+        spec = exercise_specs.get(name, 0.0)
+        if spec <= 0:
+            continue
+        e1rm = _epley_e1rm(load, reps)
+        if e1rm <= 0:
+            continue
+        ratio = (e1rm * spec) / bw_kg
+        if ratio > MAX_RATIO_CAP:
+            continue
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_source = f"logged:{name}"
+    return (best_ratio, best_source)
+
+
+def _compute_arms_hybrid(
+    db: Session,
+    user_id: int,
+    bw_kg: float,
+    cutoff: date,
+    *,
+    chest_ratio: float,
+    shoulders_press_ratio: float,
+    back_ratio: float,
+) -> tuple[_Result, dict]:
+    """Hybrid arms = 0.5 × biceps + 0.5 × triceps in ELO space.
+
+    biceps  = 0.7 × back_elo + 0.3 × curl_elo
+    triceps = 0.7 × max(chest, shoulder_press)_elo + 0.3 × direct_tricep_elo
+    direct_tricep_elo = max(anchor_tricep_elo, tricep_isolation_elo)
+
+    Anchor tricep = existing dips / close-grip / heavy compound pathway.
+    Returns (result, breakdown) — breakdown is exposed for debugging and
+    potential UI surfacing.
+    """
+    arms_thresholds = MUSCLE_RANK_THRESHOLDS["arms"]["thresholds"]
+    chest_thresholds = MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
+    shoulders_thresholds = MUSCLE_RANK_THRESHOLDS["shoulders"]["thresholds"]
+    back_thresholds = MUSCLE_RANK_THRESHOLDS["back"]["thresholds"]
+
+    # Existing anchor pathway (dips + close-grip + heavy tricep compound)
+    anchor = _best_weighted_calisthenic(
+        db, user_id, "arms", bw_kg, cutoff,
+        weighted=ARMS_WEIGHTED_DIPS,
+        bodyweight=ARMS_BODYWEIGHT_DIPS,
+        close_grip_fallback=ARMS_CLOSE_GRIP_BENCH,
+        manual_added_key=MANUAL_1RM_KEY.get("arms_added"),
+        compound_map=ARMS_TRICEP_COMPOUND,
+    )
+
+    curl_ratio, curl_source = _best_isolation_ratio(
+        db, user_id, bw_kg, cutoff, ARMS_CURL_ISOLATION,
+    )
+    tricep_iso_ratio, tricep_iso_source = _best_isolation_ratio(
+        db, user_id, bw_kg, cutoff, ARMS_TRICEP_ISOLATION,
+    )
+
+    # Project each pathway into ELO space using its calibrated thresholds.
+    chest_elo = continuous_score(chest_ratio, chest_thresholds) if chest_ratio > 0 else 0.0
+    shoulders_press_elo = (
+        continuous_score(shoulders_press_ratio, shoulders_thresholds)
+        if shoulders_press_ratio > 0 else 0.0
+    )
+    back_elo = continuous_score(back_ratio, back_thresholds) if back_ratio > 0 else 0.0
+    curl_elo = continuous_score(curl_ratio, CURL_THRESHOLDS) if curl_ratio > 0 else 0.0
+    anchor_tricep_elo = (
+        continuous_score(anchor.ratio, arms_thresholds) if anchor.ratio > 0 else 0.0
+    )
+    tricep_iso_elo = (
+        continuous_score(tricep_iso_ratio, TRICEP_ISOLATION_THRESHOLDS)
+        if tricep_iso_ratio > 0 else 0.0
+    )
+
+    press_elo = max(chest_elo, shoulders_press_elo)
+    direct_tricep_elo = max(anchor_tricep_elo, tricep_iso_elo)
+
+    # Biceps and triceps each renormalize inside themselves: a pure-curl
+    # lifter gets full biceps credit, a pure-dip lifter gets full triceps
+    # credit. The arms-level blend then averages the two heads at 50/50
+    # *without* renormalization — missing one head (e.g. pure bench and no
+    # pull work) costs roughly half a tier, reflecting that biceps and
+    # triceps are both parts of "arms".
+    biceps_elo = _weighted_avg_present([(0.7, back_elo), (0.3, curl_elo)])
+    triceps_elo = _weighted_avg_present([(0.7, press_elo), (0.3, direct_tricep_elo)])
+    arms_elo = 0.5 * biceps_elo + 0.5 * triceps_elo
+
+    # No usable data anywhere → Copper V / no_data. Matches the caller's
+    # snap-to-Copper-on-zero contract in `recompute_for_user`.
+    if arms_elo <= 0:
+        return (_Result(0.0, "Copper", "no_data"), {
+            "back_elo": 0.0, "curl_elo": 0.0, "press_elo": 0.0,
+            "direct_tricep_elo": 0.0, "arms_elo": 0.0,
+        })
+
+    tier, _sub = tier_sub_from_elo(arms_elo)
+    # Reverse-map to an equivalent arms-threshold ratio so the Profile
+    # progress bar computation lines up with the blended tier.
+    pseudo_ratio = elo_to_ratio(arms_elo, arms_thresholds)
+
+    # Pick the richest source label we can — weight each pathway's ELO by
+    # its full-arms contribution (0.5 × within-head-weight) so the dominant
+    # contributor to the blended rank wins the label.
+    contributions = [
+        ("back",          0.5 * 0.7 * back_elo),
+        ("curl",          0.5 * 0.3 * curl_elo),
+        ("press",         0.5 * 0.7 * press_elo),
+        ("direct_tricep", 0.5 * 0.3 * direct_tricep_elo),
+    ]
+    contributions.sort(key=lambda t: t[1], reverse=True)
+    top = contributions[0][0]
+    label_map = {
+        "back":          "hybrid:back-anchor",
+        "curl":          f"hybrid:curl:{curl_source or 'n/a'}",
+        "press":         "hybrid:press-anchor",
+        "direct_tricep": anchor.source if anchor_tricep_elo >= tricep_iso_elo else (tricep_iso_source or "hybrid:tricep-iso"),
+    }
+    source = label_map.get(top, "hybrid")
+
+    breakdown = {
+        "back_elo":         round(back_elo, 1),
+        "curl_elo":         round(curl_elo, 1),
+        "press_elo":        round(press_elo, 1),
+        "direct_tricep_elo": round(direct_tricep_elo, 1),
+        "biceps_elo":       round(biceps_elo, 1),
+        "triceps_elo":      round(triceps_elo, 1),
+        "arms_elo":         round(arms_elo, 1),
+    }
+    return (_Result(pseudo_ratio, tier, source), breakdown)
+
+
+def _compute_shoulders_hybrid(
+    db: Session,
+    user_id: int,
+    bw_kg: float,
+    cutoff: date,
+    *,
+    press_result: _Result,
+) -> tuple[_Result, dict]:
+    """Hybrid shoulders = 0.7 × press + 0.3 × lateral isolation."""
+    shoulders_thresholds = MUSCLE_RANK_THRESHOLDS["shoulders"]["thresholds"]
+
+    lateral_ratio, lateral_source = _best_isolation_ratio(
+        db, user_id, bw_kg, cutoff, SHOULDERS_LATERAL_ISOLATION,
+    )
+
+    press_elo = (
+        continuous_score(press_result.ratio, shoulders_thresholds)
+        if press_result.ratio > 0 else 0.0
+    )
+    lateral_elo = (
+        continuous_score(lateral_ratio, LATERAL_THRESHOLDS)
+        if lateral_ratio > 0 else 0.0
+    )
+
+    w = HYBRID_WEIGHTS["shoulders"]
+    shoulders_elo = _weighted_avg_present([
+        (w["press"],   press_elo),
+        (w["lateral"], lateral_elo),
+    ])
+
+    if shoulders_elo <= 0:
+        return (_Result(0.0, "Copper", "no_data"), {
+            "press_elo": 0.0, "lateral_elo": 0.0, "shoulders_elo": 0.0,
+        })
+
+    tier, _sub = tier_sub_from_elo(shoulders_elo)
+    pseudo_ratio = elo_to_ratio(shoulders_elo, shoulders_thresholds)
+    source = press_result.source if press_elo >= lateral_elo else (lateral_source or "hybrid:lateral")
+    breakdown = {
+        "press_elo":     round(press_elo, 1),
+        "lateral_elo":   round(lateral_elo, 1),
+        "shoulders_elo": round(shoulders_elo, 1),
+    }
+    return (_Result(pseudo_ratio, tier, f"hybrid:{source}" if not source.startswith("hybrid:") else source), breakdown)
+
+
 def _compute_group(
     db: Session, user_id: int, group: str, bw_kg: float, cutoff: date,
 ) -> _Result:
@@ -365,15 +602,10 @@ def _compute_group(
             manual_added_key=MANUAL_1RM_KEY.get("back_added"),
             compound_map=BACK_ROWS_PULLDOWNS,
         )
-    if group == "arms":
-        return _best_weighted_calisthenic(
-            db, user_id, "arms", bw_kg, cutoff,
-            weighted=ARMS_WEIGHTED_DIPS,
-            bodyweight=ARMS_BODYWEIGHT_DIPS,
-            close_grip_fallback=ARMS_CLOSE_GRIP_BENCH,
-            manual_added_key=MANUAL_1RM_KEY.get("arms_added"),
-            compound_map=ARMS_TRICEP_COMPOUND,
-        )
+    if group == "arms" or group == "shoulders":
+        # These use hybrid scoring and are handled in `recompute_for_user`
+        # because they depend on the other groups' ratios.
+        return _Result(0.0, "Copper", "hybrid_placeholder")
     return _best_barbell_ratio(db, user_id, group, bw_kg, cutoff)
 
 
@@ -400,10 +632,36 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
         for ms in db.query(MuscleScore).filter(MuscleScore.user_id == user_id).all()
     }
 
+    # Pass 1: compute single-pathway anchors (chest, quads, hamstrings, back,
+    # shoulder-press). Arms and shoulders need these to blend isolation work.
+    anchor_results: dict[str, _Result] = {}
+    if bw is not None:
+        for anchor_group in ("chest", "quads", "hamstrings", "back"):
+            anchor_results[anchor_group] = _compute_group(db, user_id, anchor_group, bw, cutoff)
+        # shoulder-press is the raw OHP/DB-press pathway, sourced from
+        # EXERCISE_MAP["shoulders"] — it's the input to the shoulders hybrid.
+        anchor_results["shoulders_press"] = _best_barbell_ratio(
+            db, user_id, "shoulders", bw, cutoff,
+        )
+
     out: dict[str, dict] = {}
     for group in MVP_GROUPS:
         if bw is None:
             result = _Result(0.0, "Copper", "missing_bodyweight")
+        elif group == "arms":
+            result, _breakdown = _compute_arms_hybrid(
+                db, user_id, bw, cutoff,
+                chest_ratio=anchor_results["chest"].ratio,
+                shoulders_press_ratio=anchor_results["shoulders_press"].ratio,
+                back_ratio=anchor_results["back"].ratio,
+            )
+        elif group == "shoulders":
+            result, _breakdown = _compute_shoulders_hybrid(
+                db, user_id, bw, cutoff,
+                press_result=anchor_results["shoulders_press"],
+            )
+        elif group in anchor_results:
+            result = anchor_results[group]
         else:
             result = _compute_group(db, user_id, group, bw, cutoff)
 
