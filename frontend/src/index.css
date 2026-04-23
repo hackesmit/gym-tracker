@@ -7,9 +7,10 @@
 
      1. MINIMAL MODE (default)
         Editorial, dark, serif-led. 13 accent presets defined in
-        `src/theme/presets.js`. Only `--color-accent` and
-        `--color-accent-ink` are written by JS; tint/border/light/dark
-        derive automatically via color-mix in `:root`.
+        `src/theme/presets.js`. JS writes 4 vars on <html>:
+        --color-accent, --color-accent-ink, --color-accent-tint,
+        --color-accent-border. --color-accent-light/dark + primary
+        mirrors derive from those via color-mix in `:root`.
 
      2. LOTR MODE (opt-in, editorial)
         Same flat editorial surfaces as minimal. Five Middle-earth

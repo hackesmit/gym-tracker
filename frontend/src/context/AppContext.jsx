@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { getPrograms } from '../api/client';
 import { useAuth } from './AuthContext';
 import { kgToDisplay, getUnitLabel } from '../utils/units';
-import { MINIMAL_PRESETS, THEME_KEYS, hexToRgba, getPreset } from '../theme/presets';
+import { THEME_KEYS, hexToRgba, getPreset } from '../theme/presets';
 
 const AppContext = createContext();
 
