@@ -120,7 +120,7 @@ export default function Profile() {
       }
     };
     load();
-  }, [user]);
+  }, [user?.id]);
 
   if (loading) return <LoadingSpinner />;
   if (err) return <p className="text-sm text-danger">{err}</p>;
