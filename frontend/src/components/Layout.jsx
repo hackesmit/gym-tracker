@@ -1,12 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle,
-  Home, Target, ClipboardList, TrendingUp, BarChart3, Leaf, BookOpen, Calendar, Award, Settings as SettingsIcon,
+  Menu, X, LogOut, Heart, Users, User as UserIcon,
+  Home, Target, ClipboardList, BarChart3, Calendar, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
-  TodaysQuest, EyeOfSauron, Lembas,
-  Chronicle as ChronicleIcon, SettingsGear,
+  TodaysQuest, EyeOfSauron,
+  SettingsGear,
 } from './LotrIcons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -43,24 +43,16 @@ function makePngNav(src) {
 
 const NavHornBlow = makePngNav('/lotr/nav-horn-blow.png');
 const NavAxe      = makePngNav('/lotr/nav-axe.png');
-const NavEye      = makePngNav('/lotr/nav-eye.png');
 const NavHorn     = makePngNav('/lotr/nav-horn.png');
-const NavHand     = makePngNav('/lotr/nav-hand.png');
 
 const lotrNavItems = [
   { to: '/',              icon: TodaysQuest,   labelKey: 'nav.dashboard' },
   { to: '/tracker',       icon: EyeOfSauron,   labelKey: 'nav.tracker' },
   { to: '/log',           icon: NavHornBlow,   labelKey: 'nav.log' },
-  { to: '/progress',      icon: NavAxe,        labelKey: 'nav.progress' },
-  { to: '/analytics',     icon: NavEye,        labelKey: 'nav.analytics' },
-  { to: '/recovery',      icon: Lembas,        labelKey: 'nav.recovery' },
-  { to: '/history',       icon: ChronicleIcon, labelKey: 'nav.chronicle' },
+  { to: '/stats',         icon: NavAxe,        labelKey: 'nav.stats' },
   { to: '/program',       icon: NavHorn,       labelKey: 'nav.program' },
-  { to: '/achievements',  icon: NavHand,       labelKey: 'nav.achievements' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
-  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
-  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/social',        icon: Users,         labelKey: 'nav.social' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsGear,  labelKey: 'nav.settings' },
 ];
@@ -69,16 +61,10 @@ const neutralNavItems = [
   { to: '/',              icon: Home,          labelKey: 'nav.dashboard' },
   { to: '/tracker',       icon: Target,        labelKey: 'nav.tracker' },
   { to: '/log',           icon: ClipboardList, labelKey: 'nav.log' },
-  { to: '/progress',      icon: TrendingUp,    labelKey: 'nav.progress' },
-  { to: '/analytics',     icon: BarChart3,     labelKey: 'nav.analytics' },
-  { to: '/recovery',      icon: Leaf,          labelKey: 'nav.recovery' },
-  { to: '/history',       icon: BookOpen,      labelKey: 'nav.history' },
+  { to: '/stats',         icon: BarChart3,     labelKey: 'nav.stats' },
   { to: '/program',       icon: Calendar,      labelKey: 'nav.program' },
-  { to: '/achievements',  icon: Award,         labelKey: 'nav.achievements' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
-  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
-  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/social',        icon: Users,         labelKey: 'nav.social' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsIcon,  labelKey: 'nav.settings' },
 ];
@@ -115,7 +101,7 @@ export default function Layout() {
             <AppLogo /> {appName}
           </h1>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav aria-label="Primary" className="flex-1 p-2 space-y-0.5">
           {navItems.map(({ to, icon: Icon, labelKey }) => (
             <NavLink
               key={to}
@@ -188,7 +174,7 @@ export default function Layout() {
       {/* Mobile nav overlay */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileOpen(false)}>
-          <nav className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
+          <nav aria-label="Mobile menu" className="absolute top-14 left-0 right-0 bg-surface border-b border-surface-lighter p-3 space-y-0.5"
                onClick={(e) => e.stopPropagation()}>
             {navItems.map(({ to, icon: Icon, labelKey }) => (
               <NavLink

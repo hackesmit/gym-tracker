@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
@@ -11,7 +11,6 @@ import Tracker from './pages/Tracker';
 import Logger from './pages/Logger';
 import Progress from './pages/Progress';
 import Analytics from './pages/Analytics';
-import Recovery from './pages/Recovery';
 import History from './pages/History';
 import Program from './pages/Program';
 import Settings from './pages/Settings';
@@ -23,7 +22,20 @@ import Friends from './pages/Friends';
 import Compare from './pages/Compare';
 import Medals from './pages/Medals';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Chat from './pages/Chat';
+import StatsHub from './pages/hubs/StatsHub';
+import ProfileHub from './pages/hubs/ProfileHub';
+import SocialHub from './pages/hubs/SocialHub';
+
+// Index route of the /profile hub.
+// Redirects ?userId=N → /users/N; bare /profile → /profile/me (relative "me").
+function ProfileQueryRedirect() {
+  const [params] = useSearchParams();
+  const uid = params.get('userId');
+  if (uid) return <Navigate to={`/users/${uid}`} replace />;
+  return <Navigate to="me" replace />;
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -46,18 +58,34 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/tracker" element={<Tracker />} />
                 <Route path="/log" element={<Logger />} />
-                <Route path="/progress" element={<Progress />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/recovery" element={<Recovery />} />
-                <Route path="/history" element={<History />} />
+                <Route path="/stats" element={<StatsHub />}>
+                  <Route index element={<Navigate to="progress" replace />} />
+                  <Route path="progress"  element={<Progress />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="history"   element={<History />} />
+                </Route>
+                <Route path="/progress"  element={<Navigate to="/stats/progress"  replace />} />
+                <Route path="/analytics" element={<Navigate to="/stats/analytics" replace />} />
+                <Route path="/history"   element={<Navigate to="/stats/history"   replace />} />
                 <Route path="/program" element={<Program />} />
-                <Route path="/achievements" element={<Achievements />} />
+                <Route path="/profile" element={<ProfileHub />}>
+                  <Route index element={<ProfileQueryRedirect />} />
+                  <Route path="me"           element={<Profile />} />
+                  <Route path="achievements" element={<Achievements />} />
+                  <Route path="medals"       element={<Medals />} />
+                </Route>
+                <Route path="/achievements" element={<Navigate to="/profile/achievements" replace />} />
+                <Route path="/medals"       element={<Navigate to="/profile/medals"       replace />} />
                 <Route path="/cardio" element={<Cardio />} />
-                <Route path="/friends" element={<Friends />} />
+                <Route path="/social" element={<SocialHub />}>
+                  <Route index element={<Navigate to="friends" replace />} />
+                  <Route path="friends" element={<Friends />} />
+                  <Route path="chat"    element={<Chat />} />
+                </Route>
+                <Route path="/friends" element={<Navigate to="/social/friends" replace />} />
+                <Route path="/chat"    element={<Navigate to="/social/chat"    replace />} />
                 <Route path="/compare" element={<Compare />} />
-                <Route path="/medals" element={<Medals />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/chat" element={<Chat />} />
+                <Route path="/users/:id" element={<UserProfile />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
             </Routes>

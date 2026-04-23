@@ -20,13 +20,13 @@ Reduce the sidebar to 9 top-level items by grouping redundant destinations into 
 
 ```
 Dashboard       /
-Log             /log
 Tracker         /tracker
+Log             /log
+Stats           /stats      →  Progress · Analytics · History
 Program         /program
 Cardio          /cardio
-Stats           /stats      →  Progress · Analytics · History
-Profile         /profile    →  Profile · Achievements · Medals
 Social          /social     →  Friends · Chat
+Profile         /profile    →  Profile · Achievements · Medals
 Settings        /settings
 ```
 

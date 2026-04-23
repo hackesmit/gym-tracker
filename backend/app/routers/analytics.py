@@ -1,4 +1,4 @@
-"""Analytics API endpoints — progress, volume, strength standards, recovery, overload."""
+"""Analytics API endpoints — progress, volume, strength standards, overload."""
 
 from typing import Optional
 
@@ -73,21 +73,6 @@ def strength_standards(
         return get_strength_standards(db, user_id=current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-
-
-@router.get("/recovery")
-def recovery_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Recovery status and per-muscle-group fatigue."""
-    try:
-        return get_recovery_status(db, user_id=current_user.id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=str(exc) or "Log body metrics to get recovery insights.",
-        )
 
 
 @router.get("/overload-plan")

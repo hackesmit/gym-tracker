@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Dumbbell, Trophy, Target, ArrowRight, AlertTriangle, RefreshCw,
+  Dumbbell, Trophy, Target, ArrowRight, RefreshCw,
   Calendar, Flame, Award,
 } from 'lucide-react';
 import Card from '../components/Card';
@@ -87,7 +87,6 @@ export default function Dashboard() {
   const today = data?.today_quest;
   const week = data?.week_stats || {};
   const prs = data?.recent_prs || [];
-  const recovery = data?.recovery_flag;
   const medalSummary = data?.medal_summary || {};
   const medals = Array.isArray(medalSummary) ? medalSummary : (medalSummary.top_medals || []);
   const rawRanks = data?.muscle_ranks;
@@ -164,7 +163,7 @@ export default function Dashboard() {
 
       {/* Medals + Muscle ranks */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title={t('dashboard.medalShowcase')} action={<Link to="/medals" className="text-xs text-accent flex items-center gap-1">{t('common.all')} <ArrowRight size={12} /></Link>}>
+        <Card title={t('dashboard.medalShowcase')} action={<Link to="/profile/medals" className="text-xs text-accent flex items-center gap-1">{t('common.all')} <ArrowRight size={12} /></Link>}>
           {medals.length ? (
             <ul className="space-y-2">
               {medals.slice(0, 3).map((m, i) => (
@@ -211,7 +210,7 @@ export default function Dashboard() {
               {lotr ? <Sword size={16} className="text-accent" /> : <Trophy size={16} className="text-accent" />}
               <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">{t('dashboard.recentPRs')}</h3>
             </div>
-            <Link to="/achievements" className="text-xs text-accent flex items-center gap-1">
+            <Link to="/profile/achievements" className="text-xs text-accent flex items-center gap-1">
               {t('common.viewAll')} <ArrowRight size={12} />
             </Link>
           </div>
@@ -229,19 +228,6 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
-      )}
-
-      {/* Recovery flag */}
-      {recovery?.warning && (
-        <div className="stone-panel p-5">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={20} className="text-warning mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-warning uppercase tracking-wider mb-2">Recovery notice</h3>
-              <p className="text-sm text-text-muted">{recovery.message || recovery.warning}</p>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Feed */}

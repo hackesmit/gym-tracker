@@ -127,19 +127,6 @@ def get_dashboard(
         for a in prs
     ]
 
-    # Recovery flag (placeholder: true if <=0 sessions in last 3 days & prior heavy volume)
-    recovery_flag = None
-    last3 = (
-        db.query(func.count(SessionLog.id))
-        .filter(
-            SessionLog.user_id == uid,
-            SessionLog.date >= (today - timedelta(days=3)),
-            SessionLog.status == "completed",
-        )
-        .scalar()
-    ) or 0
-    recovery_flag = "rested" if last3 == 0 else "active"
-
     # Medal summary
     owned = (
         db.query(MedalCurrentHolder, Medal)
@@ -202,7 +189,6 @@ def get_dashboard(
             "streak_days": streak_days,
         },
         "recent_prs": recent_prs,
-        "recovery_flag": recovery_flag,
         "medal_summary": medal_summary,
         "muscle_ranks": muscle_ranks,
         "feed": feed,
