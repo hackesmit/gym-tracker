@@ -26,6 +26,7 @@ import UserProfile from './pages/UserProfile';
 import Chat from './pages/Chat';
 import StatsHub from './pages/hubs/StatsHub';
 import ProfileHub from './pages/hubs/ProfileHub';
+import SocialHub from './pages/hubs/SocialHub';
 
 // Index route of the /profile hub.
 // Redirects ?userId=N → /users/N; bare /profile → /profile/me (relative "me").
@@ -76,10 +77,15 @@ export default function App() {
                 <Route path="/achievements" element={<Navigate to="/profile/achievements" replace />} />
                 <Route path="/medals"       element={<Navigate to="/profile/medals"       replace />} />
                 <Route path="/cardio" element={<Cardio />} />
-                <Route path="/friends" element={<Friends />} />
+                <Route path="/social" element={<SocialHub />}>
+                  <Route index element={<Navigate to="friends" replace />} />
+                  <Route path="friends" element={<Friends />} />
+                  <Route path="chat"    element={<Chat />} />
+                </Route>
+                <Route path="/friends" element={<Navigate to="/social/friends" replace />} />
+                <Route path="/chat"    element={<Navigate to="/social/chat"    replace />} />
                 <Route path="/compare" element={<Compare />} />
                 <Route path="/users/:id" element={<UserProfile />} />
-                <Route path="/chat" element={<Chat />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
             </Routes>

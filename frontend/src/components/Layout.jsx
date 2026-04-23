@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  Menu, X, LogOut, Heart, Users, User as UserIcon, MessageCircle,
+  Menu, X, LogOut, Heart, Users, User as UserIcon,
   Home, Target, ClipboardList, BarChart3, Calendar, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -52,8 +52,7 @@ const lotrNavItems = [
   { to: '/stats',         icon: NavAxe,        labelKey: 'nav.stats' },
   { to: '/program',       icon: NavHorn,       labelKey: 'nav.program' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
-  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/social',        icon: Users,         labelKey: 'nav.social' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsGear,  labelKey: 'nav.settings' },
 ];
@@ -65,8 +64,7 @@ const neutralNavItems = [
   { to: '/stats',         icon: BarChart3,     labelKey: 'nav.stats' },
   { to: '/program',       icon: Calendar,      labelKey: 'nav.program' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
-  { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
+  { to: '/social',        icon: Users,         labelKey: 'nav.social' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsIcon,  labelKey: 'nav.settings' },
 ];
