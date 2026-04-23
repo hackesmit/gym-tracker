@@ -145,7 +145,7 @@ GET    /api/body-metrics/history     — Get body metrics over time
 GET    /api/analytics/progress/{exercise}    — Progress curve + projections for an exercise
 GET    /api/analytics/volume                 — Weekly volume per muscle group over time
 GET    /api/analytics/strength-standards     — Compare lifts to population percentiles
-GET    /api/analytics/recovery              — Recovery status and recommendations
+GET    /api/analytics/recovery              — Recovery status (internal use; not exposed in UI)
 GET    /api/analytics/overload-plan         — Next session's suggested loads/reps
 GET    /api/analytics/summary               — Dashboard summary stats
 ```
@@ -272,7 +272,6 @@ Also track per-muscle-group fatigue by counting sets in the last 7 days and comp
 #### Dashboard (`/`)
 - Today's workout at a glance (exercises, prescribed sets/reps/RPE, suggested loads based on last session)
 - Program progress bar (Week X of 12, Y% complete)
-- Recovery score gauge
 - Quick-log button for body metrics
 - Recent PRs
 - Training streak / consistency bar
@@ -380,12 +379,6 @@ def get_tracker_state(program_id):
 - **Muscle balance**: Push:Pull and Quad:Ham ratios displayed as gauges
 - **Body composition**: Bodyweight over time (line chart), overlaid with strength trends
 
-#### Recovery (`/recovery`)
-- Recovery score over time (line chart)
-- Per-muscle-group fatigue status (color-coded: green/yellow/red)
-- Sleep, soreness, stress trends
-- Recommendations panel
-
 #### Program View (`/program`)
 - Full program laid out week by week
 - Exercise details, notes, substitution options
@@ -446,7 +439,7 @@ Dev:
 7. Progressive overload suggestion algorithm
 8. Volume per muscle group calculator
 9. Strength standards comparison
-10. Recovery score calculator
+10. Recovery score calculator (internal; drives deload recommendations)
 
 **Phase 3 — Frontend:**
 11. Program Tracker view (the week grid, calendar, adherence stats) — build this early, it's the spine of the app
@@ -454,7 +447,7 @@ Dev:
 13. Dashboard
 14. Progress charts
 15. Analytics dashboard
-16. Recovery view
+16. ~~Recovery view~~ (removed — recovery logic kept internal for deload; no user-facing page)
 17. Program viewer
 
 **Phase 4 — Polish:**

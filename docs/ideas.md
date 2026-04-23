@@ -36,7 +36,7 @@ GitHub-style contribution heatmap showing training days over months. Quick visua
 Timeline view showing when each PR was set. "X days since last PR" motivation counter. Historical 1RM progression across all lifts on one chart. **Partial — Progress page has per-exercise e1RM charts and PR badges; cross-lift unified timeline not yet built.**
 
 ### Muscle Recovery Heatmap (Body Map) ✅
-Visual body outline with color-coded muscle groups (green = recovered, yellow = moderate, red = fatigued). More intuitive than the current table. **Shipped — `components/BodyMap.jsx` on Recovery, Dashboard, and Profile pages; colors driven by muscle ranks / fatigue.**
+Visual body outline with color-coded muscle groups (green = recovered, yellow = moderate, red = fatigued). More intuitive than the current table. **Shipped — `components/BodyMap.jsx` on Dashboard and Profile pages; colors driven by muscle ranks / fatigue. Recovery page removed (2026-04-22 nav consolidation).**
 
 ### Volume Periodization Tracking
 Show actual volume vs programmed volume per muscle group per mesocycle. Detect if you're consistently under/over-shooting prescribed volume.

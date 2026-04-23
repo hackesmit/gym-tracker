@@ -118,3 +118,17 @@ open (`end_date is None`). `get_active_vacation` hides the problem by returning
 the most recent, but stale open rows accumulate. Either reject a new POST
 while an open one exists, or auto-close the prior one on the new request.
 **Priority:** Low — no user-visible effect today.
+
+### O11. Friend profile UI renders `undefined` labels and hides medals/PRs
+**File:** `frontend/src/pages/UserProfile.jsx` (route `/users/:id`).
+`UserProfile.jsx` expects the shape returned by a full `/ranks/compare/:id`-style
+endpoint — fields `muscle_group`, `sub_index`, `sub_label`, `elo`, `thresholds`,
+`ratio`, plus `recent_prs`, `medals`, and total `elo`. The actual
+`/social/compare/:id` response returns only `{group, rank, score}` per rank and
+does not include `recent_prs` or `medals`. As a result, sub-tab labels show
+"undefined", total ELO shows 0, and the medals/PR sections never render.
+This bug predates the nav-consolidation split — it was carried over verbatim from
+the old combined `Profile.jsx` friend-view branch. Fix options: extend
+`/social/compare` to return the richer shape, or fetch `/ranks/compare/:id`
+alongside, or mount a dedicated endpoint.
+**Priority:** Medium — friend profile is visually broken for any user who visits it.

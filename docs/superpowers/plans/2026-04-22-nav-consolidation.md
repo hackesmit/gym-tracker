@@ -727,16 +727,16 @@ Remove the `MessageCircle` import from the `lucide-react` import line if it's no
 
 - [ ] **Step 6.5: Verify sidebar has exactly 9 items**
 
-Visually inspect both `lotrNavItems` and `neutralNavItems` in Layout.jsx. Each should contain exactly 9 entries in this order (top to bottom):
+Visually inspect both `lotrNavItems` and `neutralNavItems` in Layout.jsx. Each should contain exactly 9 entries in this order (top to bottom) — as built:
 
 1. `/` (Dashboard)
 2. `/tracker`
 3. `/log`
-4. `/program`
-5. `/cardio`
-6. `/stats`
-7. `/profile`
-8. `/social`
+4. `/stats`
+5. `/program`
+6. `/cardio`
+7. `/social`
+8. `/profile`
 9. `/settings`
 
 If the count differs, reconcile against this list.
@@ -859,3 +859,36 @@ git commit -m "chore: clean up unused imports + update internal links + docs for
 - Backend `analytics/recovery.py` module (internal callers in `deload.py` and leaderboard summary still use it).
 - Content of Log, Tracker, Program, Cardio, Dashboard, Settings pages.
 - Any changes to chart styling, copy, or data shapes within a sub-tab page.
+
+---
+
+## Post-implementation manual QA checklist
+
+Run through these manually in a browser after deploying. Each item is independent — tick off as you go.
+
+- [ ] Sidebar shows exactly 9 items (Dashboard, Tracker, Log, Stats, Program, Cardio, Social, Profile, Settings) in both LOTR and neutral themes.
+- [ ] Mobile hamburger menu shows all 9 items; opening and closing it works correctly on a narrow viewport.
+- [ ] Sub-tab strips on each hub scroll horizontally on narrow widths (no wrapping or overflow clipping).
+- [ ] Clicking Stats in the sidebar lands on `/stats/progress` (default sub-tab active).
+- [ ] Clicking Profile in the sidebar lands on `/profile/me` (default sub-tab active).
+- [ ] Clicking Social in the sidebar lands on `/social/friends` (default sub-tab active).
+- [ ] Browser back button navigates between sub-tabs within the same hub correctly.
+- [ ] Old paths redirect as expected:
+  - `/progress` → `/stats/progress`
+  - `/analytics` → `/stats/analytics`
+  - `/history` → `/stats/history`
+  - `/achievements` → `/profile/achievements`
+  - `/medals` → `/profile/medals`
+  - `/friends` → `/social/friends`
+  - `/chat` → `/social/chat`
+  - `/profile?userId=N` → `/users/N`
+- [ ] `/recovery` returns a 404 or "not found" state (no redirect — route was deleted).
+- [ ] Friend link from the Friends tab navigates to `/users/:id` (not `/profile?userId=`).
+- [ ] Dashboard medal showcase "All" link goes to `/profile/medals` (not `/medals`).
+- [ ] Dashboard recent PRs "View all" link goes to `/profile/achievements` (not `/achievements`).
+- [ ] Profile hub trophy case "View all" link goes to `/profile/medals` (not `/medals`).
+- [ ] Dashboard no longer shows any Recovery notice/warning banner.
+- [ ] Language toggle en → es translates sidebar labels AND hub sub-tab labels.
+- [ ] Language toggle es → en switches back correctly.
+- [ ] Realm toggle (LOTR mode) applies the realm accent color to the active sub-tab pill.
+- [ ] Realm cycle button still works in LOTR mode (Gondor → Rohan → Rivendell → Mordor → Shire → Gondor).

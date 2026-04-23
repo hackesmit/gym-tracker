@@ -43,26 +43,28 @@ const STRINGS = {
     'common.none': 'None',
     'common.send.short': 'Send',
 
-    // ─── Navigation ───
+    // ─── Navigation: sidebar ───
     'nav.dashboard': 'Dashboard',
     'nav.tracker': 'Tracker',
     'nav.log': 'Log Workout',
     'nav.stats': 'Stats',
-    'stats.progress': 'Progress',
-    'stats.analytics': 'Analytics',
-    'stats.history': 'History',
     'nav.program': 'Program',
     'nav.cardio': 'Cardio',
     'nav.social': 'Social',
-    'social.friends': 'Friends',
-    'social.chat': 'Chat',
     'nav.profile': 'Profile',
-    'profile.me': 'Profile',
-    'profile.achievements': 'Achievements',
-    'profile.medals': 'Medals',
     'nav.settings': 'Settings',
     'nav.signOut': 'Sign out',
     'app.name.neutral': 'Gym Tracker',
+
+    // ─── Navigation: hub sub-tabs ───
+    'stats.progress': 'Progress',
+    'stats.analytics': 'Analytics',
+    'stats.history': 'History',
+    'social.friends': 'Friends',
+    'social.chat': 'Chat',
+    'profile.me': 'Profile',
+    'profile.achievements': 'Achievements',
+    'profile.medals': 'Medals',
 
     // ─── Auth: Login ───
     'login.title': 'Sign in',
@@ -422,26 +424,28 @@ const STRINGS = {
     'common.none': 'Ninguno',
     'common.send.short': 'Enviar',
 
-    // ─── Navigation ───
+    // ─── Navigation: sidebar ───
     'nav.dashboard': 'Inicio',
     'nav.tracker': 'Calendario',
     'nav.log': 'Registrar entreno',
     'nav.stats': 'Estadísticas',
-    'stats.progress': 'Progreso',
-    'stats.analytics': 'Analíticas',
-    'stats.history': 'Historial',
     'nav.program': 'Programa',
     'nav.cardio': 'Cardio',
     'nav.social': 'Social',
-    'social.friends': 'Amigos',
-    'social.chat': 'Chat',
     'nav.profile': 'Perfil',
-    'profile.me': 'Perfil',
-    'profile.achievements': 'Logros',
-    'profile.medals': 'Medallas',
     'nav.settings': 'Ajustes',
     'nav.signOut': 'Cerrar sesión',
     'app.name.neutral': 'Gym Tracker',
+
+    // ─── Navigation: hub sub-tabs ───
+    'stats.progress': 'Progreso',
+    'stats.analytics': 'Analíticas',
+    'stats.history': 'Historial',
+    'social.friends': 'Amigos',
+    'social.chat': 'Chat',
+    'profile.me': 'Perfil',
+    'profile.achievements': 'Logros',
+    'profile.medals': 'Medallas',
 
     // ─── Auth: Login ───
     'login.title': 'Iniciar sesión',

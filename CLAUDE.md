@@ -89,22 +89,26 @@ gym-tracker/
 │   │   │   └── RealmBorder.jsx        # Decorative dividers + PageHeader
 │   │   ├── pages/
 │   │   │   ├── Login.jsx | Register.jsx
-│   │   │   ├── Dashboard.jsx    # Today's Quest, ranks, PRs, streak, recovery, feed
+│   │   │   ├── Dashboard.jsx    # Today's Quest, ranks, PRs, streak, social feed
 │   │   │   ├── Tracker.jsx      # Grid/calendar session views + heatmap + adherence
 │   │   │   ├── Logger.jsx       # Log sets: auto-fill, warm-up, plates, dropsets, swap
 │   │   │   ├── Progress.jsx     # Per-exercise e1RM charts + PR badges + projections
 │   │   │   ├── Analytics.jsx    # Volume, tonnage, strength spider, DOTS, balance, BW
-│   │   │   ├── Recovery.jsx     # Recovery score breakdown + muscle fatigue map
 │   │   │   ├── History.jsx      # Chronicle: session browser with expandable details
 │   │   │   ├── Program.jsx      # Schedule, lifecycle, re-import, share code
 │   │   │   ├── Achievements.jsx # Hall of Heroes: PRs, all-time, milestones, badges
 │   │   │   ├── Cardio.jsx       # Log runs/bikes/rows + summary
 │   │   │   ├── Medals.jsx       # Medal catalog + current holders
 │   │   │   ├── Friends.jsx      # Find/request/accept friends + pending list
-│   │   │   ├── Profile.jsx      # Self or friend profile: BodyMap, medals, PRs
+│   │   │   ├── Profile.jsx      # Self profile: BodyMap, medals, PRs (hub sub-tab /profile/me)
+│   │   │   ├── UserProfile.jsx  # Friend profile view at /users/:id
 │   │   │   ├── Compare.jsx      # Side-by-side compare with a friend
 │   │   │   ├── Chat.jsx         # Global chat (system + user messages)
-│   │   │   └── Settings.jsx     # Theme, units, rest timer, manual 1RM, export, language
+│   │   │   ├── Settings.jsx     # Theme, units, rest timer, manual 1RM, export, language
+│   │   │   └── hubs/
+│   │   │       ├── StatsHub.jsx    # /stats hub → Progress · Analytics · History
+│   │   │       ├── ProfileHub.jsx  # /profile hub → Profile · Achievements · Medals
+│   │   │       └── SocialHub.jsx   # /social hub → Friends · Chat
 │   │   ├── i18n.js                    # English + Spanish string table
 │   │   ├── utils/units.js             # kg↔lbs conversion (with vitest coverage)
 │   │   └── hooks/
@@ -129,22 +133,16 @@ gym-tracker/
 | Route | Page | Purpose |
 |---|---|---|
 | `/login`, `/register` | Auth | Username/password auth |
-| `/` | Dashboard | Today's Quest, week stats, PRs, muscle ranks, recovery, social feed |
+| `/` | Dashboard | Today's Quest, week stats, PRs, muscle ranks, social feed |
 | `/tracker` | Tracker | Grid/calendar session views, training heatmap, adherence |
 | `/log` | Logger | Log sets/reps/weight, auto-fill, warm-up, plate calc, dropsets, swap |
-| `/progress` | Progress | Per-exercise e1RM charts, PR badges, projections |
-| `/analytics` | Analytics | Volume, tonnage, strength standards spider, DOTS, balance, bodyweight |
-| `/recovery` | Recovery | Recovery score, component breakdown, muscle fatigue |
-| `/history` | Chronicle | Browse past sessions by date with expandable details + PR indicators |
+| `/stats`, `/stats/{progress,analytics,history}` | Stats hub | Per-exercise e1RM; volume/tonnage/DOTS/spider; session chronicle |
 | `/program` | Program | Schedule, lifecycle, re-import Excel, enable share code |
-| `/achievements` | Achievements | Hall of Heroes: PRs, all-time records, milestones, tiered badges |
 | `/cardio` | Cardio | Log runs/bikes/rows + summary |
-| `/medals` | Medals | Medal catalog + current holders |
-| `/friends` | Friends | Find/request/accept + pending list |
-| `/profile` | Profile (self) | BodyMap, medals, PRs, rank summary |
-| `/profile?userId=N` | Profile (friend) | Friend's profile via `/social/compare/:id` |
+| `/social`, `/social/{friends,chat}` | Social hub | Friend management + global chat |
+| `/profile`, `/profile/{me,achievements,medals}` | Profile hub | BodyMap + PRs; Hall of Heroes; medal catalog |
+| `/users/:id` | User profile | Friend's profile (ranks, medals, PRs) |
 | `/compare/:id` | Compare | Side-by-side friend comparison |
-| `/chat` | Chat | Global chat (user messages + system medal events) |
 | `/settings` | Settings | Theme, language, units, rest timer, manual 1RM, change username (captcha-gated), export, admin password reset |
 
 ## Preset programs (2026-04-21)
