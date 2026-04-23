@@ -25,15 +25,15 @@ import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import Chat from './pages/Chat';
 import StatsHub from './pages/hubs/StatsHub';
+import ProfileHub from './pages/hubs/ProfileHub';
 
-// Redirects /profile?userId=N → /users/N and bare /profile → /profile/me.
-// /profile/me is added in Task 5 (ProfileHub). Until then, bare /profile 404s,
-// which is acceptable — no UI link navigates to bare /profile without a userId.
+// Index route of the /profile hub.
+// Redirects ?userId=N → /users/N; bare /profile → /profile/me (relative "me").
 function ProfileQueryRedirect() {
   const [params] = useSearchParams();
   const uid = params.get('userId');
   if (uid) return <Navigate to={`/users/${uid}`} replace />;
-  return <Navigate to="/profile/me" replace />;
+  return <Navigate to="me" replace />;
 }
 
 function ProtectedRoute({ children }) {
@@ -67,12 +67,17 @@ export default function App() {
                 <Route path="/analytics" element={<Navigate to="/stats/analytics" replace />} />
                 <Route path="/history"   element={<Navigate to="/stats/history"   replace />} />
                 <Route path="/program" element={<Program />} />
-                <Route path="/achievements" element={<Achievements />} />
+                <Route path="/profile" element={<ProfileHub />}>
+                  <Route index element={<ProfileQueryRedirect />} />
+                  <Route path="me"           element={<Profile />} />
+                  <Route path="achievements" element={<Achievements />} />
+                  <Route path="medals"       element={<Medals />} />
+                </Route>
+                <Route path="/achievements" element={<Navigate to="/profile/achievements" replace />} />
+                <Route path="/medals"       element={<Navigate to="/profile/medals"       replace />} />
                 <Route path="/cardio" element={<Cardio />} />
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/compare" element={<Compare />} />
-                <Route path="/medals" element={<Medals />} />
-                <Route path="/profile" element={<ProfileQueryRedirect />} />
                 <Route path="/users/:id" element={<UserProfile />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/settings" element={<Settings />} />

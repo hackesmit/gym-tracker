@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  Menu, X, LogOut, Heart, Users, Trophy, User as UserIcon, MessageCircle,
-  Home, Target, ClipboardList, BarChart3, Calendar, Award, Settings as SettingsIcon,
+  Menu, X, LogOut, Heart, Users, User as UserIcon, MessageCircle,
+  Home, Target, ClipboardList, BarChart3, Calendar, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -44,7 +44,6 @@ function makePngNav(src) {
 const NavHornBlow = makePngNav('/lotr/nav-horn-blow.png');
 const NavAxe      = makePngNav('/lotr/nav-axe.png');
 const NavHorn     = makePngNav('/lotr/nav-horn.png');
-const NavHand     = makePngNav('/lotr/nav-hand.png');
 
 const lotrNavItems = [
   { to: '/',              icon: TodaysQuest,   labelKey: 'nav.dashboard' },
@@ -52,10 +51,8 @@ const lotrNavItems = [
   { to: '/log',           icon: NavHornBlow,   labelKey: 'nav.log' },
   { to: '/stats',         icon: NavAxe,        labelKey: 'nav.stats' },
   { to: '/program',       icon: NavHorn,       labelKey: 'nav.program' },
-  { to: '/achievements',  icon: NavHand,       labelKey: 'nav.achievements' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
   { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
   { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsGear,  labelKey: 'nav.settings' },
@@ -67,10 +64,8 @@ const neutralNavItems = [
   { to: '/log',           icon: ClipboardList, labelKey: 'nav.log' },
   { to: '/stats',         icon: BarChart3,     labelKey: 'nav.stats' },
   { to: '/program',       icon: Calendar,      labelKey: 'nav.program' },
-  { to: '/achievements',  icon: Award,         labelKey: 'nav.achievements' },
   { to: '/cardio',        icon: Heart,         labelKey: 'nav.cardio' },
   { to: '/friends',       icon: Users,         labelKey: 'nav.friends' },
-  { to: '/medals',        icon: Trophy,        labelKey: 'nav.medals' },
   { to: '/chat',          icon: MessageCircle, labelKey: 'nav.chat' },
   { to: '/profile',       icon: UserIcon,      labelKey: 'nav.profile' },
   { to: '/settings',      icon: SettingsIcon,  labelKey: 'nav.settings' },
