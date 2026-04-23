@@ -132,3 +132,31 @@ the old combined `Profile.jsx` friend-view branch. Fix options: extend
 `/social/compare` to return the richer shape, or fetch `/ranks/compare/:id`
 alongside, or mount a dedicated endpoint.
 **Priority:** Medium — friend profile is visually broken for any user who visits it.
+
+### O12. Theme flash-of-unthemed-content (FOUC) on first paint
+
+**Affects:** Users whose stored `gym-tracker-theme` preset is not `lime` (the
+default), especially visually distinct ones like `magenta`, `indigo`, `crimson`.
+
+**Symptom:** On first paint after a full page load, the UI briefly renders with
+the lime accent (from `@theme` defaults in `index.css`) before `AppProvider`'s
+`useEffect` reads localStorage and writes the stored preset's vars onto `<html>`.
+Typical visible duration: ~20–200ms depending on device.
+
+**Cause:** The theme-application logic lives in a `useEffect(() => ..., [])`
+inside `AppContext.jsx`, which fires after React commits — and therefore after
+the initial paint. The CSS fallback is lime because `@theme` only holds one
+default.
+
+**Known-not-broken:** Intra-session theme changes are fine (synchronous attribute
++ inline-var write in `applyTheme`). This only affects the initial load.
+
+**Options for remediation (future):**
+- Add a small blocking inline `<script>` to `frontend/index.html` that reads
+  localStorage and writes the 4 accent vars on `<html>` before the React bundle
+  loads. Standard "no-FOUC" pattern (next-themes, Tailwind dark-mode guide).
+  Requires inlining a 13-entry preset → hex map — keep in sync with
+  `src/theme/presets.js`.
+- Or: move the initial `applyTheme` call out of `useEffect` into a `useState`
+  initializer / module-level side effect. Partial fix; first React commit still
+  runs before first paint, so flash can still occur.

@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import RankBadge from '../components/RankBadge';
 import MedalBadge from '../components/MedalBadge';
 import TrainingCalendar from '../components/TrainingCalendar';
+import RankStandards from '../components/RankStandards';
 import { useAuth } from '../context/AuthContext';
 import {
   getRanks, getMyMedals, getCalendarOverview,
@@ -180,6 +181,11 @@ export default function Profile() {
         ) : (
           <p className="text-sm text-text-muted">{t('profile.noRanks') || 'No ranks yet — log a working set to start ranking up.'}</p>
         )}
+      </Card>
+
+      {/* Rank standards reference — expandable */}
+      <Card>
+        <RankStandards currentRanks={groups} />
       </Card>
 
       {/* Training calendar (self only) */}

@@ -16,6 +16,61 @@ from app.muscle_rank_config import (
 from app.rank_engine import MVP_GROUPS, aggregate_elo, recompute_for_user
 
 
+# ---------------------------------------------------------------------------
+# GET /api/ranks/standards — reference endpoint
+# ---------------------------------------------------------------------------
+
+def test_standards_returns_all_mvp_groups(db, client):
+    """GET /api/ranks/standards returns all 6 MVP groups with metric + thresholds."""
+    response = client.get("/api/ranks/standards")
+    assert response.status_code == 200
+    body = response.json()
+    group_keys = {g["key"] for g in body["groups"]}
+    assert group_keys == set(MVP_GROUPS)
+    for g in body["groups"]:
+        assert g.get("label")
+        assert g.get("metric")
+        assert isinstance(g.get("qualifying_exercises"), list)
+        assert isinstance(g.get("thresholds"), dict)
+
+
+def test_standards_tier_order_matches_rank_order(db, client):
+    """Tiers are returned in ascending Copper→Champion order with subdivision count."""
+    body = client.get("/api/ranks/standards").json()
+    assert body["tiers"] == RANK_ORDER
+    assert body["subdivisions_per_tier"] == SUBDIVISION_COUNT
+
+
+def test_standards_chest_thresholds_match_config(db, client):
+    """Chest thresholds in the payload match the config file byte-for-byte."""
+    body = client.get("/api/ranks/standards").json()
+    chest = next(g for g in body["groups"] if g["key"] == "chest")
+    assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
+
+
+def test_standards_back_and_arms_have_qualifying_exercises(db, client):
+    """Back and arms pull their qualifying exercises from pathway-specific catalogs."""
+    body = client.get("/api/ranks/standards").json()
+    back = next(g for g in body["groups"] if g["key"] == "back")
+    arms = next(g for g in body["groups"] if g["key"] == "arms")
+    # Sanity — each group should have at least a handful of named lifts
+    assert len(back["qualifying_exercises"]) >= 5
+    assert len(arms["qualifying_exercises"]) >= 5
+    # Spot-check: back should include a pullup variant; arms should include dips
+    assert any("PULLUP" in e or "PULL-UP" in e or "PULL UP" in e for e in back["qualifying_exercises"])
+    assert any("DIP" in e for e in arms["qualifying_exercises"])
+
+
+def test_standards_arms_includes_isolation_pools(db, client):
+    """Arms qualifying exercises include curl + tricep isolation pools the engine actually scores."""
+    body = client.get("/api/ranks/standards").json()
+    arms = next(g for g in body["groups"] if g["key"] == "arms")
+    exercises = arms["qualifying_exercises"]
+    # Spot-check: at least one curl variant and one tricep isolation variant
+    assert any("CURL" in e for e in exercises)
+    assert any("PRESSDOWN" in e or "TRICEPS EXTENSION" in e or "TRICEP EXTENSION" in e or "KICKBACK" in e for e in exercises)
+
+
 VALID_RANKS = set(RANK_ORDER)
 
 
