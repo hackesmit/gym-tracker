@@ -329,6 +329,9 @@ const STRINGS = {
     'profile.noRanks': 'No ranked muscles yet.',
     'profile.recentPRs': 'Recent PRs',
     'profile.failedLoad': 'Failed to load profile',
+    'profile.rankStandards.title':         'Rank standards',
+    'profile.rankStandards.subdivisions':  'Each non-Champion tier is subdivided into 5 equal slots (V → I). Champion is a single elite tier.',
+    'profile.rankStandards.qualifying':    'Qualifying exercises',
 
     // ─── Settings ───
     'settings.title': 'Settings',
@@ -725,6 +728,9 @@ const STRINGS = {
     'profile.noRanks': 'Aún no hay músculos con rango.',
     'profile.recentPRs': 'Récords recientes',
     'profile.failedLoad': 'Error al cargar perfil',
+    'profile.rankStandards.title':         'Estándares de rango',
+    'profile.rankStandards.subdivisions':  'Cada rango no-Campeón se subdivide en 5 niveles iguales (V → I). Campeón es un único rango de élite.',
+    'profile.rankStandards.qualifying':    'Ejercicios válidos',
 
     // ─── Settings ───
     'settings.title': 'Ajustes',
