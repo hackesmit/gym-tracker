@@ -21,6 +21,9 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 12. ~~Analytics empty data bug~~ — analytics hardcoded `user_id=1` but logging used `User.first()`. Fixed via `_default_user_id()` helper in analytics router.
 13. ~~Progressive overload queried only current week for previous weight~~ — now queries all weeks, newest first (commit `1033862`).
 14. ~~Re-uploading an Excel program silently stranded the user~~ — `ProgramUpload` now surfaces on Program page via a "Re-import from Excel" button, and the backend pauses any prior active program before creating the new one (commit `d2027aa`, 2026-04-21).
+15. ~~Manual 1RM saved in Settings never awarded strength medals~~ — `PATCH /api/manual-1rm` now calls `_update_holder()` for each saved category, mirroring the WorkoutLog path. Medal holders, feed events, and system chat messages all fire on Settings save (2026-04-21).
+16. ~~Mobile page titles too close to the fixed top bar~~ — main content padding bumped from `pt-16` to `pt-20` so the title clears the mobile header by ~28px instead of ~12px (2026-04-21).
+17. ~~Muscle ranks stuck on "Champion" after the 2026-04-21 engine rewrite~~ — `GET /api/ranks` and the dashboard now always call `recompute_for_user()` on read instead of only when the table is empty; stale rows from the old percentile engine no longer leak through (2026-04-21).
 
 ## Still Open
 
@@ -55,14 +58,22 @@ though the payload changed. Unrelated to rank/share work. Skipped/ignored in rec
 commits but still present in the suite.
 **Priority:** Low — rest of suite passes (55/56 as of 2026-04-21).
 
-### O5. Chat has no rooms
+### O5. Logger UI never sets `is_true_1rm_attempt`
+**Files:** `frontend/src/pages/Logger.jsx`, `backend/app/models.py` (`WorkoutLog.is_true_1rm_attempt`).
+The column exists and the backend's `check_strength_medals()` keys off it, but no
+frontend control ever sets it. In practice strength medals can only be awarded via
+Settings → Manual 1RM (workaround shipped 2026-04-21). Add a "True 1RM attempt"
+checkbox in the Logger to close the loop for in-workout 1RM tests.
+**Priority:** Low — Manual 1RM path covers the use case.
+
+### O6. Chat has no rooms
 An external session implemented room-aware chat with a WebSocket endpoint, but that
 work lived in an isolated environment and never reached `origin/master`. Current
 `backend/app/routers/chat.py` is global-only, polling-based (no WS). If rooms are
 wanted, the design needs to be re-implemented here.
 **Priority:** Feature, not bug.
 
-### O6. Dashboard "Week Streak" label shows a day count
+### O7. Dashboard "Week Streak" label shows a day count
 **Files:** `frontend/src/pages/Dashboard.jsx:161`, `backend/app/routers/dashboard.py:94-110`, `frontend/src/i18n.js` (`common.streak`).
 Label was renamed to "Week Streak" as part of the 2026-04-22 completion-based
 progression work, but Dashboard still reads `week.streak_days` — a count of
@@ -76,7 +87,7 @@ session/day for 5 days displays "5 Week Streak."
    "Streak" and keep the day count honest).
 **Priority:** Medium — user-visible inconsistency, not a crash.
 
-### O7. `_compute_streaks` current-streak freezes instead of breaking
+### O8. `_compute_streaks` current-streak freezes instead of breaking
 **File:** `backend/app/routers/tracker.py:190` (and the trailing `reversed(all_weeks)` walk at 204-212).
 `all_weeks` is built from the earliest to the **latest logged** date. If a user
 stops training, the trailing walk never considers weeks between their last log and
@@ -92,7 +103,7 @@ current_streak == 0" — would have caught this.
 **Priority:** Medium — the streak is a core gamification signal; a frozen streak
 is misleading.
 
-### O8. `missed: 0` is dead weight in tracker responses
+### O9. `missed: 0` is dead weight in tracker responses
 **Files:** `backend/app/routers/tracker.py:328, 805`.
 The `missed` / `total_missed` fields are kept "for backward compat" in
 `get_tracker` and `get_adherence`, but the frontend already dropped the `missed`
@@ -100,7 +111,7 @@ status icon from `Tracker.jsx` and nothing else reads the field. Remove it and
 any client that still references it.
 **Priority:** Low — cosmetic.
 
-### O9. No guard against overlapping open vacation periods
+### O10. No guard against overlapping open vacation periods
 **File:** `backend/app/routers/vacation.py` (`create_vacation`).
 Nothing prevents a user from creating a second vacation while one is still
 open (`end_date is None`). `get_active_vacation` hides the problem by returning

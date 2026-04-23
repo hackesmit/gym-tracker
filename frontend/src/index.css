@@ -177,6 +177,18 @@
 }
 
 /* ============================================================
+   MEDAL CATEGORY ACCENTS (consistent across realms)
+   Matches `Medals.html` design — red/orange · blue · green · purple.
+   Used by the medal grid, trophy case, and training calendar dots.
+   ============================================================ */
+:root {
+  --cat-strength:    #d96848;
+  --cat-endurance:   #4a9cd9;
+  --cat-consistency: #5aa36a;
+  --cat-performance: #9970d4;
+}
+
+/* ============================================================
    BASE STYLES
    ============================================================ */
 

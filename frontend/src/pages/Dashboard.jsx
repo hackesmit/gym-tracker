@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Dumbbell, Trophy, Target, ArrowRight, AlertTriangle, RefreshCw,
@@ -9,12 +9,11 @@ import ProgramUpload from '../components/ProgramUpload';
 import ImportSharedProgram from '../components/ImportSharedProgram';
 import NippardPresetPicker from '../components/NippardPresetPicker';
 import LoadingSpinner from '../components/LoadingSpinner';
+import RankBadge from '../components/RankBadge';
 import { useApp } from '../context/AppContext';
 import { getDashboard } from '../api/client';
 import { MapScroll, Sword, Ring, Torch } from '../components/LotrIcons';
 import { useT } from '../i18n';
-
-const BodyMap = lazy(() => import('../components/BodyMap'));
 
 const QUOTES = [
   { text: 'A day may come when the courage of men fails… but it is not this day.', author: 'Aragorn' },
@@ -183,13 +182,17 @@ export default function Dashboard() {
 
         <Card title={t('dashboard.muscleRanks')} action={<Link to="/profile" className="text-xs text-accent flex items-center gap-1">{t('nav.profile')} <ArrowRight size={12} /></Link>}>
           {topRanks.length ? (
-            <ul className="space-y-1.5 text-sm">
+            <ul className="space-y-2 text-sm">
               {topRanks.map(([muscle, v]) => {
                 const rank = typeof v === 'string' ? v : v.rank;
+                const subIdx = typeof v === 'object' ? (v.sub_index ?? 0) : 0;
+                const subLabel = typeof v === 'object' ? (v.sub_label ?? 'V') : 'V';
+                const fullRank = rank === 'Champion' ? 'Champion' : `${rank} ${subLabel}`;
                 return (
-                  <li key={muscle} className="flex justify-between">
-                    <span className="capitalize text-text-muted">{muscle}</span>
-                    <span className="font-medium">{rank}</span>
+                  <li key={muscle} className="flex items-center gap-2">
+                    <RankBadge rank={rank || 'Copper'} subIndex={subIdx} size={28} />
+                    <span className="capitalize text-text-muted flex-1">{muscle}</span>
+                    <span className="font-medium text-xs">{fullRank}</span>
                   </li>
                 );
               })}
@@ -199,17 +202,6 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
-
-      {/* Body map preview */}
-      {Object.keys(ranks).length > 0 && (
-        <Card title={t('dashboard.bodyMap')}>
-          <div className="flex justify-center">
-            <Suspense fallback={<div className="h-[300px] w-[200px] bg-surface-light rounded animate-pulse" />}>
-              <BodyMap ranks={ranks} size={220} />
-            </Suspense>
-          </div>
-        </Card>
-      )}
 
       {/* Recent PRs */}
       {prs.length > 0 && (

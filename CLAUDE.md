@@ -145,7 +145,63 @@ gym-tracker/
 | `/profile?userId=N` | Profile (friend) | Friend's profile via `/social/compare/:id` |
 | `/compare/:id` | Compare | Side-by-side friend comparison |
 | `/chat` | Chat | Global chat (user messages + system medal events) |
-| `/settings` | Settings | Theme, language, units, rest timer, manual 1RM, export, admin password reset |
+| `/settings` | Settings | Theme, language, units, rest timer, manual 1RM, change username (captcha-gated), export, admin password reset |
+
+## Preset programs (2026-04-21)
+Jeff Nippard's "The Essentials" ships as 4 importable presets covering every training
+frequency. They're owned by a synthetic `preset` user whose password hash is `!disabled!`
+(can never be logged into) and are permanently shared — any user can import by code.
+
+| Share code | Frequency | Style |
+|---|---|---|
+| `NIPPARD2` | 2× / week | Full-body minimalist |
+| `NIPPARD3` | 3× / week | Full-body classic |
+| `NIPPARD4` | 4× / week | Upper / lower split |
+| `NIPPARD5` | 5× / week | Push / pull / legs split |
+
+Seeding is idempotent (skip if `share_code` already exists) and runs on lifespan startup
+via `seed_preset_programs()` in `backend/app/seed_presets.py`. Fixtures live in
+`backend/app/fixtures/nippard_{2,3,4,5}x.json`. UI surface: `NippardPresetPicker`
+component on the Dashboard welcome panel and the no-active branch of the Program page.
+Reserved usernames `{preset, system, admin}` are rejected at register time. Friend
+requests to `preset` are refused.
+
+## Username change + CAPTCHA (2026-04-21)
+Users can rename themselves from Settings, gated by a medium-difficulty word problem
+(Sally-and-watermelons style). Challenges are **stateless HMAC-signed JWTs** — no
+session storage. 5 problem templates in `backend/app/captcha.py`; payload
+`{"ans": int, "exp": +10min, "kind": "username_captcha"}` signed with `JWT_SECRET`.
+
+Endpoints:
+- `GET  /api/auth/username-captcha` → `{problem, challenge}`
+- `POST /api/auth/change-username` → body `{new_username, challenge, answer}`
+
+Reserved usernames are blocked. Duplicates are blocked. On wrong answer the UI
+auto-fetches a fresh problem. Covered by `tests/test_username_captcha.py` (6 tests).
+
+## Admin ops (2026-04-21)
+Admin-only endpoints gated by `ADMIN_USERNAMES = {"hackesmit"}` in
+`backend/app/routers/auth.py`:
+- `GET  /api/auth/admin-users` — list `{id, username, name}` of all users
+- `POST /api/auth/admin-reset` — set another user's password
+- `POST /api/auth/admin-wipe-user` — clear per-user data for a target (programs
+  + children, workout/session/cardio logs, achievements, muscle scores, body metrics,
+  vacation periods, feed events, chat messages, medal records + holders, friendships,
+  bodyweight/height/sex/birth_date/training_age/manual_1rm). **Preserves** the User row
+  + username + password so the target can still log in. Refuses admin and preset
+  targets. Covered by `tests/test_admin_wipe.py` (4 tests).
+
+## Medal awarding (2026-04-21 fix)
+Strength medals (`strength_1rm:bench|squat|deadlift|ohp`) are awarded by
+`check_strength_medals()` in `backend/app/medal_engine.py` when a `WorkoutLog` has
+`is_true_1rm_attempt=True` + `completed_successfully=True` + `reps_completed=1`. The
+Logger UI does not currently expose the `is_true_1rm_attempt` flag.
+
+**Settings → Manual 1RM now also fires the medal engine.** Each category saved via
+`PATCH /api/manual-1rm` routes through `_update_holder()` with
+`source_type="manual_1rm"`, so users can claim strength medals without logging a
+live attempt. Existing `manual_1rm` values saved before this fix won't retroactively
+award — a re-save kicks it off.
 
 ## Program sharing (2026-04-21)
 A user can enable sharing on any of their programs to get an 8-character uppercase share code.

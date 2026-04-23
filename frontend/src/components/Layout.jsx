@@ -219,7 +219,7 @@ export default function Layout() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6 overflow-x-hidden overflow-y-auto">
+      <main className="flex-1 p-4 pt-20 md:p-6 md:pt-6 overflow-x-hidden overflow-y-auto">
         <Outlet />
       </main>
     </div>

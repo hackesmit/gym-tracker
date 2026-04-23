@@ -91,8 +91,8 @@ Build a program from scratch in-app instead of requiring Excel upload. Drag-and-
 ### Deload Week Auto-Generator
 When deload is recommended, auto-generate a deload week: same exercises at 60% load, 50% volume. One-tap to insert into schedule.
 
-### Program Templates Library
-Pre-built popular programs (5/3/1, GZCLP, PPL, Upper/Lower) that can be imported without an Excel file.
+### Program Templates Library 🚧
+Pre-built popular programs (5/3/1, GZCLP, PPL, Upper/Lower) that can be imported without an Excel file. **Partial — Nippard "The Essentials" ships as 4 presets (NIPPARD2/3/4/5 share codes, 2×/3×/4×/5× frequency) seeded on startup and importable from Dashboard or Program page. Other programs still open.**
 
 ---
 

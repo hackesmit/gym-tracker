@@ -2,9 +2,26 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
-import BodyMap from '../components/BodyMap';
+import RankBadge from '../components/RankBadge';
 import { getCompare } from '../api/client';
 import { useT } from '../i18n';
+
+const MUSCLE_LABELS = {
+  chest: 'Chest', back: 'Back', shoulders: 'Shoulders',
+  quads: 'Quads', hamstrings: 'Hamstrings', arms: 'Arms',
+};
+
+function normalizeRanks(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (!raw) return [];
+  return Object.entries(raw).map(([k, v]) => ({
+    muscle_group: k,
+    rank: typeof v === 'string' ? v : v?.rank,
+    sub_index: v?.sub_index ?? 0,
+    sub_label: v?.sub_label ?? 'V',
+    elo: v?.elo ?? 0,
+  }));
+}
 
 export default function Compare() {
   const t = useT();
@@ -29,15 +46,10 @@ export default function Compare() {
 
   const me = data.me || data.self || {};
   const friend = data.friend || data.them || data.other || {};
-
-  const normalizeRanks = (raw) => {
-    if (Array.isArray(raw)) {
-      return Object.fromEntries(raw.map((r) => [r.group || r.muscle_group, { rank: r.rank, score: r.score }]));
-    }
-    return raw || {};
-  };
   const meRanks = normalizeRanks(me.muscle_ranks);
   const friendRanks = normalizeRanks(friend.muscle_ranks);
+  const meElo = Math.round(me.elo_total ?? meRanks.reduce((a, r) => a + (r.elo || 0), 0));
+  const friendElo = Math.round(friend.elo_total ?? friendRanks.reduce((a, r) => a + (r.elo || 0), 0));
 
   return (
     <div className="space-y-6">
@@ -46,54 +58,51 @@ export default function Compare() {
       </h2>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <StatBlock title={me.username || 'You'} stats={me} ranks={meRanks} />
-        <StatBlock title={friend.username || 'Friend'} stats={friend} ranks={friendRanks} />
+        <StatBlock title={me.username || 'You'} stats={me} ranks={meRanks} totalElo={meElo} />
+        <StatBlock title={friend.username || 'Friend'} stats={friend} ranks={friendRanks} totalElo={friendElo} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title={`${me.username || 'You'} — Body map`}>
-          <div className="flex justify-center">
-            <BodyMap ranks={meRanks} size={280} />
-          </div>
-        </Card>
-        <Card title={`${friend.username || 'Friend'} — Body map`}>
-          <div className="flex justify-center">
-            <BodyMap ranks={friendRanks} size={280} />
-          </div>
-        </Card>
+        <RankGrid title={`${me.username || 'You'} — muscle ranks`} ranks={meRanks} />
+        <RankGrid title={`${friend.username || 'Friend'} — muscle ranks`} ranks={friendRanks} />
       </div>
     </div>
   );
 }
 
-function StatBlock({ title, stats, ranks = {} }) {
-  const topRanks = Object.entries(ranks)
-    .filter(([, v]) => v && (v.rank || typeof v === 'string'))
-    .slice(0, 3);
+function StatBlock({ title, stats, ranks = [], totalElo = 0 }) {
   return (
     <Card title={title}>
       <div className="grid grid-cols-2 gap-3 text-sm">
+        <Stat label="Total ELO" value={totalElo.toLocaleString()} />
         <Stat label="Volume 30d" value={stats.volume_30d != null ? Math.round(stats.volume_30d).toLocaleString() : '--'} />
         <Stat label="Sessions 30d" value={stats.sessions_30d ?? '--'} />
         <Stat label="Cardio km 30d" value={stats.cardio_km_30d != null ? stats.cardio_km_30d.toFixed(1) : '--'} />
         <Stat label="Medals owned" value={stats.medals_owned ?? '--'} />
       </div>
-      {topRanks.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-surface-lighter">
-          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Top ranks</p>
-          <ul className="space-y-1 text-sm">
-            {topRanks.map(([muscle, v]) => {
-              const rank = typeof v === 'string' ? v : v.rank;
-              return (
-                <li key={muscle} className="flex justify-between">
-                  <span className="capitalize">{muscle}</span>
-                  <span className="font-medium">{rank}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+    </Card>
+  );
+}
+
+function RankGrid({ title, ranks }) {
+  if (!ranks.length) return (
+    <Card title={title}><p className="text-sm text-text-muted">No ranks yet.</p></Card>
+  );
+  return (
+    <Card title={title}>
+      <div className="grid grid-cols-2 gap-3">
+        {ranks.map((r) => (
+          <div key={r.muscle_group} className="flex items-center gap-2 bg-surface-light rounded-lg px-2 py-2">
+            <RankBadge rank={r.rank || 'Copper'} subIndex={r.sub_index || 0} size={36} />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted truncate">{MUSCLE_LABELS[r.muscle_group] || r.muscle_group}</p>
+              <p className="text-xs font-semibold truncate">
+                {r.rank === 'Champion' ? 'Champion' : `${r.rank || 'Copper'} ${r.sub_label || 'V'}`}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }

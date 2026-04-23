@@ -218,6 +218,8 @@ export const advanceTracker = (pid) =>
   request(`/tracker/${pid}/advance`, { method: 'PATCH' });
 export const getCalendar = (pid) => request(`/tracker/${pid}/calendar`);
 export const getAdherence = (pid) => request(`/tracker/${pid}/adherence`);
+export const getCalendarOverview = (days = 90) =>
+  request(`/tracker/calendar-overview?days=${days}`);
 
 // Workout
 export const getWorkoutToday = () => request('/workout/today');

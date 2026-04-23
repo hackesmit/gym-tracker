@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
+import DurationPicker, { formatDuration, splitDuration, combineDuration } from '../components/DurationPicker';
 import { listCardio, createCardio, updateCardio, deleteCardio, getCardioSummary } from '../api/client';
 import { Trash2, Pencil } from 'lucide-react';
 import { useT } from '../i18n';
@@ -10,7 +11,8 @@ const MODALITIES = ['run', 'bike', 'swim', 'other'];
 const emptyForm = () => ({
   date: new Date().toISOString().slice(0, 10),
   modality: 'run',
-  duration_minutes: '',
+  duration_min: 0,
+  duration_sec: 0,
   distance_km: '',
   elevation_m: '',
   avg_hr: '',
@@ -52,10 +54,11 @@ export default function Cardio() {
     e.preventDefault();
     setErr('');
     setSaving(true);
+    const totalMinutes = combineDuration(form.duration_min, form.duration_sec);
     const payload = {
       date: form.date,
       modality: form.modality,
-      duration_minutes: numOrNull(form.duration_minutes),
+      duration_minutes: totalMinutes > 0 ? totalMinutes : null,
       distance_km: numOrNull(form.distance_km),
       elevation_m: numOrNull(form.elevation_m),
       avg_hr: numOrNull(form.avg_hr),
@@ -63,6 +66,11 @@ export default function Cardio() {
       rpe: numOrNull(form.rpe),
       notes: form.notes || null,
     };
+    if (!payload.duration_minutes) {
+      setErr(t('cardio.durationRequired') || 'Duration is required');
+      setSaving(false);
+      return;
+    }
     try {
       if (editingId) await updateCardio(editingId, payload);
       else await createCardio(payload);
@@ -77,11 +85,13 @@ export default function Cardio() {
   };
 
   const edit = (log) => {
+    const { minutes, seconds } = splitDuration(log.duration_minutes);
     setEditingId(log.id);
     setForm({
       date: (log.date || '').slice(0, 10),
       modality: log.modality || 'run',
-      duration_minutes: log.duration_minutes ?? '',
+      duration_min: minutes,
+      duration_sec: seconds,
       distance_km: log.distance_km ?? '',
       elevation_m: log.elevation_m ?? '',
       avg_hr: log.avg_hr ?? '',
@@ -103,6 +113,8 @@ export default function Cardio() {
 
   if (loading) return <LoadingSpinner />;
 
+  const weekTotal = summary?.week?.duration_minutes;
+
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{t('cardio.title')}</h2>
@@ -111,7 +123,7 @@ export default function Cardio() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card title={t('cardio.weekDuration')}>
           <p className="text-2xl font-bold">
-            {summary?.week?.duration_minutes != null ? `${Math.round(summary.week.duration_minutes)} min` : '--'}
+            {weekTotal != null ? formatDuration(weekTotal) : '--'}
           </p>
         </Card>
         <Card title={t('cardio.weekDistance')}>
@@ -130,7 +142,7 @@ export default function Cardio() {
                   let value = '--';
                   if (pb.distance_km) value = `${pb.distance_km.toFixed(1)} km`;
                   else if (pb.pace_min_per_km) value = `${pb.pace_min_per_km} min/km`;
-                  else if (pb.duration_minutes) value = `${pb.duration_minutes} min`;
+                  else if (pb.duration_minutes) value = formatDuration(pb.duration_minutes);
                   return (
                     <li key={m} className="capitalize">
                       <span className="text-text-muted">{m.replace(/_/g, ' ')}:</span> {value}
@@ -155,7 +167,11 @@ export default function Cardio() {
             </select>
           </Field>
           <Field label={t('cardio.duration')}>
-            <input type="number" step="0.1" value={form.duration_minutes} onChange={(e) => handleChange('duration_minutes', e.target.value)} className={inputCls} />
+            <DurationPicker
+              minutes={form.duration_min}
+              seconds={form.duration_sec}
+              onChange={({ minutes, seconds }) => setForm((f) => ({ ...f, duration_min: minutes, duration_sec: seconds }))}
+            />
           </Field>
           <Field label={t('cardio.distance')}>
             <input type="number" step="0.01" value={form.distance_km} onChange={(e) => handleChange('distance_km', e.target.value)} className={inputCls} />
@@ -210,7 +226,7 @@ export default function Cardio() {
                   <tr key={l.id} className="border-t border-surface-lighter">
                     <td className="py-2">{(l.date || '').slice(0, 10)}</td>
                     <td>{t(`cardio.modality.${l.modality}`) || l.modality}</td>
-                    <td>{l.duration_minutes != null ? `${l.duration_minutes} min` : '--'}</td>
+                    <td>{formatDuration(l.duration_minutes)}</td>
                     <td>{l.distance_km != null ? `${l.distance_km.toFixed(2)} km` : '--'}</td>
                     <td>{l.avg_hr ?? '--'}</td>
                     <td>{l.rpe ?? '--'}</td>
