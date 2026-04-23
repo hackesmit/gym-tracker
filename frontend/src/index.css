@@ -517,20 +517,37 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 /* ============================================================
-   THEME SWATCH (4 color dots in Settings)
+   THEME SWATCH PICKER
+   28px visible circle inside a 40px transparent tap target
    ============================================================ */
-.theme-swatch {
+.theme-swatch-tap {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--color-surface-lighter);
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 150ms ease;
+}
+.theme-swatch-tap:hover .theme-swatch-dot {
+  transform: scale(1.08);
+}
+.theme-swatch-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: block;
+  border: 1px solid var(--color-surface-lighter);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
-.theme-swatch:hover { transform: scale(1.05); }
-.theme-swatch[data-active="true"] {
-  box-shadow: 0 0 0 2px var(--color-surface-dark),
-              0 0 0 4px var(--color-accent);
+.theme-swatch-tap[data-active="true"] .theme-swatch-dot {
+  box-shadow:
+    0 0 0 2px var(--color-surface-dark),
+    0 0 0 4px var(--color-accent);
 }
 
 /* ============================================================

@@ -7,6 +7,7 @@ import { Settings as SettingsIcon, Timer, AlertTriangle, Download, Palette, Palm
 import { getManual1RM, updateManual1RM, exportLogs, getActiveVacation, startVacation, endVacation, absorbAccount, adminResetPassword, getUsernameCaptcha, changeUsername } from '../api/client';
 import { useT } from '../i18n';
 import { useAuth } from '../context/AuthContext';
+import { MINIMAL_PRESETS } from '../theme/presets';
 
 const REALM_INFO = [
   { key: 'gondor',    label: 'Gondor',    icon: '🏰', desc: 'Noble gold & slate',     colors: ['#c9a84c', '#1a1d2e', '#6b7fa3'] },
@@ -16,12 +17,6 @@ const REALM_INFO = [
   { key: 'shire',     label: 'Shire',     icon: '🍺', desc: 'Hobbit green & amber',   colors: ['#6d9b4a', '#1a1714', '#c49a5c'] },
 ];
 
-const THEME_COLOR_INFO = [
-  { key: 'lime',    hex: '#d4ff4a' },
-  { key: 'amber',   hex: '#f5b544' },
-  { key: 'cyan',    hex: '#4ad4ff' },
-  { key: 'crimson', hex: '#ff4a5a' },
-];
 
 const REST_PRESETS = [30, 60, 90, 120, 180];
 const LIFT_CATEGORIES = [
@@ -218,17 +213,19 @@ export default function Settings() {
         <p className="text-sm text-text-muted mb-4">
           {t('settings.themeColor.desc')}
         </p>
-        <div className="flex gap-4 items-center">
-          {THEME_COLOR_INFO.map(({ key, hex }) => (
+        <div className="flex flex-wrap gap-2 items-center">
+          {MINIMAL_PRESETS.map(({ key, accent }) => (
             <button
               key={key}
+              type="button"
               onClick={() => setThemeColor(key)}
               data-active={themeColor === key}
               aria-label={t(`settings.themeColor.${key}`)}
               title={t(`settings.themeColor.${key}`)}
-              className="theme-swatch touch-manipulation"
-              style={{ background: hex }}
-            />
+              className="theme-swatch-tap touch-manipulation"
+            >
+              <span className="theme-swatch-dot" style={{ background: accent }} />
+            </button>
           ))}
           <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
             {t(`settings.themeColor.${themeColor}`)}
