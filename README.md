@@ -7,11 +7,11 @@ Full-stack multi-user workout tracker. Import training programs from Excel, log 
 - **Logging:** auto-fill last session, warm-up pyramid, plate calculator, dropsets, exercise swap
 - **Tracking:** week-by-week schedule, calendar view, adherence %, training heatmap
 - **Analytics:** per-exercise e1RM charts, PR detection, volume/tonnage, muscle balance, strength-standards spider, DOTS, recovery score
-- **Muscle ranks:** 8-tier global strength rating (Copper→Champion) using fixed thresholds — same standard for every user
+- **Muscle ranks:** 7-tier global strength rating (Copper→Champion) using fixed thresholds — same standard for every user. `GET /api/ranks/standards` exposes the full ladder; the Profile page has an expandable "Rank standards" card per muscle group.
 - **Social:** friends, leaderboards, medal awards (claimable from in-workout 1RM attempts or Settings → Manual 1RM), side-by-side compare, global chat, profile pages
 - **Account management:** rename yourself from Settings (gated by a word-problem captcha), export all data as JSON/CSV, admin password reset + data wipe
 - **i18n:** English + Spanish
-- **Theming:** 5 LOTR realm palettes (Gondor/Rohan/Rivendell/Mordor/Shire) + neutral mode
+- **Theming:** Two modes — minimal (default, editorial) with 13 accent presets (lime, amber, cyan, crimson, ember, saffron, mint, teal, sky, indigo, magenta, rose, ivory) and LOTR mode with 5 realm palettes (Gondor/Rohan/Rivendell/Mordor/Shire). Switchable in Settings; persists via localStorage. Rank badges carry a tier-colored halo in both modes.
 - **PWA:** offline caching, installable
 
 ## Tech Stack

@@ -1,7 +1,7 @@
 # Feature Ideas
 
 Brainstormed 2026-03-24. Ordered roughly by impact and feasibility.
-Last re-tagged 2026-04-21 with implementation status. ✅ = shipped, 🚧 = partial.
+Last re-tagged 2026-04-24 with implementation status. ✅ = shipped, 🚧 = partial.
 
 ---
 
@@ -72,8 +72,8 @@ Friend requests, accept/decline, friend profiles, side-by-side compare with musc
 ### Medals & Leaderboards ✅ (new)
 Automatic medal awarding for strongest lift, longest streak, longest cardio, etc. Current holder persisted per medal.
 
-### Muscle Ranks ✅ (new, rewritten 2026-04-21)
-8-tier rank per muscle group (Copper→Champion) with fixed global thresholds so ranks are comparable across users.
+### Muscle Ranks ✅ (new, rewritten 2026-04-21 → 7-tier 2026-04-22)
+7-tier rank per muscle group (Copper→Champion; Emerald dropped 2026-04-22 to match the badge system) with fixed global thresholds so ranks are comparable across users. Each non-Champion tier subdivides into 5 slots V→I. Continuous ELO 0–3100 per muscle. `GET /api/ranks/standards` + expandable Profile card document the ladder (2026-04-23).
 
 ### Global Chat ✅ (polling)
 Simple global chat room with system messages for medal events. Rooms/WebSocket upgrade is still open (see `docs/known-bugs.md` O5).
@@ -117,8 +117,8 @@ Plot bodyweight against e1RM over time. See if strength is outpacing weight gain
 ### Offline Mode Improvements
 Queue sets locally when offline, sync when connection returns. Show pending sync indicator. Currently PWA caches pages but not POST requests.
 
-### Dark/Light Theme Toggle ✅
-Add theme preference to Settings. Currently dark-only. **Shipped — neutral/LOTR mode toggle + 5 LOTR realm palettes; persists via localStorage `gym-theme-mode` and `gym-realm`.**
+### Dark/Light Theme Toggle ✅ (extended 2026-04-23)
+Add theme preference to Settings. Currently dark-only. **Shipped — minimal-mode editorial UI with 13 accent presets (lime default + amber/cyan/crimson/ember/saffron/mint/teal/sky/indigo/magenta/rose/ivory) and opt-in LOTR mode with 5 realm palettes (Gondor/Rohan/Rivendell/Mordor/Shire). Adding a 14th minimal preset = one array entry in `frontend/src/theme/presets.js` + 2 i18n strings. LOTR mode is editorial-flat (no gradients/glows) while keeping Cinzel font + heraldic icons + mode-specific copy swaps. Persists via localStorage `gym-theme-mode`, `gym-tracker-theme`, and `gym-realm`.**
 
 ### Exercise Notes & Form Cues
 Per-exercise notes that persist across sessions (e.g. "wide grip", "pause at bottom", "left knee clicks if too deep").
