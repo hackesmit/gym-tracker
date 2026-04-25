@@ -439,6 +439,27 @@ MIN_BODYWEIGHT_KG   = 30.0
 MAX_BODYWEIGHT_KG   = 300.0
 MAX_RATIO_CAP       = 5.0     # sanity ceiling; suspicious values are dropped
 
+# Tighter sanity guard for back/arms added-load lifts. Anything above 2× BW
+# in added load is implausible for pullups/dips and is silently dropped by
+# the rank engine.
+MAX_ADDED_RATIO_FOR_BACK_ARMS = 2.0
+
+# Size-bonus multiplier (interim fairness correction; Phase 2 replaces this
+# with DOTS). Heavier athletes get partial credit for moving more absolute
+# mass on bodyweight-class lifts. Reference weight = 80 kg (multiplier 1.0).
+# Applied to back + arms only — barbell groups stay on standard ratios.
+SIZE_BONUS_REFERENCE_KG = 80.0
+
+
+def size_bonus(bw_kg: float) -> float:
+    """Returns (BW / 80)^0.5. Heavier > 1.0, lighter < 1.0.
+
+    A 100 kg lifter gets ~12% boost; a 60 kg lifter ~13% reduction.
+    `max(bw_kg, 1.0)` floor prevents divide-by-zero for malformed input.
+    """
+    return (max(float(bw_kg), 1.0) / SIZE_BONUS_REFERENCE_KG) ** 0.5
+
+
 # Continuous ELO point system. Each of the 30 non-Champion subdivisions is
 # worth 100 base points, Champion adds a 100-point bonus. Per-muscle ELO
 # therefore ranges 0..3100, and the aggregate across MVP_GROUPS is

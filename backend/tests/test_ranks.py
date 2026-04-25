@@ -1,5 +1,6 @@
 """Fixed-threshold rank engine tests."""
 
+import pytest
 from datetime import date, timedelta
 
 from app.models import ExerciseCatalog, Program, ProgramExercise, User, WorkoutLog
@@ -472,3 +473,38 @@ def test_mixed_arms_training_beats_single_pathway(db):
     _seed_exercise(db, user_b, "BARBELL CURL", "biceps", load_kg=50, reps=1, day_offset=6)
     result_b = recompute_for_user(db, user_b.id)
     assert result_b["arms"]["elo"] > result_a["arms"]["elo"]
+
+
+# ---------------------------------------------------------------------------
+# size_bonus + MAX_ADDED_RATIO_FOR_BACK_ARMS
+# ---------------------------------------------------------------------------
+
+from app.muscle_rank_config import (
+    MAX_ADDED_RATIO_FOR_BACK_ARMS,
+    SIZE_BONUS_REFERENCE_KG,
+    size_bonus,
+)
+
+
+def test_size_bonus_at_reference_weight_is_one():
+    assert size_bonus(SIZE_BONUS_REFERENCE_KG) == 1.0
+
+
+def test_size_bonus_heavier_lifter_gets_boost():
+    assert size_bonus(100) == pytest.approx(1.118, abs=0.005)
+    assert size_bonus(120) == pytest.approx(1.225, abs=0.005)
+
+
+def test_size_bonus_lighter_lifter_gets_reduction():
+    assert size_bonus(60) == pytest.approx(0.866, abs=0.005)
+    assert size_bonus(50) == pytest.approx(0.791, abs=0.005)
+
+
+def test_size_bonus_handles_invalid_input():
+    # Non-positive bw collapses to a 1 kg floor — no division-by-zero.
+    assert size_bonus(0) > 0
+    assert size_bonus(-10) > 0
+
+
+def test_max_added_ratio_for_back_arms_is_capped_at_2():
+    assert MAX_ADDED_RATIO_FOR_BACK_ARMS == 2.0
