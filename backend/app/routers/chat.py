@@ -1,5 +1,7 @@
 """Global chat: user messages + system notifications (medal events, etc.)."""
 
+from datetime import timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -25,7 +27,11 @@ def _serialize(msg: ChatMessage, user_map: dict[int, User]) -> dict:
         "user_id": msg.user_id,
         "username": author.username if author else None,
         "name": author.name if author else None,
-        "created_at": msg.created_at.isoformat() if msg.created_at else None,
+        "created_at": (
+            msg.created_at.replace(tzinfo=timezone.utc).isoformat()
+            if msg.created_at
+            else None
+        ),
     }
 
 

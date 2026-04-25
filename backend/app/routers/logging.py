@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.attributes import flag_modified
 
 from ..auth import get_current_user
 from ..database import get_db
@@ -723,7 +724,9 @@ def update_manual_1rm(
 ):
     """Set or update manual 1RM values for strength standards."""
     user = current_user
-    current = user.manual_1rm or {}
+    # Copy into a fresh dict so SQLAlchemy sees a new object reference;
+    # JSON columns without MutableDict don't track in-place mutations.
+    current = dict(user.manual_1rm or {})
     for category, entry in payload.lifts.items():
         if category not in VALID_1RM_CATEGORIES:
             raise HTTPException(
@@ -738,6 +741,7 @@ def update_manual_1rm(
                 "tested_at": entry.tested_at.isoformat() if entry.tested_at else None,
             }
     user.manual_1rm = current
+    flag_modified(user, "manual_1rm")
     db.commit()
 
     from ..medal_engine import _update_holder
