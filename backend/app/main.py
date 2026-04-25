@@ -68,6 +68,11 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_true_1rm_attempt", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "completed_successfully", "BOOLEAN", default="true")
 
+    # exercise_catalog: bodyweight_kind drives the new Logger input layout
+    # (pure / weighted_capable / NULL). Backfill values are set in
+    # seed_catalog.py and a one-shot UPDATE function — see Task 6.
+    _ensure_column("exercise_catalog", "bodyweight_kind", "VARCHAR")
+
     # programs: share_code for cross-user program sharing
     _ensure_column("programs", "share_code", "VARCHAR")
     try:

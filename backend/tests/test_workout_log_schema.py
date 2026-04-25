@@ -3,6 +3,7 @@
 from datetime import date
 
 from app.models import (
+    ExerciseCatalog,
     Program,
     ProgramExercise,
     User,
@@ -52,3 +53,34 @@ def test_workout_log_added_load_kg_round_trip(db):
     db.refresh(log)
     assert log.added_load_kg == 25.0
     assert log.load_kg == 105.0
+
+
+def test_exercise_catalog_bodyweight_kind_defaults_to_null(db):
+    cat = ExerciseCatalog(
+        canonical_name="TEST_PUSHUP",
+        muscle_group_primary="chest",
+        movement_pattern="horizontal push",
+        equipment="bodyweight",
+        difficulty_level="beginner",
+    )
+    db.add(cat)
+    db.commit()
+    db.refresh(cat)
+    assert cat.bodyweight_kind is None
+
+
+def test_exercise_catalog_bodyweight_kind_accepts_enum_values(db):
+    for kind in ("pure", "weighted_capable"):
+        cat = ExerciseCatalog(
+            canonical_name=f"TEST_{kind}",
+            muscle_group_primary="back",
+            movement_pattern="vertical pull",
+            equipment="bodyweight",
+            difficulty_level="advanced",
+            bodyweight_kind=kind,
+        )
+        db.add(cat)
+    db.commit()
+    rows = db.query(ExerciseCatalog).filter(ExerciseCatalog.canonical_name.like("TEST_%")).all()
+    kinds = {r.bodyweight_kind for r in rows}
+    assert "pure" in kinds and "weighted_capable" in kinds

@@ -128,6 +128,7 @@ class ExerciseCatalog(Base):
     is_compound: Mapped[bool] = mapped_column(Boolean, default=False)
     is_unilateral: Mapped[bool] = mapped_column(Boolean, default=False)
     difficulty_level: Mapped[str] = mapped_column(String, nullable=False)
+    bodyweight_kind: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class WorkoutLog(Base):
