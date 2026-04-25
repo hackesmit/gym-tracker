@@ -399,3 +399,33 @@ class ChatMessage(Base):
         DateTime, server_default=func.now(), index=True
     )
 
+
+class BwMigrationAudit(Base):
+    """Audit row for every WorkoutLog touched by the 2026-04 BW input migration.
+
+    Lets the rollback endpoint revert specific changes and lets ops query
+    `SELECT ... WHERE reason = 'aragorn_correction'` to spot-check
+    suspicious corrections.
+    """
+
+    __tablename__ = "bw_migration_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    log_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    exercise_name: Mapped[str] = mapped_column(String, nullable=False)
+    old_load_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    new_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    new_added_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class MigrationLog(Base):
+    """Records which one-shot migrations have run, so they don't re-execute."""
+
+    __tablename__ = "migration_log"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
