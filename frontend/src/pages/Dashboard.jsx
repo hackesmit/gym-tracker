@@ -10,6 +10,7 @@ import ImportSharedProgram from '../components/ImportSharedProgram';
 import NippardPresetPicker from '../components/NippardPresetPicker';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RankBadge from '../components/RankBadge';
+import BigFourCard from '../components/BigFourCard';
 import { useApp } from '../context/AppContext';
 import { getDashboard } from '../api/client';
 import { MapScroll, Sword, Ring, Torch } from '../components/LotrIcons';
@@ -89,6 +90,12 @@ export default function Dashboard() {
   const prs = data?.recent_prs || [];
   const medalSummary = data?.medal_summary || {};
   const medals = Array.isArray(medalSummary) ? medalSummary : (medalSummary.top_medals || []);
+  const bigFour = !Array.isArray(medalSummary) ? medalSummary.big_four : null;
+  // Fallback if an older backend is still running — strip any Big-4 out
+  // of top_medals so they don't double-render in the showcase.
+  const nonBigFourMedals = medals.filter(
+    (m) => !(m.metric_type || '').startsWith('strength_1rm:')
+  );
   const rawRanks = data?.muscle_ranks;
   // Backend returns array [{group, rank, score}] — normalize to {group: {rank, score}}
   const ranks = Array.isArray(rawRanks)
@@ -159,12 +166,15 @@ export default function Dashboard() {
         </div>
       </section>
 
+      {/* Big Four — bench / squat / deadlift / OHP */}
+      <BigFourCard bigFour={bigFour} medals={medals} compact />
+
       {/* Medals + Muscle ranks */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card title={t('dashboard.medalShowcase')} action={<Link to="/profile/medals" className="text-xs text-accent flex items-center gap-1">{t('common.all')} <ArrowRight size={12} /></Link>}>
-          {medals.length ? (
+          {nonBigFourMedals.length ? (
             <ul className="space-y-2">
-              {medals.slice(0, 3).map((m, i) => (
+              {nonBigFourMedals.slice(0, 3).map((m, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
                   <Trophy size={14} className="text-accent" />
                   <span className="flex-1 truncate">{m.name || m.label}</span>

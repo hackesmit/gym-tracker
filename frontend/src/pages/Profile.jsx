@@ -4,6 +4,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RankBadge from '../components/RankBadge';
 import MedalBadge from '../components/MedalBadge';
+import BigFourCard from '../components/BigFourCard';
 import TrainingCalendar from '../components/TrainingCalendar';
 import RankStandards from '../components/RankStandards';
 import { useAuth } from '../context/AuthContext';
@@ -138,6 +139,10 @@ export default function Profile() {
   const dominantTier = eloAgg?.dominant_tier || hero?.rank || 'Copper';
   const eloPct = maxElo > 0 ? Math.min(100, (totalElo / maxElo) * 100) : 0;
 
+  const otherMedals = medals.filter(
+    (m) => !(m.metric_type || '').startsWith('strength_1rm:')
+  );
+
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-wide">{username}</h2>
@@ -193,14 +198,17 @@ export default function Profile() {
         <TrainingCalendar days={calendar} />
       </Card>
 
-      {/* Trophy case */}
+      {/* Big Four — bench / squat / deadlift / OHP */}
+      <BigFourCard medals={medals} />
+
+      {/* Trophy case — everything except the Big Four (those live above). */}
       <Card
         title="Trophy case"
         action={<Link to="/profile/medals" className="text-xs text-accent">View all</Link>}
       >
-        {medals.length ? (
+        {otherMedals.length ? (
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
-            {medals.map((m) => (
+            {otherMedals.map((m) => (
               <div key={m.medal_id || m.id} className="flex flex-col items-center gap-1">
                 <MedalBadge
                   icon={m.icon || 'total'}
@@ -216,7 +224,7 @@ export default function Profile() {
           </div>
         ) : (
           <p className="text-sm text-text-muted">
-            No medals held yet. Best a friend on any tracked metric to claim one.
+            No other medals held yet. Best a friend on any tracked metric to claim one.
           </p>
         )}
       </Card>

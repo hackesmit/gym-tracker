@@ -134,12 +134,44 @@ def get_dashboard(
         .filter(MedalCurrentHolder.user_id == uid)
         .all()
     )
+    # Big-4 strength medals get surfaced in their own dashboard section;
+    # everything else falls back into `top_medals`. `tested_at` prefers the
+    # user-supplied Settings value; else falls back to the medal's
+    # award timestamp.
+    manual_map = current_user.manual_1rm or {}
+    big_four_map = {"bench": None, "squat": None, "deadlift": None, "ohp": None}
+    non_strength = []
+    for (h, m) in owned:
+        if m.metric_type and m.metric_type.startswith("strength_1rm:"):
+            lift = m.metric_type.split(":", 1)[1]
+            if lift in big_four_map:
+                manual_entry = manual_map.get(lift)
+                tested_at = None
+                if isinstance(manual_entry, dict):
+                    tested_at = manual_entry.get("tested_at")
+                big_four_map[lift] = {
+                    "name": m.name,
+                    "metric_type": m.metric_type,
+                    "value": h.value,
+                    "unit": m.unit,
+                    "updated_at": h.updated_at.isoformat() if h.updated_at else None,
+                    "tested_at": tested_at,
+                }
+                continue
+        non_strength.append((h, m))
+
     medal_summary = {
         "owned_count": len(owned),
         "top_medals": [
-            {"name": m.name, "value": h.value, "unit": m.unit}
-            for (h, m) in owned[:5]
+            {
+                "name": m.name,
+                "metric_type": m.metric_type,
+                "value": h.value,
+                "unit": m.unit,
+            }
+            for (h, m) in non_strength[:5]
         ],
+        "big_four": big_four_map,
     }
 
     # Muscle ranks — recompute first so engine-revision staleness never
