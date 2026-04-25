@@ -149,6 +149,7 @@ class WorkoutLog(Base):
     is_bodyweight: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dropset: Mapped[bool] = mapped_column(Boolean, default=False)
     dropset_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    added_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_true_1rm_attempt: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_successfully: Mapped[bool] = mapped_column(Boolean, default=True)
     session_log_id: Mapped[int | None] = mapped_column(

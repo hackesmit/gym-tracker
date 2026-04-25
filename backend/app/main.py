@@ -64,6 +64,7 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_bodyweight", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
+    _ensure_column("workout_logs", "added_load_kg", "FLOAT", nullable=True)
     _ensure_column("workout_logs", "is_true_1rm_attempt", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "completed_successfully", "BOOLEAN", default="true")
 
