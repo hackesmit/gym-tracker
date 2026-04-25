@@ -484,6 +484,45 @@ def check_consistency_medals(db: Session, session: SessionLog):
     check_performance_medals(db, user_id)
 
 
+def backfill_consistency_medals(db: Session) -> int:
+    """Re-evaluate consistency medals for every user with completed sessions.
+
+    Runs on startup. Needed because sessions logged before the medal system
+    existed (or before the engine was wired into a user's flow) never fired
+    the compare-and-swap, leaving session-count medals understated. The engine
+    only ever raises the holder's value, so repeat invocations with the same
+    data are no-ops.
+
+    Returns the count of users processed.
+    """
+    user_ids = [
+        row[0]
+        for row in (
+            db.query(SessionLog.user_id)
+            .filter(SessionLog.status == "completed")
+            .distinct()
+            .all()
+        )
+    ]
+    for user_id in user_ids:
+        anchor = (
+            db.query(SessionLog)
+            .filter(
+                SessionLog.user_id == user_id,
+                SessionLog.status == "completed",
+            )
+            .order_by(SessionLog.date.desc(), SessionLog.id.desc())
+            .first()
+        )
+        if anchor is None:
+            continue
+        try:
+            check_consistency_medals(db, anchor)
+        except Exception:
+            db.rollback()
+    return len(user_ids)
+
+
 # ---------------------------------------------------------------------------
 # Performance (rolling 30-day deltas)
 # ---------------------------------------------------------------------------

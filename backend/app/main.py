@@ -10,7 +10,7 @@ from sqlalchemy import inspect, text
 
 from .auth import hash_password
 from .database import Base, SessionLocal, engine
-from .medal_engine import seed_medal_catalog
+from .medal_engine import backfill_consistency_medals, seed_medal_catalog
 from .models import User
 from .routers import (
     analytics,
@@ -157,6 +157,7 @@ async def lifespan(app: FastAPI):
         seed_medal_catalog(db)
         _backfill_default_user(db)
         seed_preset_programs(db)
+        backfill_consistency_medals(db)
     finally:
         db.close()
     yield
