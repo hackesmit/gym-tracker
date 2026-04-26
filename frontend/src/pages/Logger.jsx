@@ -18,6 +18,7 @@ import {
 } from '../api/client';
 import useLoggerSession from '../hooks/useLoggerSession';
 import useExerciseSwap from '../hooks/useExerciseSwap';
+import useWorkoutDraft from '../hooks/useWorkoutDraft';
 
 function getWeightHint(exerciseName, catalog) {
   if (!catalog || !catalog.length) return null;
@@ -42,7 +43,7 @@ function isBodyweightExercise(exerciseName, catalog) {
 }
 
 export default function Logger() {
-  const { activeProgram, unitLabel, units, convert, defaultRestSeconds } = useApp();
+  const { activeProgram, unitLabel, units, convert, defaultRestSeconds, programs } = useApp();
   const t = useT();
   const { addToast } = useToast();
 
@@ -59,8 +60,6 @@ export default function Logger() {
     scheduleData,
     setScheduleData,
     loading,
-    pendingRestore,
-    setPendingRestore,
     catalogData,
     setCatalogData,
     skipSetsInit,
@@ -103,6 +102,17 @@ export default function Logger() {
     currentWeek, selectedSession, setSelectedSession,
     setSessions, setScheduleData, setSets, setCatalogData, catalogData,
     skipSetsInit,
+  });
+
+  // --- Hook 3: draft persistence (replaces inline localStorage logic) ---
+  const knownProgramIds = (programs || []).map((p) => p.id);
+  const { pendingRestore, acceptRestore, discardRestore } = useWorkoutDraft({
+    programId: activeProgram?.id,
+    week: currentWeek,
+    sessionName: selectedSession?.session_name,
+    sets,
+    saved,
+    knownProgramIds,
   });
 
   // Initialize sets when session or overload changes
@@ -161,31 +171,8 @@ export default function Logger() {
         });
       }
     });
-    // Check localStorage for pending sets from a previous session
-    const storageKey = `gym-pending-${activeProgram?.id}-${currentWeek}-${selectedSession?.session_name}`;
-    try {
-      const pending = localStorage.getItem(storageKey);
-      if (pending) {
-        const parsed = JSON.parse(pending);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPendingRestore({ key: storageKey, sets: parsed });
-          setSets(newSets); // still set defaults so UI isn't empty
-          return;
-        }
-      }
-    } catch { /* ignore */ }
     setSets(newSets);
   }, [selectedSession, overload]);
-
-  // Save in-progress sets to localStorage on every change
-  useEffect(() => {
-    if (!activeProgram || !selectedSession || saved || sets.length === 0) return;
-    const storageKey = `gym-pending-${activeProgram.id}-${currentWeek}-${selectedSession.session_name}`;
-    const hasData = sets.some((s) => s.load_kg && +s.load_kg > 0);
-    if (hasData) {
-      localStorage.setItem(storageKey, JSON.stringify(sets));
-    }
-  }, [sets, activeProgram, currentWeek, selectedSession, saved]);
 
   const updateSet = (idx, field, value) => {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
@@ -226,10 +213,7 @@ export default function Logger() {
       };
       const result = await logBulkSession(payload);
       setSaved(true);
-      // Clear localStorage backup on successful save
-      const storageKey = `gym-pending-${activeProgram.id}-${currentWeek}-${selectedSession.session_name}`;
-      localStorage.removeItem(storageKey);
-      setPendingRestore(null);
+      acceptRestore();   // clears the localStorage key for this session
       if (result.prs && result.prs.length > 0) {
         setPrList(result.prs);
       }
@@ -438,13 +422,13 @@ export default function Logger() {
               <p className="text-xs text-info">Unsaved workout found. Restore?</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setSets(pendingRestore.sets); setPendingRestore(null); }}
+                  onClick={() => { setSets(pendingRestore.sets); acceptRestore(); }}
                   className="px-3 py-1.5 text-xs font-medium bg-info text-white rounded-lg touch-manipulation"
                 >
                   Restore
                 </button>
                 <button
-                  onClick={() => { localStorage.removeItem(pendingRestore.key); setPendingRestore(null); }}
+                  onClick={discardRestore}
                   className="px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text touch-manipulation"
                 >
                   Discard
