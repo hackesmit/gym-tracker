@@ -239,6 +239,48 @@ top of the current cohort.
 - `recompute_for_user(db, user_id)` is called inside `logging.py` after every log write.
 - Reference endpoint: `GET /api/ranks/standards` returns the full 7-tier × 6-group table (thresholds + qualifying exercises) sourced from `muscle_rank_config.py`. Consumed by the Profile page's new "Rank standards" expandable card (`frontend/src/components/RankStandards.jsx`).
 - Tested in `tests/test_ranks.py` (6 tests).
+- 2026-04-25: rank engine reads `WorkoutLog.added_load_kg` directly for
+  weighted-pullup / weighted-dip lifts (no longer derives added load from
+  `load_kg - bw`).
+- 2026-04-25: `size_bonus(bw) = (bw/80)^0.5` multiplier applied to back
+  and arms ratios + back rep-count fallback. Heavier athletes get partial
+  credit for moving more absolute mass on bodyweight-class lifts. Interim
+  fairness correction — Phase 2 (separate spec) replaces with DOTS.
+- 2026-04-25: `MAX_ADDED_RATIO_FOR_BACK_ARMS = 2.0` silent-drop guard
+  for back/arms candidates (prevents Aragorn-style legacy rows that
+  escaped the 2026-04 migration from regranting Champion rank).
+
+## BW input migration (2026-04-25)
+
+One-shot migration ran on first deploy after 2026-04-25 to backfill
+`WorkoutLog.added_load_kg` and correct historical Aragorn-style bogus
+weighted-pullup rows. Gated by a `migration_log` row named
+`bw_input_2026_04`; idempotent on subsequent deploys.
+
+Migration logic in `backend/app/bw_migration.py`:
+- Pure BW exercises with `load_kg = 0` → `load_kg = bw_at_log_time`,
+  `added_load_kg = 0`.
+- Weighted-capable exercises:
+  - `load_kg ≤ 0` → bodyweight-only attempt; same as pure pure-BW
+    backfill (`reason = "weighted_capable_zero_load"`).
+  - 0.85 × bw ≤ `load_kg` ≤ 1.15 × bw → user entered their bodyweight
+    by mistake (Aragorn bug); set `load_kg = bw`, `added_load_kg = 0`
+    (`reason = "aragorn_correction"`).
+  - Else → genuine added load; `load_kg = bw + load_kg`,
+    `added_load_kg = old load_kg` (`reason = "weighted_capable_added_promoted"`).
+- Pure exercises with pre-existing nonzero load (e.g. vested pushup)
+  → flagged but untouched (`reason = "pure_with_nonzero_load_skipped"`).
+
+Every change inserts an audit row in `bw_migration_audit`. Admin rollback
+at `POST /api/auth/admin/bw-migration-rollback` reverts every audited row
+and clears the audit table. Per-user re-run at
+`POST /api/auth/admin/bw-migration-rerun-for-user/{user_id}` for users
+who set their bodyweight after the initial migration.
+
+Catalog tagging: `seed_catalog.py` sets `bodyweight_kind` on PULLUP, DIP,
+WEIGHTED PULLUP, WEIGHTED DIP, WALKING LUNGES, ab/core lifts.
+`backfill_catalog_bodyweight_kind` runs on every lifespan startup to
+update existing rows idempotently.
 
 ## Editorial Theme System (2026-04-23)
 The frontend ships two coexisting modes, defaulting to minimal.
@@ -371,6 +413,14 @@ All managed by SQLAlchemy ORM. Foreign keys enforce referential integrity.
 - `Friendship` has `UniqueConstraint("requester_id", "addressee_id")`
 - `WorkoutLog` supports `is_dropset`, `dropset_load_kg`, `is_bodyweight`, `is_true_1rm_attempt`,
   `completed_successfully`, and `session_log_id` (CASCADE on session delete)
+- `WorkoutLog.added_load_kg` (2026-04-25): plate-only load for
+  bodyweight-class lifts. NULL = external load (barbell/DB/machine).
+  0 = pure BW set (pushup, ab work, BW pullup). >0 = weighted-capable
+  set (weighted pullup/dip). `WorkoutLog.load_kg` always = effective
+  load (BW + plate for bodyweight class). `is_bodyweight` is deprecated;
+  authoritative test is `added_load_kg IS NOT NULL`.
+- `ExerciseCatalog.bodyweight_kind` (2026-04-25): drives Logger SetRow
+  layout. "pure" / "weighted_capable" / NULL.
 
 ## Strength Standards Engine (Analytics spider — v2)
 Separate from the muscle-rank engine. Used only for the Analytics page spider chart.

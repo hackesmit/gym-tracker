@@ -207,6 +207,17 @@ EXERCISE_CATALOG = [
         "difficulty_level": "intermediate",
     },
     {
+        "canonical_name": "WEIGHTED DIP",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
+    },
+    {
         "canonical_name": "WEIGHTED DIP (HEAVY)",
         "muscle_group_primary": "chest",
         "muscle_groups_secondary": ["triceps", "shoulders"],
@@ -215,6 +226,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "WEIGHTED DIP (BACK OFF)",
@@ -225,6 +237,29 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
+    },
+    {
+        "canonical_name": "DIP",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
+    },
+    {
+        "canonical_name": "DIPS",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "BODYWEIGHT DIP",
@@ -235,6 +270,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "PUSHUPS",
@@ -378,6 +414,17 @@ EXERCISE_CATALOG = [
         "difficulty_level": "intermediate",
     },
     {
+        "canonical_name": "PULLUP",
+        "muscle_group_primary": "back",
+        "muscle_groups_secondary": ["biceps"],
+        "movement_pattern": "vertical pull",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
+    },
+    {
         "canonical_name": "WEIGHTED PULLUP",
         "muscle_group_primary": "back",
         "muscle_groups_secondary": ["biceps"],
@@ -386,6 +433,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "2-GRIP PULLUP",
@@ -396,6 +444,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "2-GRIP PULLUP (ASSISTED)",
@@ -709,6 +758,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": True,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "WALKING LUNGES",
@@ -719,6 +769,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": True,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "DB STEP UP",
@@ -1115,6 +1166,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "LEG RAISES",
@@ -1125,6 +1177,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "ROMAN CHAIR CRUNCH",
@@ -1135,6 +1188,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "PLATE-WEIGHTED CRUNCH",
@@ -1145,6 +1199,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "TWO-ARMS TWO-LEGS DEAD BUG",
@@ -1155,6 +1210,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
 ]
 
@@ -1189,6 +1245,24 @@ def seed_exercise_catalog(db_session: Session) -> int:
     total_count = len(existing_names) + inserted_count
     print(f"Exercise catalog: {inserted_count} new exercises inserted ({total_count} total in catalog)")
     return inserted_count
+
+
+def backfill_catalog_bodyweight_kind(db):
+    """Update existing ExerciseCatalog rows with the bodyweight_kind value
+    from the EXERCISE_CATALOG seed list. Idempotent — only updates rows
+    where the DB value differs from the seed value (so it can be called on
+    every startup safely).
+    """
+    from .models import ExerciseCatalog
+    seed_by_name = {
+        entry["canonical_name"]: entry.get("bodyweight_kind")
+        for entry in EXERCISE_CATALOG
+    }
+    for cat in db.query(ExerciseCatalog).all():
+        wanted = seed_by_name.get(cat.canonical_name)
+        if cat.bodyweight_kind != wanted:
+            cat.bodyweight_kind = wanted
+    db.commit()
 
 
 if __name__ == "__main__":

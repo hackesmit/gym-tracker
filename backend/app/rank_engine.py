@@ -43,6 +43,7 @@ from .muscle_rank_config import (
     LATERAL_THRESHOLDS,
     LOOKBACK_DAYS,
     MANUAL_1RM_KEY,
+    MAX_ADDED_RATIO_FOR_BACK_ARMS,
     MAX_BODYWEIGHT_KG,
     MAX_RATIO_CAP,
     MAX_REPS_FOR_E1RM,
@@ -58,6 +59,7 @@ from .muscle_rank_config import (
     rank_from_reps,
     rank_from_threshold,
     rank_score,
+    size_bonus,
     subdivided_rank,
     subdivision_label,
     tier_index,
@@ -247,6 +249,7 @@ def _best_weighted_calisthenic(
                 WorkoutLog.load_kg,
                 WorkoutLog.reps_completed,
                 WorkoutLog.date,
+                WorkoutLog.added_load_kg,
             )
             .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
             .filter(
@@ -264,19 +267,37 @@ def _best_weighted_calisthenic(
     best_rep_source: str | None = None
     saw_bodyweight = False
 
-    for name, load, reps, _d in rows:
+    for name, load, reps, _d, added_kg in rows:
         if reps is None or reps <= 0:
             continue
 
-        if name in weighted and load is not None and load > 0:
+        if name in weighted:
+            # Prefer added_load_kg; fall back to (load - bw) for legacy rows
+            # the migration didn't catch (no_bw_skipped users).
+            if added_kg is not None:
+                effective_added = max(0.0, float(added_kg))
+            else:
+                effective_added = max(0.0, float(load or 0.0) - bw_kg)
+
+            if effective_added <= 0 and reps and reps > 0:
+                # Bodyweight-only attempt — fall through to the bodyweight branch behavior
+                saw_bodyweight = True
+                if best_added_ratio < 0:
+                    best_added_ratio = 0.0
+                    best_weighted_source = f"logged:{name}"
+                if reps > best_rep_count:
+                    best_rep_count = reps
+                    best_rep_source = f"logged_reps:{name}"
+                continue
+
             if reps > MAX_REPS_FOR_E1RM:
                 continue
-            e1rm = _epley_e1rm(load, reps)
+            e1rm = _epley_e1rm(effective_added, reps)
             if e1rm <= 0:
                 continue
-            ratio = e1rm / bw_kg
-            if ratio > MAX_RATIO_CAP:
-                continue
+            ratio = (e1rm / bw_kg) * size_bonus(bw_kg)
+            if ratio > MAX_ADDED_RATIO_FOR_BACK_ARMS:
+                continue   # silent drop — implausible for pullup/dip
             if ratio > best_added_ratio:
                 best_added_ratio = ratio
                 best_weighted_source = f"logged:{name}"
@@ -289,9 +310,11 @@ def _best_weighted_calisthenic(
                 best_weighted_source = f"logged:{name}"
             # Rep-count fallback ranking (only populated when the group
             # provides `fallback_reps`, i.e. back).
-            if reps > best_rep_count:
-                best_rep_count = reps
-                best_rep_source = f"logged_reps:{name}"
+            # Size-bonus applied: heavier athletes' rep count counts more
+            scaled_reps = int(reps * size_bonus(bw_kg))
+            if scaled_reps > best_rep_count:
+                best_rep_count = scaled_reps
+                best_rep_source = f"logged_reps:{name}(scaled)"
 
         elif close_grip_fallback and name in close_grip_fallback and load is not None and load > 0:
             # Close-grip bench as an arms proxy. Shift by 1.0 to align with
@@ -302,6 +325,8 @@ def _best_weighted_calisthenic(
             if e1rm <= 0:
                 continue
             shifted = (e1rm / bw_kg) - 1.0
+            if shifted > MAX_ADDED_RATIO_FOR_BACK_ARMS:
+                continue
             if shifted > MAX_RATIO_CAP:
                 continue
             if shifted > best_added_ratio:
@@ -321,7 +346,9 @@ def _best_weighted_calisthenic(
             e1rm = _epley_e1rm(load, reps)
             if e1rm <= 0:
                 continue
-            ratio = (e1rm * spec) / bw_kg
+            ratio = (e1rm * spec / bw_kg) * size_bonus(bw_kg)
+            if ratio > MAX_ADDED_RATIO_FOR_BACK_ARMS:
+                continue
             if ratio > MAX_RATIO_CAP:
                 continue
             if ratio > best_added_ratio:

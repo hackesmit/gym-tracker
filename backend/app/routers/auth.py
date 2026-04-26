@@ -364,3 +364,60 @@ def absorb(
     db.delete(src)
     db.commit()
     return {"absorbed": payload.source_username, "moved": moved}
+
+
+@router.post("/admin/bw-migration-rollback")
+def admin_bw_migration_rollback(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Revert every WorkoutLog touched by the BW migration to its old_load_kg.
+    Clears the bw_migration_audit table AND the bw_input_2026_04 marker
+    in migration_log on success, so the next backend restart will re-run
+    the migration from scratch (typical use: rollback, fix a bug, redeploy).
+    Recomputes all ranks. Admin-gated."""
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only.")
+
+    from ..models import BwMigrationAudit, MigrationLog, WorkoutLog
+    rows = db.query(BwMigrationAudit).all()
+    reverted = 0
+    for row in rows:
+        log = db.get(WorkoutLog, row.log_id)
+        if log is None:
+            continue
+        log.load_kg = row.old_load_kg
+        log.added_load_kg = None
+        reverted += 1
+    db.query(BwMigrationAudit).delete()
+    db.query(MigrationLog).filter_by(name="bw_input_2026_04").delete()
+    db.commit()
+
+    try:
+        from ..rank_engine import recompute_all
+        recompute_all(db)
+    except Exception:
+        pass
+    return {"reverted": reverted}
+
+
+@router.post("/admin/bw-migration-rerun-for-user/{user_id}")
+def admin_bw_migration_rerun_for_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-run the BW migration for one user (e.g. after they backfill BW).
+    Idempotent — already-audited logs are skipped. Admin-gated."""
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only.")
+
+    from ..bw_migration import rerun_bw_migration_for_user
+    summary = rerun_bw_migration_for_user(db, user_id)
+
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, user_id)
+    except Exception:
+        pass
+    return summary

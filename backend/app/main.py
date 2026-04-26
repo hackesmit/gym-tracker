@@ -27,7 +27,7 @@ from .routers import (
     tracker,
     vacation,
 )
-from .seed_catalog import seed_exercise_catalog
+from .seed_catalog import backfill_catalog_bodyweight_kind, seed_exercise_catalog
 from .seed_presets import seed_preset_programs
 
 
@@ -64,8 +64,14 @@ def _run_migrations(db):
     _ensure_column("workout_logs", "is_bodyweight", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
+    _ensure_column("workout_logs", "added_load_kg", "FLOAT", nullable=True)
     _ensure_column("workout_logs", "is_true_1rm_attempt", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "completed_successfully", "BOOLEAN", default="true")
+
+    # exercise_catalog: bodyweight_kind drives the new Logger input layout
+    # (pure / weighted_capable / NULL). Backfill values are set in
+    # seed_catalog.py and a one-shot UPDATE function — see Task 6.
+    _ensure_column("exercise_catalog", "bodyweight_kind", "VARCHAR")
 
     # programs: share_code for cross-user program sharing
     _ensure_column("programs", "share_code", "VARCHAR")
@@ -120,6 +126,32 @@ def _run_migrations(db):
     db.commit()
 
 
+def _run_bw_migration_once(db):
+    """Run the BW input migration exactly once across deploys.
+
+    Gated by a row in `migration_log`. The migration body itself is also
+    idempotent (skips audited log_ids), so this gate is belt-and-suspenders
+    plus avoids the per-row scan on every cold start.
+    """
+    from .bw_migration import run_bw_migration
+    from .models import MigrationLog
+
+    name = "bw_input_2026_04"
+    existing = db.query(MigrationLog).filter_by(name=name).first()
+    if existing is not None:
+        return
+    summary = run_bw_migration(db)
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print(
+        f"BW migration: touched {summary.get('touched', 0)} logs. "
+        f"Aragorn corrections: {summary.get('aragorn_correction', 0)}. "
+        f"Pure-BW backfills: {summary.get('pure_bw_backfilled', 0)}. "
+        f"No-BW-skipped: {summary.get('no_bw_skipped', 0)}.",
+        flush=True,
+    )
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -154,8 +186,10 @@ async def lifespan(app: FastAPI):
     try:
         _run_migrations(db)
         seed_exercise_catalog(db)
+        backfill_catalog_bodyweight_kind(db)
         seed_medal_catalog(db)
         _backfill_default_user(db)
+        _run_bw_migration_once(db)
         seed_preset_programs(db)
         backfill_consistency_medals(db)
     finally:

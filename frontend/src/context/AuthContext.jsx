@@ -67,8 +67,17 @@ export function AuthProvider({ children }) {
     return res.user;
   };
 
+  const refreshUser = async () => {
+    try {
+      const fresh = await getMe();
+      setUser(fresh.user || fresh);
+    } catch {
+      // ignore — leave the existing user object intact
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser: setUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser: setUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

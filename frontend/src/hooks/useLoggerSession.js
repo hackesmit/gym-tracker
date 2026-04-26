@@ -26,7 +26,6 @@ export default function useLoggerSession(activeProgram, units) {
   const [overload, setOverload] = useState(null);
   const [scheduleData, setScheduleData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [pendingRestore, setPendingRestore] = useState(null);
   const [catalogData, setCatalogData] = useState([]);
 
   // Refs to skip sets re-init after exercise swap (preserves user-entered data)
@@ -118,8 +117,6 @@ export default function useLoggerSession(activeProgram, units) {
     scheduleData,
     setScheduleData,
     loading,
-    pendingRestore,
-    setPendingRestore,
     catalogData,
     setCatalogData,
     skipSetsInit,
