@@ -421,3 +421,35 @@ def admin_bw_migration_rerun_for_user(
     except Exception:
         pass
     return summary
+
+
+@router.get("/admin/user-rank-trace/{user_id}")
+def admin_user_rank_trace(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recompute and return the rank engine output for one user, including
+    the per-group `source` field so you can see exactly which lift drove
+    each rank (e.g. 'logged:WEIGHTED PULLUP', 'logged_reps:PULLUP(scaled)',
+    'compound:DB ROW', 'manual:pullup'). Admin-gated.
+
+    Use this to diagnose unexpected Champion ranks: if back came from
+    'logged_reps:PULLUP(scaled)' you've got 30+ rep BW pullup logs; if
+    from 'compound:DB ROW' you're hitting the row pathway with very
+    heavy DB rows; etc.
+    """
+    if (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=403, detail="Admin only.")
+
+    from ..rank_engine import recompute_for_user
+    target = db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    ranks = recompute_for_user(db, user_id)
+    return {
+        "user_id": user_id,
+        "username": target.username,
+        "bodyweight_kg": target.bodyweight_kg,
+        "ranks": ranks,
+    }

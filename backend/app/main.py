@@ -152,6 +152,28 @@ def _run_bw_migration_once(db):
     )
 
 
+def _recompute_all_ranks_once(db):
+    """One-shot rank recompute after the BW migration's data corrections.
+
+    The BW migration mutates WorkoutLog rows but does NOT refresh MuscleScore.
+    Without this, users who haven't logged in since the deploy keep their
+    pre-migration rank (e.g. Aragorn stays Champion until he opens the app).
+
+    Gated separately so it runs exactly once after the migration ships,
+    independently of subsequent migration retries.
+    """
+    from .models import MigrationLog
+    from .rank_engine import recompute_all
+
+    name = "bw_recompute_after_migration_2026_04"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+    recompute_all(db)
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print("BW migration: recomputed ranks for all users.", flush=True)
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -190,6 +212,7 @@ async def lifespan(app: FastAPI):
         seed_medal_catalog(db)
         _backfill_default_user(db)
         _run_bw_migration_once(db)
+        _recompute_all_ranks_once(db)
         seed_preset_programs(db)
         backfill_consistency_medals(db)
     finally:
