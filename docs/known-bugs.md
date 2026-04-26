@@ -24,6 +24,8 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 15. ~~Manual 1RM saved in Settings never awarded strength medals~~ — `PATCH /api/manual-1rm` now calls `_update_holder()` for each saved category, mirroring the WorkoutLog path. Medal holders, feed events, and system chat messages all fire on Settings save (2026-04-21).
 16. ~~Mobile page titles too close to the fixed top bar~~ — main content padding bumped from `pt-16` to `pt-20` so the title clears the mobile header by ~28px instead of ~12px (2026-04-21).
 17. ~~Muscle ranks stuck on "Champion" after the 2026-04-21 engine rewrite~~ — `GET /api/ranks` and the dashboard now always call `recompute_for_user()` on read instead of only when the table is empty; stale rows from the old percentile engine no longer leak through (2026-04-21).
+18. ~~Aragorn-style data corruption: WEIGHTED PULLUP entered as bodyweight inflated back rank to Champion~~ — fixed 2026-04-25. New SetRow component shows BW (auto) + Added fields separately so users can't conflate them. WorkoutLog.added_load_kg column stores plate-only load. Migration audited + corrected historical bogus rows (see CLAUDE.md "BW input migration" section). Rank engine reads added_load_kg directly + applies size_bonus + MAX_ADDED_RATIO_FOR_BACK_ARMS=2.0 guard.
+19. ~~Restore-unsaved-workout flow had 7 bugs: BW reps-only never persisted, no TTL, cross-session bleed, etc.~~ — fixed 2026-04-25. Replaced inline localStorage logic in Logger.jsx with useWorkoutDraft hook (commit b0cd3af). Hook persists when ANY set has load OR reps > 0, has 14-day TTL, clears pendingRestore on session/week switch, sweeps orphaned keys on mount, explicit accept/discard cleans the key.
 
 ## Still Open
 
