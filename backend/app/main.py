@@ -160,6 +160,8 @@ async def lifespan(app: FastAPI):
     try:
         _run_migrations(db)
         seed_exercise_catalog(db)
+        from .seed_catalog import backfill_catalog_bodyweight_kind
+        backfill_catalog_bodyweight_kind(db)
         seed_medal_catalog(db)
         _backfill_default_user(db)
         seed_preset_programs(db)

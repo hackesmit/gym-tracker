@@ -1247,6 +1247,24 @@ def seed_exercise_catalog(db_session: Session) -> int:
     return inserted_count
 
 
+def backfill_catalog_bodyweight_kind(db):
+    """Update existing ExerciseCatalog rows with the bodyweight_kind value
+    from the EXERCISE_CATALOG seed list. Idempotent — only updates rows
+    where the DB value differs from the seed value (so it can be called on
+    every startup safely).
+    """
+    from .models import ExerciseCatalog
+    seed_by_name = {
+        entry["canonical_name"]: entry.get("bodyweight_kind")
+        for entry in EXERCISE_CATALOG
+    }
+    for cat in db.query(ExerciseCatalog).all():
+        wanted = seed_by_name.get(cat.canonical_name)
+        if cat.bodyweight_kind != wanted:
+            cat.bodyweight_kind = wanted
+    db.commit()
+
+
 if __name__ == "__main__":
     from .database import SessionLocal
 

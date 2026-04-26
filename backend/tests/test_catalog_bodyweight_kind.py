@@ -40,3 +40,23 @@ def test_external_load_exercises_have_null_kind(db):
         assert cat.bodyweight_kind is None, (
             f"{name} expected bodyweight_kind=NULL, got {cat.bodyweight_kind!r}"
         )
+
+
+def test_backfill_updates_existing_rows(db):
+    """Pre-existing catalog rows (without bodyweight_kind) get backfilled."""
+    pre_existing = ExerciseCatalog(
+        canonical_name="PULLUP",
+        muscle_group_primary="back",
+        movement_pattern="vertical pull",
+        equipment="bodyweight",
+        difficulty_level="intermediate",
+        bodyweight_kind=None,
+    )
+    db.add(pre_existing)
+    db.commit()
+
+    from app.seed_catalog import backfill_catalog_bodyweight_kind
+    backfill_catalog_bodyweight_kind(db)
+
+    refreshed = db.query(ExerciseCatalog).filter_by(canonical_name="PULLUP").first()
+    assert refreshed.bodyweight_kind == "pure"
