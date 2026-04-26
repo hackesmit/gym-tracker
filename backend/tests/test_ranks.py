@@ -6,11 +6,14 @@ from datetime import date, timedelta
 from app.models import ExerciseCatalog, Program, ProgramExercise, User, WorkoutLog
 from app.muscle_rank_config import (
     CHAMPION_POINTS,
+    MAX_ADDED_RATIO_FOR_BACK_ARMS,
     MUSCLE_RANK_THRESHOLDS,
     RANK_ORDER,
+    SIZE_BONUS_REFERENCE_KG,
     SUBDIVISION_COUNT,
     continuous_score,
     rank_score,
+    size_bonus,
     subdivided_rank,
     subdivision_label,
 )
@@ -478,12 +481,6 @@ def test_mixed_arms_training_beats_single_pathway(db):
 # ---------------------------------------------------------------------------
 # size_bonus + MAX_ADDED_RATIO_FOR_BACK_ARMS
 # ---------------------------------------------------------------------------
-
-from app.muscle_rank_config import (
-    MAX_ADDED_RATIO_FOR_BACK_ARMS,
-    SIZE_BONUS_REFERENCE_KG,
-    size_bonus,
-)
 
 
 def test_size_bonus_at_reference_weight_is_one():

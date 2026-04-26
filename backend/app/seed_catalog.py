@@ -1199,7 +1199,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
-        "bodyweight_kind": "pure",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "TWO-ARMS TWO-LEGS DEAD BUG",

@@ -1,5 +1,8 @@
 """Schema test for the new audit + migration_log tables."""
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from app.models import BwMigrationAudit, MigrationLog, User
 
 
@@ -26,7 +29,5 @@ def test_migration_log_unique_name(db):
     db.add(MigrationLog(name="bw_input_2026_04"))
     db.commit()
     db.add(MigrationLog(name="bw_input_2026_04"))
-    import pytest
-    from sqlalchemy.exc import IntegrityError
     with pytest.raises(IntegrityError):
         db.commit()
