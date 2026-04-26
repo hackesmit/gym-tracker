@@ -505,3 +505,85 @@ def test_size_bonus_handles_invalid_input():
 
 def test_max_added_ratio_for_back_arms_is_capped_at_2():
     assert MAX_ADDED_RATIO_FOR_BACK_ARMS == 2.0
+
+
+# ---------------------------------------------------------------------------
+# rank_engine reads added_load_kg + applies size_bonus + guard
+# ---------------------------------------------------------------------------
+
+from datetime import date as _date_module_date
+
+from app.models import Program, ProgramExercise, WorkoutLog
+from app.rank_engine import recompute_for_user
+from app.seed_catalog import seed_exercise_catalog, backfill_catalog_bodyweight_kind
+
+
+def _setup_pullup_log(db, user, *, load_kg, added_load_kg, reps=5):
+    program = Program(user_id=user.id, name="X", frequency=3, start_date=_date_module_date.today())
+    db.add(program); db.flush()
+    pe = ProgramExercise(
+        program_id=program.id, week=1, session_name="A", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="WEIGHTED PULLUP",
+        exercise_name_canonical="WEIGHTED PULLUP",
+        prescribed_reps="5", working_sets=3,
+    )
+    db.add(pe); db.flush()
+    log = WorkoutLog(
+        user_id=user.id, program_exercise_id=pe.id, date=_date_module_date.today(),
+        set_number=1, load_kg=load_kg, reps_completed=reps,
+        added_load_kg=added_load_kg,
+    )
+    db.add(log); db.commit()
+    return log
+
+
+def test_rank_engine_reads_added_load_kg_directly(db):
+    """When added_load_kg is set on the row, engine uses it (not load_kg - bw)."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _setup_pullup_log(db, user, load_kg=105.0, added_load_kg=25.0)
+
+    ranks = recompute_for_user(db, user.id)
+
+    # Ratio = (25/80) * size_bonus(80) = 0.3125 * 1.0 = 0.3125 → Silver tier
+    back = ranks["back"]
+    assert back["rank"] in {"Silver", "Gold"}, back
+
+
+def test_rank_engine_drops_implausible_added_load(db):
+    """A log with added_load_kg = 3 * BW must be dropped silently (cap = 2.0 ratio)."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _setup_pullup_log(db, user, load_kg=320.0, added_load_kg=240.0, reps=1)
+
+    ranks = recompute_for_user(db, user.id)
+
+    # Should NOT be Champion — guard drops the candidate, falls back to Copper
+    assert ranks["back"]["rank"] == "Copper"
+
+
+def test_size_bonus_helps_heavy_lifter(db):
+    """Heavy 100kg lifter and light 60kg lifter both add 25kg pullup —
+    heavier athlete's ratio is higher than no-bonus baseline; lighter is lower."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    heavy = User(name="heavy", username="heavy", password_hash="!", bodyweight_kg=100.0)
+    light = User(name="light", username="light", password_hash="!", bodyweight_kg=60.0)
+    db.add_all([heavy, light])
+    db.commit()
+    # Use reps=1 so Epley e1rm == added_load_kg exactly → clean arithmetic.
+    _setup_pullup_log(db, heavy, load_kg=125.0, added_load_kg=25.0, reps=1)
+    _setup_pullup_log(db, light, load_kg=85.0, added_load_kg=25.0, reps=1)
+
+    h_ranks = recompute_for_user(db, heavy.id)
+    l_ranks = recompute_for_user(db, light.id)
+
+    # Heavy: 25/100 * (100/80)^0.5 = 0.25 * 1.118 = 0.2795
+    # Light: 25/60  * (60/80)^0.5  = 0.4167 * 0.866 = 0.361
+    # Heavy ratio > 0.25 (no-bonus baseline, i.e. 25/100 with no size_bonus)
+    assert h_ranks["back"]["ratio"] > 0.25
+    # Light ratio < 0.4167 (no-bonus baseline, i.e. 25/60 with no size_bonus)
+    assert l_ranks["back"]["ratio"] < 0.4167
