@@ -13,11 +13,13 @@ from .friends import get_friend_ids, _aggregate
 
 
 def _build_profile(db: Session, user: User) -> dict:
+    # Reuse the canonical rank serializer so the Compare view sees the
+    # same shape as /api/ranks — including sub_index, sub_label, elo. The
+    # old shape (`{group, rank, score}` only) silently defaulted every
+    # sub-tier label to "V" on the frontend.
+    from .ranks import _serialize as _serialize_ranks
     agg = _aggregate(db, user.id)
-    ranks = [
-        {"group": r.muscle_group, "rank": r.rank, "score": round(r.score, 1)}
-        for r in db.query(MuscleScore).filter(MuscleScore.user_id == user.id).all()
-    ]
+    ranks = _serialize_ranks(user.id, db)
     medals_owned = (
         db.query(func.count(MedalCurrentHolder.medal_id))
         .filter(MedalCurrentHolder.user_id == user.id)
@@ -32,6 +34,7 @@ def _build_profile(db: Session, user: User) -> dict:
         "cardio_km_30d": agg["cardio_km_30d"],
         "medals_owned": int(medals_owned),
         "muscle_ranks": ranks,
+        "elo_total": sum(int(r.get("elo") or 0) for r in ranks),
     }
 
 router = APIRouter(prefix="/api/social", tags=["social"])
