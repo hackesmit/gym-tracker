@@ -126,6 +126,32 @@ def _run_migrations(db):
     db.commit()
 
 
+def _run_bw_migration_once(db):
+    """Run the BW input migration exactly once across deploys.
+
+    Gated by a row in `migration_log`. The migration body itself is also
+    idempotent (skips audited log_ids), so this gate is belt-and-suspenders
+    plus avoids the per-row scan on every cold start.
+    """
+    from .bw_migration import run_bw_migration
+    from .models import MigrationLog
+
+    name = "bw_input_2026_04"
+    existing = db.query(MigrationLog).filter_by(name=name).first()
+    if existing is not None:
+        return
+    summary = run_bw_migration(db)
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print(
+        f"BW migration: touched {summary.get('touched', 0)} logs. "
+        f"Aragorn corrections: {summary.get('aragorn_correction', 0)}. "
+        f"Pure-BW backfills: {summary.get('pure_bw_backfilled', 0)}. "
+        f"No-BW-skipped: {summary.get('no_bw_skipped', 0)}.",
+        flush=True,
+    )
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -163,6 +189,7 @@ async def lifespan(app: FastAPI):
         backfill_catalog_bodyweight_kind(db)
         seed_medal_catalog(db)
         _backfill_default_user(db)
+        _run_bw_migration_once(db)
         seed_preset_programs(db)
         backfill_consistency_medals(db)
     finally:
