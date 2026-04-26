@@ -252,7 +252,9 @@ export default function Logger() {
               load_kg = userBodyweightKg ?? 0;
               added_load_kg = 0;
             } else if (kind === 'weighted_capable') {
-              const added = parseFloat(s.added_load_kg) || 0;
+              // s.added_load_kg is in display units (what the user typed);
+              // convert to kg before summing with userBodyweightKg (already kg).
+              const added = displayToKg(parseFloat(s.added_load_kg) || 0, units);
               load_kg = (userBodyweightKg ?? 0) + added;
               added_load_kg = added;
             } else {

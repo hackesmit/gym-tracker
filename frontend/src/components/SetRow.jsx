@@ -1,4 +1,4 @@
-import { kgToDisplay } from '../utils/units';
+import { kgToDisplay, displayToKg } from '../utils/units';
 import SetBwPrompt from './SetBwPrompt';
 
 function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }) {
@@ -56,8 +56,10 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
 function WeightedCapableLayout({
   set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw,
 }) {
-  const added = parseFloat(set.added_load_kg) || 0;
-  const totalKg = (userBodyweightKg || 0) + added;
+  // set.added_load_kg is in display units (what the user typed).
+  // Convert to kg before summing with userBodyweightKg (already kg).
+  const addedKg = displayToKg(parseFloat(set.added_load_kg) || 0, units);
+  const totalKg = (userBodyweightKg || 0) + addedKg;
   const totalDisplay = kgToDisplay(totalKg, units);
 
   return (
