@@ -207,6 +207,17 @@ EXERCISE_CATALOG = [
         "difficulty_level": "intermediate",
     },
     {
+        "canonical_name": "WEIGHTED DIP",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
+    },
+    {
         "canonical_name": "WEIGHTED DIP (HEAVY)",
         "muscle_group_primary": "chest",
         "muscle_groups_secondary": ["triceps", "shoulders"],
@@ -215,6 +226,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "WEIGHTED DIP (BACK OFF)",
@@ -225,6 +237,29 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
+    },
+    {
+        "canonical_name": "DIP",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
+    },
+    {
+        "canonical_name": "DIPS",
+        "muscle_group_primary": "chest",
+        "muscle_groups_secondary": ["triceps", "shoulders"],
+        "movement_pattern": "horizontal push",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "BODYWEIGHT DIP",
@@ -235,6 +270,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "PUSHUPS",
@@ -378,6 +414,17 @@ EXERCISE_CATALOG = [
         "difficulty_level": "intermediate",
     },
     {
+        "canonical_name": "PULLUP",
+        "muscle_group_primary": "back",
+        "muscle_groups_secondary": ["biceps"],
+        "movement_pattern": "vertical pull",
+        "equipment": "bodyweight",
+        "is_compound": True,
+        "is_unilateral": False,
+        "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
+    },
+    {
         "canonical_name": "WEIGHTED PULLUP",
         "muscle_group_primary": "back",
         "muscle_groups_secondary": ["biceps"],
@@ -386,6 +433,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "2-GRIP PULLUP",
@@ -396,6 +444,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": False,
         "difficulty_level": "advanced",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "2-GRIP PULLUP (ASSISTED)",
@@ -709,6 +758,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": True,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "WALKING LUNGES",
@@ -719,6 +769,7 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": True,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "DB STEP UP",
@@ -1115,6 +1166,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "LEG RAISES",
@@ -1125,6 +1177,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "ROMAN CHAIR CRUNCH",
@@ -1135,6 +1188,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "intermediate",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "PLATE-WEIGHTED CRUNCH",
@@ -1145,6 +1199,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "TWO-ARMS TWO-LEGS DEAD BUG",
@@ -1155,6 +1210,7 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
+        "bodyweight_kind": "pure",
     },
 ]
 
