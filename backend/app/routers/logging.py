@@ -42,6 +42,7 @@ class SetLogRequest(BaseModel):
     is_bodyweight: bool = False
     is_dropset: bool = False
     dropset_load_kg: Optional[float] = Field(None, ge=0)
+    added_load_kg: Optional[float] = Field(None, ge=0)
 
 
 class SetLogResponse(BaseModel):
@@ -57,6 +58,7 @@ class SetLogResponse(BaseModel):
     is_bodyweight: bool
     is_dropset: bool
     dropset_load_kg: Optional[float]
+    added_load_kg: Optional[float]
 
     model_config = {"from_attributes": True}
 
@@ -70,6 +72,7 @@ class BulkSetItem(BaseModel):
     is_bodyweight: bool = False
     is_dropset: bool = False
     dropset_load_kg: Optional[float] = Field(None, ge=0)
+    added_load_kg: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
 
 
@@ -119,6 +122,7 @@ class WorkoutLogOut(BaseModel):
     is_bodyweight: bool
     is_dropset: bool
     dropset_load_kg: Optional[float]
+    added_load_kg: Optional[float] = None
     exercise_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -189,6 +193,7 @@ def log_single_set(
         is_bodyweight=payload.is_bodyweight,
         is_dropset=payload.is_dropset,
         dropset_load_kg=payload.dropset_load_kg,
+        added_load_kg=payload.added_load_kg,
     )
     db.add(log)
     db.commit()
@@ -286,6 +291,7 @@ def log_bulk_session(
             is_bodyweight=s.is_bodyweight,
             is_dropset=s.is_dropset,
             dropset_load_kg=s.dropset_load_kg,
+            added_load_kg=s.added_load_kg,
             session_log_id=session_log.id,
         )
         db.add(log)

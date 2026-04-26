@@ -2,6 +2,8 @@
 
 from datetime import date
 
+from app.models import Program, ProgramExercise, User, WorkoutLog
+
 
 def _seed_program(db):
     """Insert a minimal program with exercises for testing."""
@@ -108,3 +110,78 @@ def test_undo_session(client, db):
     resp2 = client.delete(f"/api/log/session/{session_id}")
     assert resp2.status_code == 200
     assert resp2.json()["undone"] is True
+
+
+def test_bulk_log_round_trips_added_load_kg(db, client):
+    """Bulk log endpoint accepts and persists added_load_kg = 0 for pure BW."""
+    user = db.query(User).first()
+    p = Program(user_id=user.id, name="P", frequency=3, start_date=date.today())
+    db.add(p); db.flush()
+    pe = ProgramExercise(
+        program_id=p.id, week=1, session_name="A", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="PUSHUP", exercise_name_canonical="PUSHUP",
+        prescribed_reps="15", working_sets=3,
+    )
+    db.add(pe); db.commit()
+    payload = {
+        "program_id": p.id, "week": 1, "session_name": "A",
+        "date": str(date.today()),
+        "sets": [{
+            "program_exercise_id": pe.id, "set_number": 1,
+            "load_kg": 80.0, "reps_completed": 15,
+            "added_load_kg": 0,
+        }],
+    }
+    r = client.post("/api/log/bulk", json=payload)
+    assert r.status_code == 201, r.text
+    log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
+    assert log.added_load_kg == 0
+    assert log.load_kg == 80.0
+
+
+def test_bulk_log_omitted_added_load_kg_stays_null(db, client):
+    """Backwards-compat: payload without added_load_kg => NULL."""
+    user = db.query(User).first()
+    p = Program(user_id=user.id, name="P2", frequency=3, start_date=date.today())
+    db.add(p); db.flush()
+    pe = ProgramExercise(
+        program_id=p.id, week=1, session_name="B", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="BENCH", exercise_name_canonical="BENCH",
+        prescribed_reps="5", working_sets=3,
+    )
+    db.add(pe); db.commit()
+    payload = {
+        "program_id": p.id, "week": 1, "session_name": "B",
+        "date": str(date.today()),
+        "sets": [{
+            "program_exercise_id": pe.id, "set_number": 1,
+            "load_kg": 100.0, "reps_completed": 5,
+        }],
+    }
+    r = client.post("/api/log/bulk", json=payload)
+    assert r.status_code == 201, r.text
+    log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
+    assert log.added_load_kg is None
+
+
+def test_single_log_round_trips_added_load_kg(db, client):
+    """Single-set endpoint round-trips added_load_kg too."""
+    user = db.query(User).first()
+    p = Program(user_id=user.id, name="P3", frequency=3, start_date=date.today())
+    db.add(p); db.flush()
+    pe = ProgramExercise(
+        program_id=p.id, week=1, session_name="C", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="WP", exercise_name_canonical="WP",
+        prescribed_reps="5", working_sets=3,
+    )
+    db.add(pe); db.commit()
+    payload = {
+        "program_exercise_id": pe.id, "date": str(date.today()),
+        "set_number": 1, "load_kg": 105.0, "reps_completed": 5,
+        "added_load_kg": 25.0,
+    }
+    r = client.post("/api/log", json=payload)
+    assert r.status_code == 201, r.text
+    log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
+    assert log.added_load_kg == 25.0
+    assert log.load_kg == 105.0
