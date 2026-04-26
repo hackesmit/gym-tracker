@@ -503,7 +503,22 @@ export default function Logger() {
 
           {saved ? (
             <SessionSummary
-              sets={sets}
+              sets={sets.map((s) => {
+                // Synthesize an effective load_kg in DISPLAY units for the chronicle's
+                // volume / top-set / set-count math. External-load sets already store
+                // user-typed display values; bodyweight-class sets need it derived.
+                const kind = getBodyweightKind(s.exercise_name, catalogData);
+                if (kind === 'pure') {
+                  const bwDisplay = userBodyweightKg ? kgToDisplay(userBodyweightKg, units) : 0;
+                  return { ...s, load_kg: bwDisplay };
+                }
+                if (kind === 'weighted_capable') {
+                  const bwDisplay = userBodyweightKg ? kgToDisplay(userBodyweightKg, units) : 0;
+                  const addedDisplay = parseFloat(s.added_load_kg) || 0;
+                  return { ...s, load_kg: bwDisplay + addedDisplay };
+                }
+                return s;
+              })}
               prList={prList}
               sessionName={selectedSession?.session_name || ''}
               week={currentWeek}

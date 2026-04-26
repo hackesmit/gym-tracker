@@ -44,11 +44,15 @@ def _make_admin_user(db):
 
 
 def test_rollback_endpoint_reverts_changes(db, client):
+    from app.models import MigrationLog
     seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
     admin = _make_admin_user(db)
     log = _make_pullup_log(db, admin, load_kg=70.3)
 
     run_bw_migration(db)
+    # Simulate the lifespan gate having marked the migration done
+    db.add(MigrationLog(name="bw_input_2026_04"))
+    db.commit()
     db.refresh(log)
     assert log.added_load_kg == 0
     assert log.load_kg == pytest.approx(70.0)
@@ -60,6 +64,8 @@ def test_rollback_endpoint_reverts_changes(db, client):
     assert log.load_kg == pytest.approx(70.3)
     assert log.added_load_kg is None
     assert db.query(BwMigrationAudit).count() == 0
+    # Marker is cleared so the next backend restart will re-run the migration
+    assert db.query(MigrationLog).filter_by(name="bw_input_2026_04").first() is None
 
 
 def test_rollback_requires_admin(db, client):

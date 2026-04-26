@@ -60,4 +60,20 @@ describe('SetRow', () => {
     renderRow({ bodyweightKind: 'weighted_capable', userBodyweightKg: 80 });
     expect(screen.getByRole('button', { name: /DS/ })).toBeInTheDocument();
   });
+
+  it('weighted-capable Total in lbs mode converts added correctly', () => {
+    // BW 80 kg = 176.5 lbs; user types added=20 in display units (lbs).
+    // Total kg = 80 + displayToKg(20, 'lbs') = 80 + 9.072 = 89.07 kg.
+    // Total displayed in lbs = kgToDisplay(89.07, 'lbs') = 196.5 lbs.
+    renderRow({
+      bodyweightKind: 'weighted_capable',
+      userBodyweightKg: 80,
+      units: 'lbs',
+      unitLabel: 'lbs',
+      set: { ...baseSet, added_load_kg: 20 },
+    });
+    expect(screen.getByText(/total/i)).toBeInTheDocument();
+    // Allow either 196 or 196.5 in case of rounding nuance
+    expect(screen.getByText(/196/)).toBeInTheDocument();
+  });
 });
