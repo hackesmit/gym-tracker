@@ -92,9 +92,10 @@ def run_bw_migration(db: Session, *, only_user_id: int | None = None) -> dict:
     if not kind_by_canonical:
         return {"touched": 0}
 
-    already_audited = {
-        row.log_id for row in db.query(BwMigrationAudit.log_id).all()
-    }
+    audit_q = db.query(BwMigrationAudit.log_id)
+    if only_user_id is not None:
+        audit_q = audit_q.filter(BwMigrationAudit.user_id == only_user_id)
+    already_audited = {row.log_id for row in audit_q.all()}
 
     q = (
         db.query(WorkoutLog, ProgramExercise.exercise_name_canonical)

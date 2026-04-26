@@ -215,3 +215,34 @@ def test_migration_uses_historical_bodymetric(db):
     audit = db.query(BwMigrationAudit).filter_by(log_id=log.id).first()
     assert audit.reason == "aragorn_correction"
     assert log.load_kg == pytest.approx(75.0)
+
+
+def test_aragorn_band_lower_boundary_inclusive(db):
+    """old_load == 0.85 * BW exactly is inside the band -> aragorn_correction."""
+    _seed_catalog(db)
+    user = _make_user(db, "boundary_lo", bw=80.0)
+    # 0.85 * 80 = 68.0 — inclusive lower bound
+    log = _make_log(db, user, "WEIGHTED PULLUP", load_kg=68.0)
+
+    run_bw_migration(db)
+
+    audit = db.query(BwMigrationAudit).filter_by(log_id=log.id).first()
+    assert audit.reason == "aragorn_correction"
+
+
+def test_aragorn_band_upper_boundary_inclusive(db):
+    """old_load == 1.15 * BW exactly is inside the band -> aragorn_correction.
+    A value clearly above the band promotes to weighted_capable_added_promoted."""
+    _seed_catalog(db)
+    user = _make_user(db, "boundary_hi", bw=80.0)
+    # 1.15 * 80 = 92.0 — inclusive upper bound
+    log_in = _make_log(db, user, "WEIGHTED PULLUP", load_kg=92.0)
+    # 92.5 — clearly above the band -> promoted as added load
+    log_out = _make_log(db, user, "WEIGHTED PULLUP", load_kg=92.5)
+
+    run_bw_migration(db)
+
+    audit_in = db.query(BwMigrationAudit).filter_by(log_id=log_in.id).first()
+    audit_out = db.query(BwMigrationAudit).filter_by(log_id=log_out.id).first()
+    assert audit_in.reason == "aragorn_correction"
+    assert audit_out.reason == "weighted_capable_added_promoted"
