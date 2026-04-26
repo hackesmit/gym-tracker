@@ -24,7 +24,6 @@ const LIFT_CATEGORIES = [
   { key: 'squat', label: 'Squat' },
   { key: 'deadlift', label: 'Deadlift' },
   { key: 'ohp', label: 'Overhead Press' },
-  { key: 'row', label: 'Row' },
 ];
 
 function formatRestLabel(seconds) {

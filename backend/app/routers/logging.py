@@ -708,7 +708,10 @@ def body_metrics_history(
 
 # ---- Manual 1RM endpoints ---------------------------------------------------
 
-VALID_1RM_CATEGORIES = {"squat", "deadlift", "bench", "ohp", "row"}
+# 2026-04-25: dropped "row" — uncommon to true-1RM and not consumed by the
+# muscle-rank engine. Existing manual_1rm["row"] values in the DB stay valid
+# for the Analytics strength spider; new writes are rejected.
+VALID_1RM_CATEGORIES = {"squat", "deadlift", "bench", "ohp"}
 
 
 class Manual1RMEntry(BaseModel):
