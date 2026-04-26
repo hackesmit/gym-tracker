@@ -10,8 +10,10 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import WarmUpPyramid from '../components/WarmUpPyramid';
 import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator';
 import SessionSummary from '../components/SessionSummary';
+import SetRow from '../components/SetRow';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
 import {
   logBulkSession, logBodyMetric, undoSession,
@@ -42,10 +44,30 @@ function isBodyweightExercise(exerciseName, catalog) {
   return entry.equipment === 'bodyweight';
 }
 
+function getBodyweightKind(exerciseName, catalog) {
+  if (!exerciseName || !catalog || !catalog.length) return null;
+  const entry = catalog.find((ex) => {
+    const name = typeof ex === 'string' ? ex : ex.name || ex.exercise_name || '';
+    return name === exerciseName;
+  });
+  if (!entry || typeof entry === 'string') return null;
+  return entry.bodyweight_kind || null;
+}
+
 export default function Logger() {
   const { activeProgram, unitLabel, units, convert, defaultRestSeconds, programs } = useApp();
   const t = useT();
   const { addToast } = useToast();
+  const { user, refreshUser } = useAuth();
+  const userBodyweightKg = user?.bodyweight_kg ?? null;
+
+  const handleSetBw = async (bw) => {
+    await logBodyMetric({
+      date: new Date().toISOString().split('T')[0],
+      bodyweight_kg: displayToKg(bw, units),
+    });
+    if (refreshUser) await refreshUser();
+  };
 
   // --- Hook 1: session / schedule / overload state ---
   const {
@@ -163,6 +185,7 @@ export default function Logger() {
           rest_period: ex.rest_period || '',
           warm_up_sets: ex.warm_up_sets || '',
           is_bodyweight: false,
+          added_load_kg: '',
           is_dropset: false,
           dropset_load_kg: '',
           dropset_reps: '',
@@ -186,6 +209,27 @@ export default function Logger() {
 
   const handleSave = async () => {
     if (!activeProgram || !selectedSession || !sets.length) return;
+
+    const needsBwButMissing = sets.some((s) => {
+      const kind = getBodyweightKind(s.exercise_name, catalogData);
+      return (kind === 'pure' || kind === 'weighted_capable')
+             && +s.reps_completed > 0
+             && !userBodyweightKg;
+    });
+    if (needsBwButMissing) {
+      addToast('Set your bodyweight to log bodyweight exercises.', 'error');
+      return;
+    }
+
+    const oversizedAdded = sets.some((s) => {
+      const kind = getBodyweightKind(s.exercise_name, catalogData);
+      if (kind !== 'weighted_capable') return false;
+      return parseFloat(s.added_load_kg) > 100;
+    });
+    if (oversizedAdded) {
+      addToast('Added weight > 100 kg. Double-check before lifting!', 'info');
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -195,21 +239,39 @@ export default function Logger() {
         date: new Date().toISOString().split('T')[0],
         sets: sets
           .filter((s) => {
-            const bw = s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData);
-            return s.load_kg > 0 || (bw && +s.reps_completed > 0);
+            const kind = getBodyweightKind(s.exercise_name, catalogData);
+            if (kind === 'pure' || kind === 'weighted_capable') {
+              return +s.reps_completed > 0;
+            }
+            return +s.load_kg > 0;
           })
-          .map((s) => ({
-            program_exercise_id: s.program_exercise_id,
-            set_number: s.set_number,
-            load_kg: displayToKg(s.load_kg, units),
-            reps_completed: +s.reps_completed,
-            rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
-            is_bodyweight: s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData),
-            is_dropset: s.is_dropset,
-            dropset_load_kg: s.is_dropset && s.dropset_load_kg
-              ? displayToKg(s.dropset_load_kg, units)
-              : null,
-          })),
+          .map((s) => {
+            const kind = getBodyweightKind(s.exercise_name, catalogData);
+            let load_kg, added_load_kg;
+            if (kind === 'pure') {
+              load_kg = userBodyweightKg ?? 0;
+              added_load_kg = 0;
+            } else if (kind === 'weighted_capable') {
+              const added = parseFloat(s.added_load_kg) || 0;
+              load_kg = (userBodyweightKg ?? 0) + added;
+              added_load_kg = added;
+            } else {
+              load_kg = displayToKg(s.load_kg, units);
+              added_load_kg = null;
+            }
+            return {
+              program_exercise_id: s.program_exercise_id,
+              set_number: s.set_number,
+              load_kg,
+              reps_completed: +s.reps_completed,
+              rpe_actual: s.rpe_actual ? +s.rpe_actual : null,
+              added_load_kg,
+              is_dropset: s.is_dropset,
+              dropset_load_kg: s.is_dropset && s.dropset_load_kg
+                ? displayToKg(s.dropset_load_kg, units)
+                : null,
+            };
+          }),
       };
       const result = await logBulkSession(payload);
       setSaved(true);
@@ -513,61 +575,17 @@ export default function Logger() {
                             }));
                             return (
                             <div key={s.idx} className="space-y-1.5">
-                              <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end relative">
-                                <span className="text-xs text-text-muted text-center pb-2">{s.set_number}</span>
-                                <div className="relative">
-                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
-                                    {unitLabel}{(() => {
-                                      const hint = getWeightHint(s.exercise_name, catalogData);
-                                      return hint ? ` ${hint}` : '';
-                                    })()}
-                                  </label>
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    value={s.load_kg}
-                                    onChange={(e) => updateSet(s.idx, 'load_kg', e.target.value)}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div className="relative">
-                                  <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">Reps</label>
-                                  <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    value={s.reps_completed}
-                                    onChange={(e) => updateSet(s.idx, 'reps_completed', e.target.value)}
-                                    onBlur={triggerTimer}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div className="relative">
-                                  <label className="absolute top-1 left-1.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">RPE</label>
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.5"
-                                    value={s.rpe_actual}
-                                    onChange={(e) => updateSet(s.idx, 'rpe_actual', e.target.value)}
-                                    onBlur={triggerTimer}
-                                    className="bg-surface-light border border-surface-lighter rounded-lg px-1.5 sm:px-2 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
-                                    placeholder="--"
-                                  />
-                                </div>
-                                <button
-                                  onClick={() => updateSet(s.idx, 'is_dropset', !s.is_dropset)}
-                                  title="Drop set"
-                                  className={`pb-1.5 pt-1 text-[10px] font-bold rounded-lg border transition-colors touch-manipulation ${
-                                    s.is_dropset
-                                      ? 'border-warning bg-warning/15 text-warning'
-                                      : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text'
-                                  }`}
-                                >
-                                  DS
-                                </button>
-                              </div>
+                              <SetRow
+                                set={s}
+                                bodyweightKind={getBodyweightKind(s.exercise_name, catalogData)}
+                                userBodyweightKg={userBodyweightKg}
+                                unitLabel={unitLabel}
+                                units={units}
+                                weightHint={getWeightHint(s.exercise_name, catalogData)}
+                                onUpdate={(field, value) => updateSet(s.idx, field, value)}
+                                onTriggerTimer={triggerTimer}
+                                onSetBw={handleSetBw}
+                              />
                               {s.is_dropset && (
                                 <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
                                   <span className="text-[9px] text-warning text-center pb-2">&#8627;</span>
@@ -622,8 +640,11 @@ export default function Logger() {
                 <button
                   onClick={handleSave}
                   disabled={saving || !sets.some((s) => {
-                    const bw = s.is_bodyweight || isBodyweightExercise(s.exercise_name, catalogData);
-                    return s.load_kg > 0 || (bw && +s.reps_completed > 0);
+                    const kind = getBodyweightKind(s.exercise_name, catalogData);
+                    if (kind === 'pure' || kind === 'weighted_capable') {
+                      return +s.reps_completed > 0;
+                    }
+                    return +s.load_kg > 0;
                   })}
                   className="btn-primary-cta flex items-center justify-center gap-2 touch-manipulation"
                 >
