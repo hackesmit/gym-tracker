@@ -157,3 +157,75 @@ def rerun_bw_migration_for_user(db: Session, user_id: int) -> dict:
     set bodyweight. Skips logs that were already audited (so it's safe to
     call multiple times)."""
     return run_bw_migration(db, only_user_id=user_id)
+
+
+def run_pure_load_kg_cleanup(db: Session) -> dict:
+    """Zero out load_kg on every WorkoutLog whose canonical exercise has
+    bodyweight_kind='pure' AND load_kg > 0. These are residual artifacts
+    from users entering bogus values (e.g. 155 lb on a 2-GRIP PULLUP)
+    before the new SetRow UI clarified the input contract.
+
+    The rank engine already ignores load_kg for pure-BW exercises (rep
+    fallback only), but the Analytics tonnage/volume charts do read it
+    and would show inflated values. This pass cleans them up for analytics
+    accuracy.
+
+    Audits each change as 'pure_load_kg_zeroed' in bw_migration_audit so
+    the rollback endpoint can restore originals. Idempotent (skips logs
+    that already have a 'pure_load_kg_zeroed' audit row). Removes prior
+    'pure_with_nonzero_load_skipped' audit rows for the same log_ids so
+    rollback restores cleanly without double-handling.
+    """
+    pure_canonicals = [
+        c.canonical_name for c in (
+            db.query(ExerciseCatalog)
+            .filter(ExerciseCatalog.bodyweight_kind == "pure")
+            .all()
+        )
+    ]
+    if not pure_canonicals:
+        return {"touched": 0}
+
+    already_zeroed = {
+        row.log_id for row in (
+            db.query(BwMigrationAudit.log_id)
+            .filter(BwMigrationAudit.reason == "pure_load_kg_zeroed")
+            .all()
+        )
+    }
+
+    rows = (
+        db.query(WorkoutLog, ProgramExercise.exercise_name_canonical)
+        .join(ProgramExercise, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(
+            ProgramExercise.exercise_name_canonical.in_(pure_canonicals),
+            WorkoutLog.load_kg > 0,
+        )
+        .all()
+    )
+
+    touched = 0
+    for log, canonical in rows:
+        if log.id in already_zeroed:
+            continue
+        old_load = float(log.load_kg or 0.0)
+        # Drop any prior 'pure_with_nonzero_load_skipped' audit row for
+        # this log so rollback iterates the cleanup row only.
+        db.query(BwMigrationAudit).filter(
+            BwMigrationAudit.log_id == log.id,
+            BwMigrationAudit.reason == "pure_with_nonzero_load_skipped",
+        ).delete(synchronize_session=False)
+        log.load_kg = 0.0
+        db.add(BwMigrationAudit(
+            log_id=log.id,
+            user_id=log.user_id,
+            exercise_name=canonical,
+            old_load_kg=old_load,
+            new_load_kg=0.0,
+            new_added_load_kg=None,
+            reason="pure_load_kg_zeroed",
+        ))
+        touched += 1
+
+    db.commit()
+    return {"touched": touched}

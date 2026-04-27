@@ -246,3 +246,99 @@ def test_aragorn_band_upper_boundary_inclusive(db):
     audit_out = db.query(BwMigrationAudit).filter_by(log_id=log_out.id).first()
     assert audit_in.reason == "aragorn_correction"
     assert audit_out.reason == "weighted_capable_added_promoted"
+
+
+def test_pure_load_kg_cleanup_zeroes_residual_loads(db):
+    """A pure-BW WorkoutLog with load_kg > 0 gets zeroed and audited."""
+    from app.bw_migration import run_pure_load_kg_cleanup
+    _seed_catalog(db)
+    user = _make_user(db, "aragorn", bw=70.0)
+    log = _make_log(db, user, "2-GRIP PULLUP", load_kg=70.3, reps=10)
+
+    summary = run_pure_load_kg_cleanup(db)
+
+    db.refresh(log)
+    assert log.load_kg == 0.0
+    assert summary["touched"] == 1
+    audit = (
+        db.query(BwMigrationAudit)
+        .filter_by(log_id=log.id, reason="pure_load_kg_zeroed")
+        .first()
+    )
+    assert audit is not None
+    assert audit.old_load_kg == pytest.approx(70.3)
+    assert audit.new_load_kg == 0.0
+
+
+def test_pure_load_kg_cleanup_skips_external_load_exercises(db):
+    """A barbell bench WorkoutLog with load_kg > 0 is untouched."""
+    from app.bw_migration import run_pure_load_kg_cleanup
+    _seed_catalog(db)
+    user = _make_user(db, "u", bw=80.0)
+    log = _make_log(db, user, "BARBELL BENCH PRESS", load_kg=100.0)
+
+    run_pure_load_kg_cleanup(db)
+
+    db.refresh(log)
+    assert log.load_kg == 100.0
+    assert (
+        db.query(BwMigrationAudit)
+        .filter_by(log_id=log.id, reason="pure_load_kg_zeroed")
+        .first()
+        is None
+    )
+
+
+def test_pure_load_kg_cleanup_idempotent(db):
+    """Running cleanup twice doesn't double-audit."""
+    from app.bw_migration import run_pure_load_kg_cleanup
+    _seed_catalog(db)
+    user = _make_user(db, "u", bw=70.0)
+    _make_log(db, user, "2-GRIP PULLUP", load_kg=70.0, reps=10)
+
+    s1 = run_pure_load_kg_cleanup(db)
+    s2 = run_pure_load_kg_cleanup(db)
+
+    assert s1["touched"] == 1
+    assert s2["touched"] == 0
+    assert (
+        db.query(BwMigrationAudit)
+        .filter_by(reason="pure_load_kg_zeroed")
+        .count()
+        == 1
+    )
+
+
+def test_pure_load_kg_cleanup_replaces_prior_skip_audit(db):
+    """Logs previously marked 'pure_with_nonzero_load_skipped' get the
+    skip audit removed and a new 'pure_load_kg_zeroed' row inserted —
+    so rollback iterates one row, not two."""
+    from app.bw_migration import run_bw_migration, run_pure_load_kg_cleanup
+    _seed_catalog(db)
+    user = _make_user(db, "u", bw=70.0)
+    log = _make_log(db, user, "2-GRIP PULLUP", load_kg=70.3, reps=8)
+
+    run_bw_migration(db)
+    skip_audit = (
+        db.query(BwMigrationAudit)
+        .filter_by(log_id=log.id, reason="pure_with_nonzero_load_skipped")
+        .first()
+    )
+    assert skip_audit is not None
+
+    run_pure_load_kg_cleanup(db)
+
+    # Old skip audit gone; new zeroed audit present
+    assert (
+        db.query(BwMigrationAudit)
+        .filter_by(log_id=log.id, reason="pure_with_nonzero_load_skipped")
+        .first()
+        is None
+    )
+    new_audit = (
+        db.query(BwMigrationAudit)
+        .filter_by(log_id=log.id, reason="pure_load_kg_zeroed")
+        .first()
+    )
+    assert new_audit is not None
+    assert new_audit.old_load_kg == pytest.approx(70.3)

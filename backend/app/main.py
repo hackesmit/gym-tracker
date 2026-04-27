@@ -152,6 +152,27 @@ def _run_bw_migration_once(db):
     )
 
 
+def _run_pure_load_cleanup_once(db):
+    """One-shot: zero out load_kg on residual pure-BW WorkoutLog rows.
+    Gated by its own migration_log row. Reversible via the existing
+    rollback endpoint (rollback walks bw_migration_audit and restores
+    every old_load_kg).
+    """
+    from .bw_migration import run_pure_load_kg_cleanup
+    from .models import MigrationLog
+
+    name = "pure_load_kg_cleanup_2026_04"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+    summary = run_pure_load_kg_cleanup(db)
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print(
+        f"BW migration: zeroed load_kg on {summary.get('touched', 0)} pure-BW logs.",
+        flush=True,
+    )
+
+
 def _recompute_all_ranks_once(db):
     """One-shot rank recompute after the BW migration's data corrections.
 
@@ -218,6 +239,7 @@ async def lifespan(app: FastAPI):
         seed_medal_catalog(db)
         _backfill_default_user(db)
         _run_bw_migration_once(db)
+        _run_pure_load_cleanup_once(db)
         _recompute_all_ranks_once(db)
         seed_preset_programs(db)
         backfill_consistency_medals(db)

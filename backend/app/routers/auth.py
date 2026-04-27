@@ -390,7 +390,14 @@ def admin_bw_migration_rollback(
         log.added_load_kg = None
         reverted += 1
     db.query(BwMigrationAudit).delete()
-    db.query(MigrationLog).filter_by(name="bw_input_2026_04").delete()
+    # Clear ALL related lifespan markers so the next deploy re-runs the
+    # full chain (migration → cleanup → recompute) cleanly.
+    for marker in (
+        "bw_input_2026_04",
+        "pure_load_kg_cleanup_2026_04",
+        "bw_recompute_after_migration_2026_04",
+    ):
+        db.query(MigrationLog).filter_by(name=marker).delete()
     db.commit()
 
     try:
