@@ -702,23 +702,47 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
             result = _compute_group(db, user_id, group, bw, cutoff)
 
         thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+        # When the bodyweight rep-fallback wins, _best_weighted_calisthenic
+        # packs the rep COUNT into result.ratio (it's the only signal it has
+        # to report). Passing that to subdivided_rank — which treats its
+        # input as a ratio against tier floors like 0.00→1.50 — silently
+        # shoots straight to Champion. Detect this case and use result.tier
+        # directly. (This path was masked before but became visible once
+        # users started accumulating high-rep BW pullup logs.)
+        is_rep_fallback = bool(result.source) and (
+            result.source.startswith("logged_reps:")
+            or result.source == "bodyweight_reps"
+        )
         # Back/arms have Bronze floor = 0.00, so a zero-ratio "no data"
         # result would falsely subdivide into Bronze. Snap to Copper V
         # whenever the resolver explicitly reported no usable data.
         if result.source in ("no_data", "missing_bodyweight") or result.ratio <= 0:
             tier, sub_idx = "Copper", 0
+        elif is_rep_fallback:
+            # Rep counts don't subdivide against ratio thresholds; use the
+            # tier that rank_from_reps already produced. sub V (no fine
+            # subdivision available for rep counts).
+            tier, sub_idx = result.tier, 0
         else:
             tier, sub_idx = subdivided_rank(result.ratio, thresholds)
-        # `_compute_group` may return a tier derived from a rep-count fallback
-        # (back). Keep that tier if it wins, and align the subdivision with
-        # whatever wins.
+        # `_compute_group` may return a tier derived from a different
+        # pathway that beats what subdivided_rank computed. Keep the
+        # higher of the two and reset to V slot.
         if tier_index(result.tier) > tier_index(tier):
             tier = result.tier
             sub_idx = 0
-        score = _score_from_ratio(result.ratio, thresholds)
-        elo = continuous_score(result.ratio, thresholds) if result.ratio > 0 else 0.0
-        # Snap ELO to the tier's discrete base if the rep-count fallback
-        # pushed us into a higher tier than the ratio alone would support.
+        # Score + ELO: the same rep-count-as-ratio bug poisoned these too.
+        # When rep-fallback wins, derive both from the discrete tier index
+        # rather than running the ratio formulas on a rep count.
+        if is_rep_fallback:
+            tier_rank = rank_score(tier, sub_idx)
+            score = (tier_rank / 31.0) * 100.0
+            elo = float((tier_rank - 1) * 100)
+        else:
+            score = _score_from_ratio(result.ratio, thresholds)
+            elo = continuous_score(result.ratio, thresholds) if result.ratio > 0 else 0.0
+        # Snap ELO to the tier's discrete base if a fallback pushed us into
+        # a higher tier than the ratio alone would support.
         min_elo_for_tier = (rank_score(tier, sub_idx) - 1) * 100
         if elo < min_elo_for_tier:
             elo = float(min_elo_for_tier)

@@ -454,14 +454,21 @@ def admin_user_rank_trace(
     )
     from ..rank_engine import recompute_for_user
 
-    # Resolve target by id or username
+    # Resolve target by id or username (username lookup is case-insensitive
+    # since the live profile may show "Aragorn" while the row stores "aragorn"
+    # or vice versa).
+    from sqlalchemy import func
     target = None
     try:
         target = db.get(User, int(user_id_or_name))
     except (TypeError, ValueError):
         pass
     if target is None:
-        target = db.query(User).filter(User.username == user_id_or_name).first()
+        target = (
+            db.query(User)
+            .filter(func.lower(User.username) == user_id_or_name.lower())
+            .first()
+        )
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
 

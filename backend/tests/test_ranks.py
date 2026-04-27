@@ -587,3 +587,81 @@ def test_size_bonus_helps_heavy_lifter(db):
     assert h_ranks["back"]["ratio"] > 0.25
     # Light ratio < 0.4167 (no-bonus baseline, i.e. 25/60 with no size_bonus)
     assert l_ranks["back"]["ratio"] < 0.4167
+
+
+def _setup_bw_pullup_log(db, user, *, reps):
+    """Setup a 2-GRIP PULLUP (bodyweight) log with N reps."""
+    program = Program(user_id=user.id, name="X", frequency=3, start_date=_date_module_date.today())
+    db.add(program); db.flush()
+    pe = ProgramExercise(
+        program_id=program.id, week=1, session_name="A", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="2-GRIP PULLUP",
+        exercise_name_canonical="2-GRIP PULLUP",
+        prescribed_reps=str(reps), working_sets=3,
+    )
+    db.add(pe); db.flush()
+    log = WorkoutLog(
+        user_id=user.id, program_exercise_id=pe.id, date=_date_module_date.today(),
+        set_number=1, load_kg=0.0, reps_completed=reps,
+    )
+    db.add(log); db.commit()
+    return log
+
+
+def test_rep_fallback_does_not_inflate_to_champion(db):
+    """Regression: 8 reps of BW pullup must produce Gold V, not Champion.
+
+    The bug: _best_weighted_calisthenic returned _Result(ratio=8.0, tier=Gold,
+    source='logged_reps:...') and recompute_for_user passed 8.0 to
+    subdivided_rank against ratio thresholds (Champion floor = 1.5),
+    silently shooting the rank to Champion."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    user = db.query(User).first()
+    user.bodyweight_kg = 90.0
+    db.commit()
+    _setup_bw_pullup_log(db, user, reps=8)
+
+    ranks = recompute_for_user(db, user.id)
+    back = ranks["back"]
+
+    # 8 reps × size_bonus(90) = int(8 × 1.061) = 8 → Gold tier (Gold=7 reps).
+    assert back["rank"] == "Gold", (
+        f"Expected Gold (8 reps), got {back['rank']} {back['sub_label']} "
+        f"(ratio={back['ratio']}, source={back['source']})"
+    )
+    # ELO must reflect Gold's discrete base, not the inflated Champion=3100.
+    assert back["elo"] < 3000, f"Expected ELO < Champion (3000), got {back['elo']}"
+
+
+def test_rep_fallback_30_reps_legitimately_champion(db):
+    """30+ scaled BW pullup reps SHOULD be Champion (rep fallback table)."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0     # size_bonus = 1.0
+    db.commit()
+    _setup_bw_pullup_log(db, user, reps=30)
+
+    ranks = recompute_for_user(db, user.id)
+    assert ranks["back"]["rank"] == "Champion"
+
+
+def test_manual_pullup_1rm_capped_at_added_ratio_2(db):
+    """Manual pullup 1RM that would imply ratio > 2.0 must be silently dropped.
+
+    Previously the manual path skipped both size_bonus and the tighter
+    MAX_ADDED_RATIO_FOR_BACK_ARMS=2.0 cap; only MAX_RATIO_CAP=5.0 applied.
+    Without this guard a single Settings entry could grant Champion."""
+    seed_exercise_catalog(db); backfill_catalog_bodyweight_kind(db)
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    user.manual_1rm = {"pullup": {"value_kg": 200.0, "tested_at": "2026-04-01"}}
+    db.commit()
+    # No logged back work — manual is the only candidate.
+
+    ranks = recompute_for_user(db, user.id)
+    # 200/80 * size_bonus(80) = 2.5 > 2.0 → dropped.
+    # No other candidates → Copper.
+    assert ranks["back"]["rank"] == "Copper", (
+        f"Expected Copper (manual dropped), got {ranks['back']['rank']} "
+        f"source={ranks['back']['source']}"
+    )
