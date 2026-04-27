@@ -423,33 +423,149 @@ def admin_bw_migration_rerun_for_user(
     return summary
 
 
-@router.get("/admin/user-rank-trace/{user_id}")
+@router.get("/admin/user-rank-trace/{user_id_or_name}")
 def admin_user_rank_trace(
-    user_id: int,
+    user_id_or_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Recompute and return the rank engine output for one user, including
-    the per-group `source` field so you can see exactly which lift drove
-    each rank (e.g. 'logged:WEIGHTED PULLUP', 'logged_reps:PULLUP(scaled)',
-    'compound:DB ROW', 'manual:pullup'). Admin-gated.
+    """Comprehensive back-rank diagnostic for one user. Returns:
+      - User's resolved BW (live + latest BodyMetric)
+      - The recompute_for_user output (rank + source per group)
+      - All back-class WorkoutLogs in the last 90 days (canonical name,
+        load_kg, added_load_kg, reps, date)
+      - All bw_migration_audit rows for this user
+      - Whether the recompute_all gate ran
+      - Current MuscleScore.rank (pre-recompute) vs new (post-recompute)
 
-    Use this to diagnose unexpected Champion ranks: if back came from
-    'logged_reps:PULLUP(scaled)' you've got 30+ rep BW pullup logs; if
-    from 'compound:DB ROW' you're hitting the row pathway with very
-    heavy DB rows; etc.
+    Accepts either user_id (integer) or username (string). Admin-gated.
     """
     if (current_user.username or "").lower() not in ADMIN_USERNAMES:
         raise HTTPException(status_code=403, detail="Admin only.")
 
+    from datetime import date, timedelta
+    from ..models import (
+        BodyMetric, BwMigrationAudit, MigrationLog, MuscleScore,
+        ProgramExercise, WorkoutLog,
+    )
+    from ..muscle_rank_config import (
+        BACK_BODYWEIGHT_PULLUPS, BACK_ROWS_PULLDOWNS, BACK_WEIGHTED_PULLUPS,
+        LOOKBACK_DAYS,
+    )
     from ..rank_engine import recompute_for_user
-    target = db.get(User, user_id)
+
+    # Resolve target by id or username
+    target = None
+    try:
+        target = db.get(User, int(user_id_or_name))
+    except (TypeError, ValueError):
+        pass
+    if target is None:
+        target = db.query(User).filter(User.username == user_id_or_name).first()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    ranks = recompute_for_user(db, user_id)
+
+    # Snapshot current MuscleScore BEFORE recompute
+    pre_rows = db.query(MuscleScore).filter(MuscleScore.user_id == target.id).all()
+    pre_back = next((r for r in pre_rows if r.muscle_group == "back"), None)
+
+    # Latest BodyMetric
+    latest_bm = (
+        db.query(BodyMetric)
+        .filter(BodyMetric.user_id == target.id)
+        .order_by(BodyMetric.date.desc())
+        .first()
+    )
+
+    # All back-related canonicals
+    back_canonicals = list(
+        BACK_WEIGHTED_PULLUPS | BACK_BODYWEIGHT_PULLUPS | set(BACK_ROWS_PULLDOWNS.keys())
+    )
+    cutoff = date.today() - timedelta(days=LOOKBACK_DAYS)
+    back_logs = (
+        db.query(
+            ProgramExercise.exercise_name_canonical,
+            WorkoutLog.load_kg,
+            WorkoutLog.added_load_kg,
+            WorkoutLog.reps_completed,
+            WorkoutLog.date,
+            WorkoutLog.id,
+        )
+        .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(
+            WorkoutLog.user_id == target.id,
+            WorkoutLog.date >= cutoff,
+            ProgramExercise.exercise_name_canonical.in_(back_canonicals),
+        )
+        .order_by(WorkoutLog.date.desc())
+        .all()
+    )
+
+    # Audit rows for this user
+    audit_rows = (
+        db.query(BwMigrationAudit)
+        .filter(BwMigrationAudit.user_id == target.id)
+        .all()
+    )
+
+    # Did the recompute_all_ranks_once gate fire?
+    recompute_marker = db.query(MigrationLog).filter_by(
+        name="bw_recompute_after_migration_2026_04",
+    ).first()
+    migration_marker = db.query(MigrationLog).filter_by(
+        name="bw_input_2026_04",
+    ).first()
+
+    # NOW recompute and capture the source per group
+    new_ranks = recompute_for_user(db, target.id)
+
     return {
-        "user_id": user_id,
+        "user_id": target.id,
         "username": target.username,
-        "bodyweight_kg": target.bodyweight_kg,
-        "ranks": ranks,
+        "bodyweight_kg_live": target.bodyweight_kg,
+        "latest_body_metric": (
+            {"date": str(latest_bm.date), "bodyweight_kg": latest_bm.bodyweight_kg}
+            if latest_bm else None
+        ),
+        "lifespan_markers": {
+            "bw_input_2026_04": (
+                str(migration_marker.ran_at) if migration_marker else None
+            ),
+            "bw_recompute_after_migration_2026_04": (
+                str(recompute_marker.ran_at) if recompute_marker else None
+            ),
+        },
+        "muscle_score_pre_recompute": (
+            {
+                "rank": pre_back.rank,
+                "sub_index": pre_back.sub_index,
+                "score": pre_back.score,
+                "elo": pre_back.elo,
+                "score_i_ratio": pre_back.score_i,
+            }
+            if pre_back else None
+        ),
+        "ranks_after_recompute": new_ranks,
+        "back_logs_last_90_days": [
+            {
+                "log_id": r.id,
+                "exercise": r.exercise_name_canonical,
+                "load_kg": r.load_kg,
+                "added_load_kg": r.added_load_kg,
+                "reps": r.reps_completed,
+                "date": str(r.date),
+            }
+            for r in back_logs
+        ],
+        "bw_migration_audit_rows": [
+            {
+                "log_id": a.log_id,
+                "exercise_name": a.exercise_name,
+                "old_load_kg": a.old_load_kg,
+                "new_load_kg": a.new_load_kg,
+                "new_added_load_kg": a.new_added_load_kg,
+                "reason": a.reason,
+            }
+            for a in audit_rows
+        ],
     }

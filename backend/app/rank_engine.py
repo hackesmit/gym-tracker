@@ -285,9 +285,12 @@ def _best_weighted_calisthenic(
                 if best_added_ratio < 0:
                     best_added_ratio = 0.0
                     best_weighted_source = f"logged:{name}"
-                if reps > best_rep_count:
-                    best_rep_count = reps
-                    best_rep_source = f"logged_reps:{name}"
+                # Size-bonus applied (consistent with the bodyweight branch
+                # below — heavier athletes' rep count counts more).
+                scaled_reps = int(reps * size_bonus(bw_kg))
+                if scaled_reps > best_rep_count:
+                    best_rep_count = scaled_reps
+                    best_rep_source = f"logged_reps:{name}(scaled,via_weighted_zero)"
                 continue
 
             if reps > MAX_REPS_FOR_E1RM:
@@ -356,6 +359,9 @@ def _best_weighted_calisthenic(
                 best_weighted_source = f"compound:{name}"
 
     # Manual added-load 1RM (e.g. user types "pullup": +40 kg).
+    # Apply size_bonus + the tighter MAX_ADDED_RATIO_FOR_BACK_ARMS cap
+    # for parity with the logged path — otherwise a manually-set very high
+    # pullup 1RM could grant Champion that a logged equivalent would not.
     if manual_added_key:
         user = db.get(User, user_id)
         manual_map = (user.manual_1rm or {}) if user else {}
@@ -363,8 +369,11 @@ def _best_weighted_calisthenic(
         if entry is not None:
             val = _parse_manual_value(entry)
             if val > 0:
-                ratio = val / bw_kg
-                if ratio <= MAX_RATIO_CAP and ratio > best_added_ratio:
+                ratio = (val / bw_kg) * size_bonus(bw_kg)
+                if (
+                    ratio <= MAX_ADDED_RATIO_FOR_BACK_ARMS
+                    and ratio > best_added_ratio
+                ):
                     best_added_ratio = ratio
                     best_weighted_source = f"manual:{manual_added_key}"
 
@@ -781,6 +790,24 @@ def aggregate_elo(ranks: dict[str, dict]) -> dict:
     }
 
 
-def recompute_all(db: Session) -> None:
+def recompute_all(db: Session) -> dict:
+    """Recompute ranks for every user. Failures for a single user are
+    swallowed (logged via print so flyctl logs surfaces them) so one bad
+    user can't block the whole startup recompute.
+
+    Returns {"processed": N, "failed": [(user_id, error_str), ...]}.
+    """
+    processed = 0
+    failed: list[tuple[int, str]] = []
     for u in db.query(User).all():
-        recompute_for_user(db, u.id)
+        try:
+            recompute_for_user(db, u.id)
+            processed += 1
+        except Exception as exc:
+            failed.append((u.id, repr(exc)))
+            print(
+                f"recompute_all: user_id={u.id} username={u.username!r} "
+                f"failed: {exc!r}",
+                flush=True,
+            )
+    return {"processed": processed, "failed": failed}

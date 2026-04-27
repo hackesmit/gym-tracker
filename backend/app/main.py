@@ -168,10 +168,16 @@ def _recompute_all_ranks_once(db):
     name = "bw_recompute_after_migration_2026_04"
     if db.query(MigrationLog).filter_by(name=name).first() is not None:
         return
-    recompute_all(db)
+    summary = recompute_all(db)
     db.add(MigrationLog(name=name))
     db.commit()
-    print("BW migration: recomputed ranks for all users.", flush=True)
+    print(
+        f"BW migration: recomputed ranks for {summary['processed']} users. "
+        f"Failed: {len(summary['failed'])}.",
+        flush=True,
+    )
+    for uid, err in summary["failed"]:
+        print(f"  recompute_all failure: user_id={uid} {err}", flush=True)
 
 
 def _backfill_default_user(db):
