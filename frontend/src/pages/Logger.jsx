@@ -106,6 +106,7 @@ export default function Logger() {
     stress_level: '', soreness_level: '',
   });
   const [metricsSaved, setMetricsSaved] = useState(false);
+  const [inlineBwDraft, setInlineBwDraft] = useState('');
 
   // --- Hook 2: exercise swap modal ---
   const {
@@ -210,11 +211,25 @@ export default function Logger() {
   const handleSave = async () => {
     if (!activeProgram || !selectedSession || !sets.length) return;
 
+    // Flush any in-progress inline BW draft before evaluating BW state.
+    // SetBwPrompt's blur handler already kicks off a save, but we must
+    // await the result here so the toast doesn't fire spuriously and the
+    // first set's payload uses the right BW.
+    let effectiveBwKg = userBodyweightKg;
+    if (!effectiveBwKg && inlineBwDraft) {
+      const num = parseFloat(inlineBwDraft);
+      if (num > 0) {
+        await handleSetBw(num);
+        effectiveBwKg = displayToKg(num, units);
+        setInlineBwDraft('');
+      }
+    }
+
     const needsBwButMissing = sets.some((s) => {
       const kind = getBodyweightKind(s.exercise_name, catalogData);
       return (kind === 'pure' || kind === 'weighted_capable')
              && +s.reps_completed > 0
-             && !userBodyweightKg;
+             && !effectiveBwKg;
     });
     if (needsBwButMissing) {
       addToast('Set your bodyweight to log bodyweight exercises.', 'error');
@@ -249,13 +264,11 @@ export default function Logger() {
             const kind = getBodyweightKind(s.exercise_name, catalogData);
             let load_kg, added_load_kg;
             if (kind === 'pure') {
-              load_kg = userBodyweightKg ?? 0;
+              load_kg = effectiveBwKg ?? 0;
               added_load_kg = 0;
             } else if (kind === 'weighted_capable') {
-              // s.added_load_kg is in display units (what the user typed);
-              // convert to kg before summing with userBodyweightKg (already kg).
               const added = displayToKg(parseFloat(s.added_load_kg) || 0, units);
-              load_kg = (userBodyweightKg ?? 0) + added;
+              load_kg = (effectiveBwKg ?? 0) + added;
               added_load_kg = added;
             } else {
               load_kg = displayToKg(s.load_kg, units);
@@ -277,11 +290,10 @@ export default function Logger() {
       };
       const result = await logBulkSession(payload);
       setSaved(true);
-      acceptRestore();   // clears the localStorage key for this session
+      acceptRestore();
       if (result.prs && result.prs.length > 0) {
         setPrList(result.prs);
       }
-      // Start undo timer
       if (result.session_log_id) {
         clearTimeout(undoTimerRef.current);
         const savedCopy = [...sets];
@@ -602,6 +614,7 @@ export default function Logger() {
                                 onUpdate={(field, value) => updateSet(s.idx, field, value)}
                                 onTriggerTimer={triggerTimer}
                                 onSetBw={handleSetBw}
+                                onBwValueChange={setInlineBwDraft}
                               />
                               {s.is_dropset && (
                                 <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
