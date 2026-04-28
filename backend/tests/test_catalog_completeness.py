@@ -41,11 +41,9 @@ EXPECTED_MISSING: set[str] = {
     # Lat pulldown aliases (catalog has only LAT PULLDOWN, not the variants)
     "NEUTRAL GRIP LAT PULLDOWN", "2-GRIP LAT PULLDOWN",
     "MACHINE PULLDOWN", "1-ARM HALF KNEELING LAT PULLDOWN",
-    # Shoulder press aliases (catalog has SEATED DB SHOULDER PRESS variants)
-    "DB SHOULDER PRESS", "MACHINE SHOULDER PRESS",
-    # "STANDING DB SHOULDER PRESS" is an alias of "DB SHOULDER PRESS" (same
-    # spec 1.30); "DB SHOULDER PRESS" is itself an intentional alias-only entry.
-    "STANDING DB SHOULDER PRESS",
+    # Catalog now has SEATED, STANDING, and the generic DB SHOULDER PRESS;
+    # MACHINE SHOULDER PRESS is still alias-only.
+    "MACHINE SHOULDER PRESS",
     # "FLAT BARBELL BENCH PRESS" is a non-standard alias of "BARBELL BENCH PRESS"
     # (same spec 1.00); the canonical form is already seeded in the catalog.
     "FLAT BARBELL BENCH PRESS",
