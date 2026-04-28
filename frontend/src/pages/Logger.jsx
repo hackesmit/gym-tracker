@@ -219,7 +219,12 @@ export default function Logger() {
     if (!effectiveBwKg && inlineBwDraft) {
       const num = parseFloat(inlineBwDraft);
       if (num > 0) {
-        await handleSetBw(num);
+        try {
+          await handleSetBw(num);
+        } catch (err) {
+          addToast(err.message || 'Failed to save bodyweight.', 'error');
+          return;
+        }
         effectiveBwKg = displayToKg(num, units);
         setInlineBwDraft('');
       }
