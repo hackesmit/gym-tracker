@@ -24,20 +24,20 @@ function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }
   );
 }
 
-function BwChip({ userBodyweightKg, unitLabel, units, onSetBw }) {
+function BwChip({ userBodyweightKg, unitLabel, units, onSetBw, onBwValueChange }) {
   const bwDisplay = userBodyweightKg ? kgToDisplay(userBodyweightKg, units) : null;
   return (
     <div className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text-muted min-h-[42px] flex items-center">
       {bwDisplay !== null ? (
         <span>{bwDisplay}</span>
       ) : (
-        <SetBwPrompt unitLabel={unitLabel} onSubmit={onSetBw} />
+        <SetBwPrompt unitLabel={unitLabel} onSubmit={onSetBw} onValueChange={onBwValueChange} />
       )}
     </div>
   );
 }
 
-function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw }) {
+function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw, onBwValueChange }) {
   return (
     <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-end">
       <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
@@ -45,7 +45,7 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
         <span className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
           BW (auto, {unitLabel})
         </span>
-        <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} />
+        <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} onBwValueChange={onBwValueChange} />
       </div>
       <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
       <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
@@ -54,7 +54,7 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
 }
 
 function WeightedCapableLayout({
-  set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw,
+  set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw, onBwValueChange,
 }) {
   // set.added_load_kg is in display units (what the user typed).
   // Convert to kg before summing with userBodyweightKg (already kg).
@@ -70,7 +70,7 @@ function WeightedCapableLayout({
           <span className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
             BW (auto, {unitLabel})
           </span>
-          <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} />
+          <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} onBwValueChange={onBwValueChange} />
         </div>
         <div className="relative">
           <label htmlFor={`added-${set.set_number}`} className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
@@ -147,13 +147,14 @@ function DsButton({ set, onUpdate }) {
 
 export default function SetRow({
   set, bodyweightKind, userBodyweightKg, unitLabel, units,
-  weightHint, onUpdate, onTriggerTimer, onSetBw,
+  weightHint, onUpdate, onTriggerTimer, onSetBw, onBwValueChange,
 }) {
   if (bodyweightKind === 'pure') {
     return <PureBwLayout
       set={set} userBodyweightKg={userBodyweightKg}
       unitLabel={unitLabel} units={units}
       onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} onSetBw={onSetBw}
+      onBwValueChange={onBwValueChange}
     />;
   }
   if (bodyweightKind === 'weighted_capable') {
@@ -161,6 +162,7 @@ export default function SetRow({
       set={set} userBodyweightKg={userBodyweightKg}
       unitLabel={unitLabel} units={units}
       onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} onSetBw={onSetBw}
+      onBwValueChange={onBwValueChange}
     />;
   }
   return <ExternalLayout
