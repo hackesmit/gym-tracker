@@ -5,13 +5,23 @@ import { Save } from 'lucide-react';
  * Inline "Set BW" affordance shown in SetRow when the user has no recorded
  * bodyweight. Tapping reveals a numeric input. Submission calls the parent's
  * onSubmit (which POSTs /api/body-metrics and refreshes user state).
+ *
+ * Auto-saves on Enter and on blur so users don't have to find the dedicated
+ * save icon. Optional `onValueChange` lets a parent observe the unsaved draft
+ * (used by Logger to flush a pending value before the main session save).
  */
-export default function SetBwPrompt({ unitLabel, onSubmit }) {
+export default function SetBwPrompt({ unitLabel, onSubmit, onValueChange }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const handleChange = (next) => {
+    setValue(next);
+    if (onValueChange) onValueChange(next);
+  };
+
   const handleSave = async () => {
+    if (saving) return;
     const num = parseFloat(value);
     if (!num || num <= 0) return;
     setSaving(true);
@@ -19,8 +29,16 @@ export default function SetBwPrompt({ unitLabel, onSubmit }) {
       await onSubmit(num);
       setEditing(false);
       setValue('');
+      if (onValueChange) onValueChange('');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
     }
   };
 
@@ -43,7 +61,9 @@ export default function SetBwPrompt({ unitLabel, onSubmit }) {
         inputMode="decimal"
         autoFocus
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleSave}
         placeholder={`BW (${unitLabel})`}
         className="bg-surface-light border border-accent rounded-lg px-2 py-1.5 text-xs text-text w-20 focus:ring-1 focus:ring-accent outline-none"
       />
