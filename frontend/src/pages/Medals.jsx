@@ -54,9 +54,10 @@ function inferCategory(metric_type) {
 function formatValue(v, unit, higherIsBetter) {
   if (v == null) return '—';
   if (unit === 'min' || unit === 'min/km') {
-    const minutes = Math.floor(v);
-    const seconds = Math.round((v - minutes) * 60);
-    return `${minutes}:${String(seconds).padStart(2, '0')}${unit === 'min/km' ? '/km' : ''}`;
+    const display = unit === 'min/km' ? v * 1.609344 : v;
+    const minutes = Math.floor(display);
+    const seconds = Math.round((display - minutes) * 60);
+    return `${minutes}:${String(seconds).padStart(2, '0')}${unit === 'min/km' ? '/mi' : ''}`;
   }
   if (typeof v !== 'number') return String(v);
   // Strip trailing zeros on integer-looking floats.
