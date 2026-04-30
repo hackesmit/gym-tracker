@@ -140,13 +140,13 @@ export default function Cardio() {
               <ul className="text-xs space-y-0.5">
                 {entries.map(([m, pb]) => {
                   let value = '--';
-                  if (pb.distance_km) value = `${pb.distance_km.toFixed(1)} km`;
-                  else if (pb.pace_min_per_km) {
+                  if (pb.pace_min_per_km) {
                     const milePace = pb.pace_min_per_km * 1.609344;
                     const mins = Math.floor(milePace);
                     const secs = Math.round((milePace - mins) * 60);
                     value = `${mins}:${String(secs).padStart(2, '0')} /mi`;
                   }
+                  else if (pb.distance_km) value = `${pb.distance_km.toFixed(1)} km`;
                   else if (pb.duration_minutes) value = formatDuration(pb.duration_minutes);
                   return (
                     <li key={m} className="capitalize">
