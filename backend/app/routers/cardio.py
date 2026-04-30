@@ -142,6 +142,14 @@ def update_cardio(
         setattr(log, k, v)
     db.commit()
     db.refresh(log)
+    # An edit can either lower a king-of-the-hill cardio metric (e.g. fix a
+    # mistyped fast pace) or raise it (e.g. extend distance). Recompute from
+    # scratch so the medal holder reflects the logs that exist now.
+    try:
+        from ..medal_engine import recompute_cardio_medals_globally
+        recompute_cardio_medals_globally(db)
+    except Exception:
+        pass
     return log
 
 
@@ -158,6 +166,13 @@ def delete_cardio(
         raise HTTPException(status_code=404, detail="Cardio log not found")
     db.delete(log)
     db.commit()
+    # Same reasoning as PATCH — without this, a deleted source log leaves
+    # its pace/distance pinned on the medal as a ghost record.
+    try:
+        from ..medal_engine import recompute_cardio_medals_globally
+        recompute_cardio_medals_globally(db)
+    except Exception:
+        pass
     return {"deleted": True}
 
 

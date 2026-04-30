@@ -201,6 +201,27 @@ def _recompute_all_ranks_once(db):
         print(f"  recompute_all failure: user_id={uid} {err}", flush=True)
 
 
+def _rebuild_cardio_medals_once(db):
+    """One-shot: rebuild cardio medal holders from current CardioLog rows.
+
+    Edits and deletes never recomputed cardio medals before this fix, so
+    production carries king-of-the-hill values orphaned from logs that
+    were later modified or removed (e.g. Aragorn's Fastest Mile pinned
+    at 6:04/mi from a fast run he later deleted). Run once after deploy
+    so existing data lines up with reality.
+    """
+    from .medal_engine import recompute_cardio_medals_globally
+    from .models import MigrationLog
+
+    name = "cardio_medal_rebuild_2026_04_30"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+    recompute_cardio_medals_globally(db)
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print("Cardio medals: rebuilt holders from current CardioLog rows.", flush=True)
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -243,6 +264,7 @@ async def lifespan(app: FastAPI):
         _recompute_all_ranks_once(db)
         seed_preset_programs(db)
         backfill_consistency_medals(db)
+        _rebuild_cardio_medals_once(db)
     finally:
         db.close()
     yield

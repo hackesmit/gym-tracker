@@ -412,6 +412,76 @@ def check_cardio_medals(db: Session, log: CardioLog):
                 _update_holder(db, medal, log.user_id, time_10k, "cardio_log", log.id)
 
 
+def recompute_cardio_medals_globally(db: Session) -> None:
+    """Rebuild every cardio medal's current holder from existing CardioLog rows.
+
+    `check_cardio_medals` is called only on log CREATE — PATCH and DELETE
+    never recompute, so a king-of-the-hill value can survive the
+    disappearance (or worsening) of its source row. Call this after any
+    cardio-log mutation to re-derive each medal's holder from the logs
+    that actually exist now.
+
+    Recompute is silent — no FeedEvent / ChatMessage is emitted, since the
+    holder change is bookkeeping rather than a real new accomplishment.
+    """
+    longest: dict[str, dict[int, float]] = {"run": {}, "bike": {}, "swim": {}}
+    fastest_mile: dict[int, float] = {}
+    fastest_5k: dict[int, float] = {}
+    fastest_10k: dict[int, float] = {}
+
+    for log in db.query(CardioLog).all():
+        if not log.distance_km:
+            continue
+        d = float(log.distance_km)
+        m = log.modality
+        if m in longest:
+            cur = longest[m].get(log.user_id, 0.0)
+            if d > cur:
+                longest[m][log.user_id] = d
+        if m == "run" and log.duration_minutes:
+            mins = float(log.duration_minutes)
+            pace = mins / d
+            if d >= 1.6:
+                cur = fastest_mile.get(log.user_id, float("inf"))
+                if pace < cur:
+                    fastest_mile[log.user_id] = pace
+            if d >= 5.0:
+                t = pace * 5.0
+                cur = fastest_5k.get(log.user_id, float("inf"))
+                if t < cur:
+                    fastest_5k[log.user_id] = t
+            if d >= 10.0:
+                t = pace * 10.0
+                cur = fastest_10k.get(log.user_id, float("inf"))
+                if t < cur:
+                    fastest_10k[log.user_id] = t
+
+    def _set_holder(metric: str, by_user: dict[int, float], higher_is_better: bool) -> None:
+        medal = _medal_by_metric(db, metric)
+        if medal is None:
+            return
+        holder = db.get(MedalCurrentHolder, medal.id)
+        if not by_user:
+            if holder is not None:
+                db.delete(holder)
+            return
+        pick = max if higher_is_better else min
+        best_uid, best_val = pick(by_user.items(), key=lambda kv: kv[1])
+        if holder is None:
+            db.add(MedalCurrentHolder(medal_id=medal.id, user_id=best_uid, value=best_val))
+        else:
+            holder.user_id = best_uid
+            holder.value = best_val
+
+    _set_holder("cardio_longest:run", longest["run"], True)
+    _set_holder("cardio_longest:bike", longest["bike"], True)
+    _set_holder("cardio_longest:swim", longest["swim"], True)
+    _set_holder("cardio_fastest_mile", fastest_mile, False)
+    _set_holder("cardio_fastest_5k", fastest_5k, False)
+    _set_holder("cardio_fastest_10k", fastest_10k, False)
+    db.commit()
+
+
 # ---------------------------------------------------------------------------
 # Consistency
 # ---------------------------------------------------------------------------
