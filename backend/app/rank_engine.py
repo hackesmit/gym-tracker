@@ -827,7 +827,8 @@ def recompute_all(
     lookback_days_override: int | None = None,
 ) -> dict:
     """Recompute ranks for every user. Failures for a single user are
-    swallowed so one bad user can't block the whole startup recompute.
+    swallowed (printed to stdout so flyctl logs surface them) so one bad
+    user can't block the whole startup recompute.
 
     `lookback_days_override` is forwarded to `recompute_for_user`.
 
