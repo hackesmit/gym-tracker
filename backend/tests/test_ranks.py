@@ -968,3 +968,66 @@ def test_split_arms_migration_is_idempotent(db):
 
     rows = db.query(MigrationLog).filter_by(name="split_arms_2026_05").all()
     assert len(rows) == 1
+
+
+# ---------------------------------------------------------------------------
+# Task 12: regression locks for Task 1 recalibrations
+# ---------------------------------------------------------------------------
+
+def test_tricep_pushdown_recalibration_lands_at_champion(db):
+    """An Elite-grade tricep pushdown (1.40× BW) hits Champion on the iso pathway.
+
+    With the Task 1 recalibration:
+    - TRICEP_ISOLATION_THRESHOLDS Champion = 1.40 (raw-ratio scale)
+    - ARMS_TRICEP_ISOLATION specs all = 1.0 (no discount)
+
+    Pure isolation pathway alone caps at Diamond V on the blended triceps
+    rank (MAX_ISOLATION_ONLY_ELO clip).
+    """
+    from app.muscle_rank_config import TRICEP_ISOLATION_THRESHOLDS, ARMS_TRICEP_ISOLATION
+
+    user = User(username="tri_iso_max", password_hash="x", name="tri_iso_max", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 112 kg @ 1 rep = 1.40× BW = Champion floor on TRICEP_ISOLATION_THRESHOLDS
+    _seed_exercise(db, user, "TRICEPS PRESSDOWN", "triceps", load_kg=112, reps=1)
+    result = recompute_for_user(db, user.id)
+
+    # Blended triceps: press anchor = 0; iso ELO = Champion (3000+) capped at
+    # MAX_ISOLATION_ONLY_ELO (2500) → renormalized → tier_sub_from_elo(2500) = Diamond V.
+    assert result["triceps"]["rank"] == "Diamond"
+
+    # Verify the ARMS_TRICEP_ISOLATION spec is now 1.0 (no discount)
+    assert all(spec == 1.0 for spec in ARMS_TRICEP_ISOLATION.values())
+
+    # Verify the threshold table is the recalibrated raw-ratio scale
+    assert TRICEP_ISOLATION_THRESHOLDS["Champion"] == 1.40
+
+
+def test_weighted_pullup_ceiling_tightening(db):
+    """+1.20 BW lands at Champion exactly; +1.05 BW lands at Diamond.
+
+    Task 1 tightened back thresholds: Diamond 1.25→1.00, Champion 1.50→1.20
+    to match the published Strength Level Elite weighted pullup of +1.08 BW.
+    """
+    user_champ = User(username="back_champ", password_hash="x", name="back_champ", bodyweight_kg=80.0)
+    db.add(user_champ)
+    db.commit()
+    # 80 kg BW + 96 kg added = 176 kg total at 1 rep → added 1.20× BW = Champion floor
+    _seed_exercise(db, user_champ, "WEIGHTED PULLUP", "back", load_kg=176, reps=1)
+    last_log = db.query(WorkoutLog).filter_by(user_id=user_champ.id).order_by(WorkoutLog.id.desc()).first()
+    last_log.added_load_kg = 96.0
+    db.commit()
+    result_c = recompute_for_user(db, user_champ.id)
+    assert result_c["back"]["rank"] == "Champion"
+
+    user_dia = User(username="back_dia", password_hash="x", name="back_dia", bodyweight_kg=80.0)
+    db.add(user_dia)
+    db.commit()
+    # 80 kg BW + 84 kg added = 164 kg total → added 1.05× BW = Diamond range
+    _seed_exercise(db, user_dia, "WEIGHTED PULLUP", "back", load_kg=164, reps=1)
+    last_log_d = db.query(WorkoutLog).filter_by(user_id=user_dia.id).order_by(WorkoutLog.id.desc()).first()
+    last_log_d.added_load_kg = 84.0
+    db.commit()
+    result_d = recompute_for_user(db, user_dia.id)
+    assert result_d["back"]["rank"] == "Diamond"
