@@ -26,6 +26,12 @@ const LIFT_CATEGORIES = [
   { key: 'ohp', label: 'Overhead Press' },
 ];
 
+const ACCESSORY_CATEGORIES = [
+  { key: 'biceps_curl', label: 'Standing barbell curl 1RM' },
+  { key: 'dip', label: 'Weighted dip 1RM (added load)' },
+  { key: 'cable_crunch', label: 'Cable crunch 1RM' },
+];
+
 function formatRestLabel(seconds) {
   if (seconds < 60) return `${seconds}s`;
   const m = Math.floor(seconds / 60);
@@ -96,7 +102,7 @@ export default function Settings() {
 
   const saveOrm = async () => {
     const lifts = {};
-    for (const { key } of LIFT_CATEGORIES) {
+    for (const { key } of [...LIFT_CATEGORIES, ...ACCESSORY_CATEGORIES]) {
       const entry = orm[key];
       if (entry && entry.value && +entry.value > 0) {
         lifts[key] = {
@@ -366,6 +372,41 @@ export default function Settings() {
         </p>
         <div className="space-y-3">
           {LIFT_CATEGORIES.map(({ key, label }) => {
+            const entry = orm[key] || { value: '', tested_at: '' };
+            const stale = entry.value && isStale(entry.tested_at);
+            return (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-text-muted w-28 shrink-0">{label}</label>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={entry.value}
+                      onChange={(e) => updateOrmField(key, 'value', e.target.value)}
+                      placeholder="--"
+                      className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text focus:ring-1 focus:ring-accent outline-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitLabel}</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={entry.tested_at}
+                    onChange={(e) => updateOrmField(key, 'tested_at', e.target.value)}
+                    className="bg-surface-light border border-surface-lighter rounded-lg px-2 py-2.5 text-xs text-text focus:ring-1 focus:ring-accent outline-none w-32 shrink-0"
+                  />
+                  {stale && (
+                    <span className="text-[10px] text-warning flex items-center gap-0.5 shrink-0" title="Tested over 12 weeks ago">
+                      <AlertTriangle size={10} /> Stale
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <hr className="border-surface-lighter my-1" />
+          <p className="text-xs text-text-muted pb-1">Optional — feeds biceps, triceps &amp; abs ranks</p>
+          {ACCESSORY_CATEGORIES.map(({ key, label }) => {
             const entry = orm[key] || { value: '', tested_at: '' };
             const stale = entry.value && isStale(entry.tested_at);
             return (
