@@ -350,25 +350,10 @@ ARMS_TRICEP_COMPOUND: dict[str, float] = {
     "SMITH MACHINE JM PRESS": 0.55,
 }
 
-# 2026-04-23: hybrid arms/shoulders scoring.
-#
-#   arms      = 0.5 × biceps  + 0.5 × triceps
-#   biceps    = 0.7 × back_elo + 0.3 × curl_elo
-#   triceps   = 0.7 × max(chest, shoulder-press)_elo + 0.3 × tricep_elo
-#   shoulders = 0.7 × shoulder-press_elo + 0.3 × lateral_elo
-#
-# `tricep_elo` combines the existing weighted-dip / close-grip / heavy
-# compound pathway with low-signal isolation (pushdowns, extensions,
-# kickbacks) — the max across those against ARMS_THRESHOLDS is used.
-# Blend happens in ELO space so each component keeps its own calibrated
-# threshold table; ELOs are averaged then reverse-mapped back to a tier.
+# 2026-04-23 / 2026-05-02: shoulders hybrid weights driven by config; the
+# biceps / triceps blend weights (0.7/0.3) live inline in their respective
+# resolver functions in rank_engine.py since the formula is fixed.
 HYBRID_WEIGHTS: dict[str, dict[str, float]] = {
-    "arms": {
-        "biceps_pull":    0.35,    # 0.5 × 0.7
-        "biceps_curl":    0.15,    # 0.5 × 0.3
-        "triceps_press":  0.35,
-        "triceps_direct": 0.15,
-    },
     "shoulders": {
         "press":   0.70,
         "lateral": 0.30,

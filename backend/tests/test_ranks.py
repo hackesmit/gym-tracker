@@ -155,19 +155,21 @@ def test_bench_ratio_maps_to_expected_tier(db):
         assert result[g]["rank"] == "Copper"
 
 
-@pytest.mark.xfail(reason="Triceps press-anchor pathway wired in Task 6", strict=True)
 def test_bench_lifts_triceps_via_press_anchor(db):
-    """Bench should feed triceps at ~half the chest tier via the press anchor.
+    """Bench feeds triceps via the press anchor at the same ELO as chest.
 
-    Strict xfail — when Task 6 lands this test should xpass and break the
-    suite, prompting the implementer to remove the marker.
+    Under the Task 6 split, chest_elo is fed directly into triceps as
+    press_elo (no halving — arms is no longer a single blended group).
+    A Gold chest gives a Gold triceps result.
     """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
     _seed_bench(db, user, load_kg=80, reps=5)
     result = recompute_for_user(db, user.id)
-    assert result["triceps"]["rank"] == "Bronze"
+    # chest ratio ~1.17x → Gold; triceps inherits the same press ELO → Gold
+    assert result["triceps"]["rank"] == "Gold"
+    assert result["triceps"]["elo"] > 0
 
 
 def test_thresholds_match_spec():
@@ -294,8 +296,17 @@ def test_aggregate_elo_sums_all_muscles(db):
 # variants now contribute to rank. Assert they move users off Copper V.
 # ---------------------------------------------------------------------------
 
-def _seed_exercise(db, user, canonical: str, muscle: str, load_kg: float, reps: int, day_offset: int = 1):
-    """Seed one program + workout log for an arbitrary canonical exercise."""
+def _seed_exercise(
+    db, user, canonical: str, muscle: str, load_kg: float, reps: int,
+    day_offset: int = 1, added_load_kg: float | None = None,
+):
+    """Seed one program + workout log for an arbitrary canonical exercise.
+
+    `added_load_kg` mirrors WorkoutLog.added_load_kg — set it for weighted-
+    calisthenic exercises (weighted pullups, weighted dips) so the rank
+    engine reads the plate-only load rather than falling back to
+    `load_kg - bodyweight` (which can go negative when load_kg < BW).
+    """
     if not db.query(ExerciseCatalog).filter_by(canonical_name=canonical).first():
         db.add(ExerciseCatalog(
             canonical_name=canonical, muscle_group_primary=muscle,
@@ -315,7 +326,7 @@ def _seed_exercise(db, user, canonical: str, muscle: str, load_kg: float, reps: 
     db.add(WorkoutLog(
         user_id=user.id, program_exercise_id=pe.id,
         date=date.today() - timedelta(days=day_offset), set_number=1,
-        load_kg=load_kg, reps_completed=reps,
+        load_kg=load_kg, reps_completed=reps, added_load_kg=added_load_kg,
     ))
     db.commit()
     return pe
@@ -421,24 +432,25 @@ def test_db_row_ranks_back(db):
     assert result["back"]["rank"] == "Gold"
 
 
-@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
 def test_dip_only_lifts_triceps_off_copper(db):
     """Weighted dip alone (the canonical triceps anchor) lifts triceps off
     Copper; biceps stays Copper since no pull/curl work was seeded.
 
-    Strict xfail — Task 6 must remove the marker when wiring _compute_triceps.
+    `added_load_kg=40` is set so the engine reads the plate load directly —
+    without it the fallback `load_kg - bw` goes negative and the dip is
+    mis-classified as bodyweight-only.
     """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
-    _seed_exercise(db, user, "WEIGHTED DIP", "triceps", load_kg=40, reps=1, day_offset=2)
+    _seed_exercise(db, user, "WEIGHTED DIP", "triceps", load_kg=120, reps=1,
+                   day_offset=2, added_load_kg=40)
     result = recompute_for_user(db, user.id)
-    assert result["triceps"]["rank"] in ("Bronze", "Silver")
+    assert result["triceps"]["rank"] in ("Bronze", "Silver", "Gold")
     assert result["triceps"]["elo"] > 500
     assert result["biceps"]["rank"] == "Copper"
 
 
-@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
 def test_skull_crusher_ranks_triceps(db):
     """EZ-bar skull crusher 50 kg → direct_tricep pathway at Silver.
 
@@ -456,7 +468,6 @@ def test_skull_crusher_ranks_triceps(db):
     assert result["biceps"]["rank"] == "Copper"   # no biceps work seeded
 
 
-@pytest.mark.xfail(reason="Biceps engine wired in Task 6", strict=True)
 def test_isolation_curl_contributes_to_biceps(db):
     """2026-05-02: Under the split, curls feed the biceps group directly.
 
@@ -474,7 +485,6 @@ def test_isolation_curl_contributes_to_biceps(db):
     assert result["triceps"]["rank"] == "Copper"   # no triceps work seeded
 
 
-@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
 def test_pure_press_ranks_triceps_via_press_transfer(db):
     """OHP-only lifter gets triceps credit via the press anchor pathway."""
     user = db.query(User).first()
@@ -501,15 +511,19 @@ def test_lateral_raise_lifts_shoulders_off_copper(db):
     assert result["shoulders"]["elo"] > 500
 
 
-@pytest.mark.xfail(reason="Biceps and triceps engines wired in Task 6")
 def test_mixed_arms_training_beats_single_pathway(db):
     """Post-split: a lifter with curls + dips + rows + press beats a
-    lifter with only dips at the same per-exercise tier."""
-    # Lifter A: pure dips
+    lifter with only dips at the same per-exercise tier.
+
+    `added_load_kg` is set on weighted calisthenic logs so the engine
+    reads plate load directly (post-migration semantics).
+    """
+    # Lifter A: pure dips (40 kg plate, BW=80 → total bar load 120 kg)
     user_a = db.query(User).first()
     user_a.bodyweight_kg = 80.0
     db.commit()
-    _seed_exercise(db, user_a, "WEIGHTED DIP", "triceps", load_kg=40, reps=1, day_offset=2)
+    _seed_exercise(db, user_a, "WEIGHTED DIP", "triceps", load_kg=120, reps=1,
+                   day_offset=2, added_load_kg=40)
     result_a = recompute_for_user(db, user_a.id)
 
     # Lifter B: dips + pull-ups + bench + curls (all similar strength tier)
@@ -519,12 +533,14 @@ def test_mixed_arms_training_beats_single_pathway(db):
     )
     db.add(user_b)
     db.commit()
-    _seed_exercise(db, user_b, "WEIGHTED DIP", "triceps", load_kg=40, reps=1, day_offset=3)
-    _seed_exercise(db, user_b, "WEIGHTED PULLUP", "back", load_kg=40, reps=1, day_offset=4)
+    _seed_exercise(db, user_b, "WEIGHTED DIP", "triceps", load_kg=120, reps=1,
+                   day_offset=3, added_load_kg=40)
+    _seed_exercise(db, user_b, "WEIGHTED PULLUP", "back", load_kg=120, reps=1,
+                   day_offset=4, added_load_kg=40)
     _seed_exercise(db, user_b, "BENCH PRESS", "chest", load_kg=100, reps=1, day_offset=5)
     _seed_exercise(db, user_b, "BARBELL CURL", "biceps", load_kg=50, reps=1, day_offset=6)
     result_b = recompute_for_user(db, user_b.id)
-    # After Task 6 is wired, biceps + triceps together should beat triceps-only.
+    # Biceps + triceps together should beat triceps-only.
     assert result_b["triceps"]["elo"] >= result_a["triceps"]["elo"]
     assert result_b["biceps"]["elo"] > result_a["biceps"]["elo"]
 
