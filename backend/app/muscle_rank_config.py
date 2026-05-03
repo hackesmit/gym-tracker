@@ -19,9 +19,12 @@ is a single elite rank (no subdivisions).
 from __future__ import annotations
 
 # MVP muscle groups ranked by the engine. Other groups (glutes, calves,
-# abs, forearms, traps) are reported in analytics but are not currently
+# forearms, traps) are reported in analytics but are not currently
 # assigned a rank.
-MVP_GROUPS = ["chest", "back", "shoulders", "quads", "hamstrings", "arms"]
+# 2026-05-02: arms split into biceps + triceps for weak-point visualization;
+# abs added as a ranked group. Calves stays unranked (still in catalog for
+# volume tracking but no rank engine reads it).
+MVP_GROUPS = ["chest", "back", "shoulders", "quads", "hamstrings", "biceps", "triceps", "abs"]
 
 # Tier order, ascending. Copper is the implicit floor for any user that
 # lacks sufficient valid data to earn Bronze.
@@ -112,9 +115,23 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Champion": 30,
         },
     },
-    # Arms — weighted dip ADDED-load / bodyweight.
-    "arms": {
-        "metric": "weighted_dip_added_over_bodyweight",
+    # Biceps — display table for the Profile progress bar reverse-mapping. Actual
+    # rank is determined by the blended ELO of (back ELO × 0.7 + curl ELO × 0.3).
+    "biceps": {
+        "metric": "weighted_pullup_added_over_bodyweight_blended_with_curl_isolation",
+        "thresholds": {
+            "Bronze":   0.00,
+            "Silver":   0.25,
+            "Gold":     0.50,
+            "Platinum": 0.75,
+            "Diamond":  1.00,
+            "Champion": 1.20,
+        },
+    },
+    # Triceps — display table; actual rank = blended ELO of
+    # (max(chest, shoulder-press) ELO + dip-anchor ELO) × 0.7 + tricep_iso × 0.3.
+    "triceps": {
+        "metric": "weighted_dip_added_over_bodyweight_blended_with_tricep_isolation",
         "thresholds": {
             "Bronze":   0.00,
             "Silver":   0.25,
@@ -122,6 +139,20 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Platinum": 0.75,
             "Diamond":  1.25,
             "Champion": 1.50,
+        },
+    },
+    # Abs — display table; actual rank = best of weighted-crunch e1RM/BW path or
+    # bodyweight rep fallback (max() across paths, like back).
+    "abs": {
+        "metric": "weighted_crunch_1rm_over_bodyweight_or_strict_rep_count",
+        # Mirrors ABS_WEIGHTED_THRESHOLDS defined below — keep in sync.
+        "thresholds": {
+            "Bronze":   0.25,
+            "Silver":   0.55,
+            "Gold":     1.00,
+            "Platinum": 1.50,
+            "Diamond":  1.90,
+            "Champion": 2.20,
         },
     },
 }
@@ -487,6 +518,59 @@ ABS_FALLBACK_REPS: dict[str, int] = {
     "Champion": 48,      # above Strength Level Elite of 46 reps
 }
 
+# 2026-05-02: per-group isolation pathway maps for the rank coverage audit.
+# Each entry maps a canonical exercise name to a specificity multiplier (raw
+# e1RM input is multiplied by this before comparison against the group's
+# isolation threshold table). DB variants use the per-hand × 2 convention
+# already established in EXERCISE_MAP (a 30 kg per-hand DB fly contributes
+# 60 kg system load).
+
+HAMSTRINGS_LEG_CURL_ISOLATION: dict[str, float] = {
+    "SEATED HAMSTRING CURL":  1.00,
+    "SEATED LEG CURL":        1.00,
+    "LYING LEG CURL":         1.00,
+    "NORDIC HAM CURL":        1.20,    # bodyweight + eccentric — reads `load_kg=BW` post-migration
+}
+
+# Hyperextension / glute-ham raise — low-spec compound proxy that contributes
+# to hamstrings via the leg-curl threshold table. They're hip-hinge bodyweight
+# exercises; treat them as low-grade leg-curl-equivalent work.
+HAMSTRINGS_COMPOUND_PROXY: dict[str, float] = {
+    "GLUTE-HAM RAISE":          0.60,
+    "45-DEGREE BACK EXTENSION": 0.40,
+    "45-DEGREE HYPEREXTENSION": 0.40,
+}
+
+QUADS_LEG_EXTENSION_ISOLATION: dict[str, float] = {
+    "LEG EXTENSION":           1.00,
+    "SINGLE-LEG EXTENSION":    1.40,    # unilateral — per-leg load × 1.4 transferability
+}
+
+CHEST_FLY_ISOLATION: dict[str, float] = {
+    # Cable / machine — face value
+    "CABLE CHEST FLY":   1.00,
+    "MACHINE CHEST FLY": 1.00,
+    "PEC DECK":          1.00,
+    # DB variant — per-hand × 2 (matches DB curl/lateral convention)
+    "DB CHEST FLY":      2.00,
+    "DB FLYE":           2.00,
+}
+
+# Abs — weighted crunch e1RM/BW pathway.
+ABS_WEIGHTED_CRUNCHES: dict[str, float] = {
+    "CABLE CRUNCH":          1.00,
+    "MACHINE CRUNCH":        1.00,
+    "ROMAN CHAIR CRUNCH":    0.80,    # bodyweight + plate; less precise loading
+    "PLATE-WEIGHTED CRUNCH": 0.85,
+}
+
+# Abs — strict-form bodyweight rep fallback.
+ABS_BODYWEIGHT_FALLBACK: set[str] = {
+    "HANGING LEG RAISE",
+    "LEG RAISES",
+    "TWO-ARMS TWO-LEGS DEAD BUG",
+}
+
 # Manual 1RM keys on `User.manual_1rm` per group. The existing schema uses
 # category keys {bench, squat, deadlift, ohp, row}. Pullup/dip are optional
 # extensions — treated as ADDED load in kg (same unit as logged weighted
@@ -498,7 +582,14 @@ MANUAL_1RM_KEY: dict[str, str] = {
     "shoulders":      "ohp",
     # Back/arms added-load 1RMs (optional manual entry).
     "back_added":     "pullup",
-    "arms_added":     "dip",
+    "arms_added":     "dip",        # legacy alias — still read by triceps anchor
+    # 2026-05-02 split — new keys for biceps/triceps/abs ranks. The triceps
+    # anchor reads "arms_added" (above) for the dip 1RM and ALSO the new
+    # "triceps_added" key below as a future-proof alias; resolver picks the
+    # higher of the two.
+    "triceps_added": "dip",
+    "biceps":        "biceps_curl",
+    "abs":           "cable_crunch",
 }
 
 # Hygiene / outlier guards.
