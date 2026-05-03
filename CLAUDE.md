@@ -164,18 +164,34 @@ component on the Dashboard welcome panel and the no-active branch of the Program
 Reserved usernames `{preset, system, admin}` are rejected at register time. Friend
 requests to `preset` are refused.
 
-## Username change + CAPTCHA (2026-04-21)
+## Username change + CAPTCHA (2026-04-21, hardened 2026-04-26)
 Users can rename themselves from Settings, gated by a medium-difficulty word problem
 (Sally-and-watermelons style). Challenges are **stateless HMAC-signed JWTs** — no
-session storage. 5 problem templates in `backend/app/captcha.py`; payload
-`{"ans": int, "exp": +10min, "kind": "username_captcha"}` signed with `JWT_SECRET`.
+session storage. 5 problem templates in `backend/app/captcha.py`.
+
+The CAPTCHA token payload is
+`{"ans": int, "exp": +10min, "iat", "kind": "username_captcha", "sub": <user_id>}`,
+signed with a domain-separated key derived as `HMAC(JWT_SECRET, b"username_captcha/v1")`.
+The `sub` binding rejects cross-user replay; the derived key prevents any code path
+that signs access tokens from accidentally minting a CAPTCHA. `verify_challenge` takes
+`user_id` and refuses tokens whose `sub` doesn't match.
 
 Endpoints:
-- `GET  /api/auth/username-captcha` → `{problem, challenge}`
+- `GET  /api/auth/username-captcha` → `{problem, challenge}` (challenge bound to caller)
 - `POST /api/auth/change-username` → body `{new_username, challenge, answer}`
 
+Username sanitization: `_normalize_username` (in `routers/auth.py`) NFKC-normalizes
+input, strips whitespace, and rejects any character in Unicode category C
+(control/format/surrogate). This blocks zero-width-space squatting like
+`hackesmit​`. Applied at `register` and `change-username`.
+
+`PATCH /api/auth/me` does **not** accept `username` — its `UpdateMePayload` uses
+`extra="forbid"`, so any client that tries to smuggle `username` through gets a 422.
+This closes the bypass that previously let any logged-in user rename without solving
+the CAPTCHA.
+
 Reserved usernames are blocked. Duplicates are blocked. On wrong answer the UI
-auto-fetches a fresh problem. Covered by `tests/test_username_captcha.py` (6 tests).
+auto-fetches a fresh problem. Covered by `tests/test_username_captcha.py`.
 
 ## Admin ops (2026-04-21)
 Admin-only endpoints gated by `ADMIN_USERNAMES = {"hackesmit"}` in
@@ -189,16 +205,21 @@ Admin-only endpoints gated by `ADMIN_USERNAMES = {"hackesmit"}` in
   + username + password so the target can still log in. Refuses admin and preset
   targets. Covered by `tests/test_admin_wipe.py` (4 tests).
 
-## Medal awarding (2026-04-21 fix)
+## Medal awarding (2026-04-21 fix, derivatives wired 2026-04-26)
 Strength medals (`strength_1rm:bench|squat|deadlift|ohp`) are awarded by
 `check_strength_medals()` in `backend/app/medal_engine.py` when a `WorkoutLog` has
 `is_true_1rm_attempt=True` + `completed_successfully=True` + `reps_completed=1`. The
 Logger UI does not currently expose the `is_true_1rm_attempt` flag.
 
-**Settings → Manual 1RM now also fires the medal engine.** Each category saved via
-`PATCH /api/manual-1rm` routes through `_update_holder()` with
-`source_type="manual_1rm"`, so users can claim strength medals without logging a
-live attempt. Existing `manual_1rm` values saved before this fix won't retroactively
+**Settings → Manual 1RM fires the full medal chain (2026-04-26).** `PATCH /api/manual-1rm`
+routes each category through `_update_holder()` with `source_type="manual_1rm"` AND
+calls `_recompute_strength_derivatives()` so the derived medals
+(`strength_pl_total`, `strength_relative`, `performance_most_improved_pct`)
+also fire — without this call users could claim the four direct medals but never
+the derivatives. The same path also calls `recompute_for_user` so muscle ranks
+refresh immediately on a manual 1RM save.
+
+Existing `manual_1rm` values saved before this fix won't retroactively
 award — a re-save kicks it off.
 
 ## Program sharing (2026-04-21)
@@ -222,7 +243,7 @@ Replaced the old percentile/30-day-rolling engine with fixed global strength sta
 muscle group. Ranks now stay comparable across users — Champion is an earned tier, not the
 top of the current cohort.
 
-- MVP groups: `chest, back, shoulders, quads, hamstrings, arms`
+- MVP groups: `chest, back, shoulders, quads, hamstrings, biceps, triceps, abs`
 - Metric per group:
   - chest = barbell bench 1RM / bodyweight
   - quads = back squat 1RM / bodyweight
@@ -236,7 +257,12 @@ top of the current cohort.
 - Tiers: `Copper → Bronze → Silver → Gold → Platinum → Diamond → Champion` (7 tiers; Emerald was dropped on 2026-04-22 to match the badge system)
 - Each non-Champion tier subdivides into 5 equal slots (V → I). Champion is a single elite rank.
 - Source of truth: `backend/app/muscle_rank_config.py`. Do **not** inline thresholds elsewhere.
-- `recompute_for_user(db, user_id)` is called inside `logging.py` after every log write.
+- `recompute_for_user(db, user_id)` is called from `logging.py` on:
+  - `POST /api/log` (single set)
+  - `POST /api/log/bulk` (session save)
+  - `PATCH /api/log/set/{id}` (set edit) — added 2026-04-26 to avoid stranded inflated tiers
+  - `DELETE /api/log/session/{id}` (undo) — added 2026-04-26 so deleting a fake-PR session releases the tier
+  - `PATCH /api/manual-1rm` — added 2026-04-26 since manual 1RM is a first-class rank input
 - Reference endpoint: `GET /api/ranks/standards` returns the full 7-tier × 6-group table (thresholds + qualifying exercises) sourced from `muscle_rank_config.py`. Consumed by the Profile page's new "Rank standards" expandable card (`frontend/src/components/RankStandards.jsx`).
 - Tested in `tests/test_ranks.py` (6 tests).
 - 2026-04-25: rank engine reads `WorkoutLog.added_load_kg` directly for
@@ -249,6 +275,18 @@ top of the current cohort.
 - 2026-04-25: `MAX_ADDED_RATIO_FOR_BACK_ARMS = 2.0` silent-drop guard
   for back/arms candidates (prevents Aragorn-style legacy rows that
   escaped the 2026-04 migration from regranting Champion rank).
+- 2026-05-02: Coverage audit — split arms into independent biceps + triceps
+  ranks; added abs as the 8th MVP group; new isolation pathways for
+  hamstrings (leg curl + glute-ham proxy), quads (leg extension), and
+  chest (fly). Threshold tables sourced from strengthlevel.com percentile
+  data. `MAX_ISOLATION_ONLY_ELO = 2500` cap means pure-isolation lifters
+  reach Diamond at most. Back Diamond/Champion thresholds tightened
+  (1.25→1.00, 1.50→1.20) to match published Elite +1.08 BW. Tricep
+  isolation thresholds bumped to raw-ratio scale (`ARMS_TRICEP_ISOLATION`
+  spec multipliers all 1.0). One-shot `split_arms_2026_05` lifespan
+  migration deletes legacy `arms` MuscleScore rows and recomputes against
+  unbounded historical lookback. CATALOG_AUDIT table in
+  `muscle_rank_config.py` documents every catalog exclusion with a reason.
 
 ## BW input migration (2026-04-25)
 
@@ -280,7 +318,42 @@ who set their bodyweight after the initial migration.
 Catalog tagging: `seed_catalog.py` sets `bodyweight_kind` on PULLUP, DIP,
 WEIGHTED PULLUP, WEIGHTED DIP, WALKING LUNGES, ab/core lifts.
 `backfill_catalog_bodyweight_kind` runs on every lifespan startup to
-update existing rows idempotently.
+update existing rows idempotently. **`bodyweight_kind` is exposed on
+`GET /api/analytics/exercise-catalog`** — without this the SetRow
+component on the Logger silently falls back to the legacy single-load
+layout for every exercise (closed 2026-04-26).
+
+## Plate-only display semantics (2026-04-26)
+
+After the BW input migration, `WorkoutLog.load_kg` for bodyweight-class
+lifts is `bodyweight + plate`. Anything that reads `load_kg` directly
+will be inflated by the user's bodyweight unless it accounts for the
+new column. The conventions used downstream:
+
+- **Volume / tonnage queries** (`analytics/volume.py`, `routers/dashboard.py`,
+  `routers/friends.py`, `medal_engine.py` `consistency_volume_30d` /
+  `performance_volume_increase_30d`): use
+  `coalesce(added_load_kg, load_kg) * reps_completed` per row. For
+  bodyweight-class lifts this collapses to plate-only; for external
+  lifts `added_load_kg` is NULL and the total `load_kg` is used.
+- **Per-exercise e1RM** (`analytics/progress.py`): the history fetcher
+  returns `added_load_kg if not None else load_kg` so the Progress
+  chart, all-time PR card, and CSV export all stay on the plate-only
+  scale for weighted pullups/dips.
+- **PR detection** in `routers/logging.py` (called from
+  `POST /api/log/bulk`): both the new-session sets and the historical
+  lookup use the same `_effective(load_kg, added_load_kg)` helper, so
+  a fresh weighted-pullup row never spuriously beats an old one purely
+  because the migration semantics changed.
+- **Edit form** in `frontend/src/pages/History.jsx`: `updateSet` now
+  passes `added_load_kg = max(0, new_load_kg - bw_at_log)` derived
+  from the original row's `load_kg - added_load_kg`, so editing a
+  weighted-pullup set keeps the plate semantic intact instead of
+  stranding the row.
+
+These rules apply only to bodyweight-class catalog rows
+(`bodyweight_kind IS NOT NULL`). External lifts continue to use
+`load_kg` directly.
 
 ## Editorial Theme System (2026-04-23)
 The frontend ships two coexisting modes, defaulting to minimal.
@@ -446,7 +519,7 @@ Manual 1RM is first-class; only loses to logged data if logged is both newer AND
 - Backend: `pytest -q` from `backend/`. Shared fixtures in `tests/conftest.py` spin up an
   in-memory SQLite DB + TestClient with `get_db`/`get_current_user` overrides.
 - Frontend: `npm test -- --run` from `frontend/`. Vitest covers `utils/units.js` and core API/analytics behavior.
-- Current state: 55 pass, 1 pre-existing unrelated failure (`test_log_bulk_relog_replaces`).
+- Current state (2026-04-26): 152 pass, 1 pre-existing unrelated failure (`test_log_bulk_relog_replaces`).
 
 ## Known issues / watch-outs
 See `docs/known-bugs.md`.
