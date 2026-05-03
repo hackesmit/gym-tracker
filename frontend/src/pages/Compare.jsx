@@ -5,11 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import RankBadge from '../components/RankBadge';
 import { getCompare } from '../api/client';
 import { useT } from '../i18n';
-
-const MUSCLE_LABELS = {
-  chest: 'Chest', back: 'Back', shoulders: 'Shoulders',
-  quads: 'Quads', hamstrings: 'Hamstrings', arms: 'Arms',
-};
+import { MUSCLE_LABELS } from '../constants/muscleGroups';
 
 function normalizeRanks(raw) {
   if (Array.isArray(raw)) return raw;

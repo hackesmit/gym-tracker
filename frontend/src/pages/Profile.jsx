@@ -12,15 +12,7 @@ import {
   getRanks, getMyMedals, getCalendarOverview,
 } from '../api/client';
 import { useT } from '../i18n';
-
-const MUSCLE_LABELS = {
-  chest: 'Chest',
-  back: 'Back',
-  shoulders: 'Shoulders',
-  quads: 'Quads',
-  hamstrings: 'Hamstrings',
-  arms: 'Arms',
-};
+import { MUSCLE_LABELS } from '../constants/muscleGroups';
 
 // Picks the single "signature" rank for the profile hero. We use the
 // group with the highest ELO — that's the user's most impressive lift
