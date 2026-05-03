@@ -716,3 +716,27 @@ def test_manual_pullup_1rm_capped_at_added_ratio_2(db):
         f"Expected Copper (manual dropped), got {ranks['back']['rank']} "
         f"source={ranks['back']['source']}"
     )
+
+
+def test_recompute_with_lookback_override_includes_old_logs(db):
+    """Migration override: passing lookback_days_override credits historical
+    logs older than the standard 90-day window.
+    """
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    # Seed a bench 200 days ago — outside the default 90-day window.
+    _seed_bench(db, user, load_kg=80, reps=5, day_offset=200)
+
+    # Default: should NOT credit the old lift.
+    default = recompute_for_user(db, user.id)
+    assert default["chest"]["rank"] == "Copper"
+
+    # Override: should credit it.
+    override = recompute_for_user(db, user.id, lookback_days_override=9999)
+    assert override["chest"]["rank"] == "Gold"
+
+    # Subsequent default-call should drop back to Copper (rank persists in DB
+    # but recompute overwrites it on next read).
+    default2 = recompute_for_user(db, user.id)
+    assert default2["chest"]["rank"] == "Copper"

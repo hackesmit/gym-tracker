@@ -649,11 +649,18 @@ def _compute_group(
 # Public entry points
 # ---------------------------------------------------------------------------
 
-def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
+def recompute_for_user(
+    db: Session,
+    user_id: int,
+    lookback_days_override: int | None = None,
+) -> dict[str, dict]:
     """Recompute & persist fixed-threshold muscle ranks for a single user.
 
     Returns `{group: {"score", "rank", "sub_index", "sub_label",
                        "rank_index", "elo", "ratio", "source"}}`.
+
+    `lookback_days_override` (default None → use `LOOKBACK_DAYS = 90`) lets
+    the one-shot split_arms_2026_05 migration credit historical logs.
     """
     user = db.get(User, user_id)
     if user is None:
@@ -661,7 +668,8 @@ def recompute_for_user(db: Session, user_id: int) -> dict[str, dict]:
 
     bw = _resolve_bodyweight(db, user)
     today = date.today()
-    cutoff = today - timedelta(days=LOOKBACK_DAYS)
+    days = lookback_days_override if lookback_days_override is not None else LOOKBACK_DAYS
+    cutoff = today - timedelta(days=days)
 
     existing = {
         ms.muscle_group: ms
@@ -814,10 +822,14 @@ def aggregate_elo(ranks: dict[str, dict]) -> dict:
     }
 
 
-def recompute_all(db: Session) -> dict:
+def recompute_all(
+    db: Session,
+    lookback_days_override: int | None = None,
+) -> dict:
     """Recompute ranks for every user. Failures for a single user are
-    swallowed (logged via print so flyctl logs surfaces them) so one bad
-    user can't block the whole startup recompute.
+    swallowed so one bad user can't block the whole startup recompute.
+
+    `lookback_days_override` is forwarded to `recompute_for_user`.
 
     Returns {"processed": N, "failed": [(user_id, error_str), ...]}.
     """
@@ -825,7 +837,7 @@ def recompute_all(db: Session) -> dict:
     failed: list[tuple[int, str]] = []
     for u in db.query(User).all():
         try:
-            recompute_for_user(db, u.id)
+            recompute_for_user(db, u.id, lookback_days_override=lookback_days_override)
             processed += 1
         except Exception as exc:
             failed.append((u.id, repr(exc)))
