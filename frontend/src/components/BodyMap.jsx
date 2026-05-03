@@ -165,14 +165,14 @@ function FrontView({ regionProps }) {
         {...regionProps('abs', 'Abs')}
       />
 
-      {/* Arms (biceps area) */}
+      {/* Biceps — front upper arm */}
       <ellipse
         cx="62" cy="95" rx="10" ry="22"
-        {...regionProps('arms', 'Arms')}
+        {...regionProps('biceps', 'Biceps')}
       />
       <ellipse
         cx="138" cy="95" rx="10" ry="22"
-        {...regionProps('arms', 'Arms')}
+        {...regionProps('biceps', 'Biceps')}
       />
       {/* Forearms */}
       <ellipse cx="58" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE} strokeWidth="1" />
@@ -219,9 +219,9 @@ function BackView({ regionProps }) {
         {...regionProps('back', 'Back')}
       />
 
-      {/* Arms (triceps) */}
-      <ellipse cx="62" cy="95" rx="10" ry="22" {...regionProps('arms', 'Arms')} />
-      <ellipse cx="138" cy="95" rx="10" ry="22" {...regionProps('arms', 'Arms')} />
+      {/* Triceps — back upper arm */}
+      <ellipse cx="62" cy="95" rx="10" ry="22" {...regionProps('triceps', 'Triceps')} />
+      <ellipse cx="138" cy="95" rx="10" ry="22" {...regionProps('triceps', 'Triceps')} />
       <ellipse cx="58" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE_LOCAL} strokeWidth="1" />
       <ellipse cx="142" cy="130" rx="8" ry="18" fill={HEAD_FILL} stroke={STROKE_LOCAL} strokeWidth="1" />
 
