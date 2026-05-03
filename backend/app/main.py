@@ -201,6 +201,42 @@ def _recompute_all_ranks_once(db):
         print(f"  recompute_all failure: user_id={uid} {err}", flush=True)
 
 
+def _run_split_arms_migration_once(db):
+    """One-shot: drop legacy 'arms' MuscleScore rows and recompute every
+    user's ranks against the new 8-group layout (biceps, triceps, abs).
+
+    Uses an unbounded lookback so users get instant credit for historical
+    leg curl / leg extension / fly / crunch logs that were silently
+    ignored by the old engine.
+
+    Gated by a `migration_log` row named 'split_arms_2026_05'. Subsequent
+    deploys are no-ops.
+    """
+    from .models import MigrationLog, MuscleScore
+    from .rank_engine import recompute_all
+
+    name = "split_arms_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    deleted = db.query(MuscleScore).filter(MuscleScore.muscle_group == "arms").delete(
+        synchronize_session=False,
+    )
+    db.commit()
+
+    summary = recompute_all(db, lookback_days_override=9999)
+
+    db.add(MigrationLog(name=name))
+    db.commit()
+
+    print(
+        f"split_arms migration: deleted {deleted} legacy arms rows; "
+        f"recomputed {summary['processed']} users with unbounded lookback. "
+        f"Failed: {len(summary['failed'])}.",
+        flush=True,
+    )
+
+
 def _rebuild_cardio_medals_once(db):
     """One-shot: rebuild cardio medal holders from current CardioLog rows.
 
@@ -262,6 +298,7 @@ async def lifespan(app: FastAPI):
         _run_bw_migration_once(db)
         _run_pure_load_cleanup_once(db)
         _recompute_all_ranks_once(db)
+        _run_split_arms_migration_once(db)   # 2026-05-02 audit
         seed_preset_programs(db)
         backfill_consistency_medals(db)
         _rebuild_cardio_medals_once(db)

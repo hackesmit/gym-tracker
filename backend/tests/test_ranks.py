@@ -918,3 +918,53 @@ def test_db_chest_fly_uses_per_hand_times_two_convention(db):
     result = recompute_for_user(db, user.id)
     # Iso ELO at 0.625 lands above Gold V floor (0.50) → Gold tier.
     assert result["chest"]["rank"] in ("Silver", "Gold")
+
+
+# ---------------------------------------------------------------------------
+# Task 10: split_arms_2026_05 lifespan migration
+# ---------------------------------------------------------------------------
+
+def test_split_arms_migration_deletes_arms_rows_and_recomputes(db):
+    """Migration deletes legacy 'arms' MuscleScore rows and recomputes ranks
+    from each user's full WorkoutLog history (unbounded lookback).
+    """
+    from app.main import _run_split_arms_migration_once
+    from app.models import MigrationLog, MuscleScore
+
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.add(MuscleScore(
+        user_id=user.id, muscle_group="arms", score_v=0.0, score_i=1.5,
+        score_f=0.0, score=80.0, rank="Diamond", sub_index=2, elo=2700.0,
+    ))
+    db.commit()
+    assert db.query(MuscleScore).filter_by(muscle_group="arms").count() == 1
+
+    # Seed an old leg curl outside the 90-day window — migration should credit it.
+    _seed_exercise(db, user, "SEATED LEG CURL", "hamstrings", load_kg=80, reps=1, day_offset=200)
+
+    _run_split_arms_migration_once(db)
+
+    assert db.query(MuscleScore).filter_by(muscle_group="arms").count() == 0
+    assert db.query(MigrationLog).filter_by(name="split_arms_2026_05").one() is not None
+
+    # Hamstring rank should reflect the historical leg curl despite the
+    # default 90-day cutoff (migration uses unbounded lookback).
+    hams_row = db.query(MuscleScore).filter_by(
+        user_id=user.id, muscle_group="hamstrings",
+    ).first()
+    assert hams_row is not None
+    assert hams_row.rank in ("Silver", "Gold")
+
+
+def test_split_arms_migration_is_idempotent(db):
+    """Running the migration twice produces no duplicate rows and a no-op
+    second run."""
+    from app.main import _run_split_arms_migration_once
+    from app.models import MigrationLog
+
+    _run_split_arms_migration_once(db)
+    _run_split_arms_migration_once(db)
+
+    rows = db.query(MigrationLog).filter_by(name="split_arms_2026_05").all()
+    assert len(rows) == 1
