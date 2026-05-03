@@ -42,8 +42,11 @@ from .muscle_rank_config import (
     CHAMPION_POINTS,
     CURL_THRESHOLDS,
     EXERCISE_MAP,
+    HAMSTRINGS_COMPOUND_PROXY,
+    HAMSTRINGS_LEG_CURL_ISOLATION,
     HYBRID_WEIGHTS,
     LATERAL_THRESHOLDS,
+    LEG_CURL_THRESHOLDS,
     LOOKBACK_DAYS,
     MANUAL_1RM_KEY,
     MAX_ADDED_RATIO_FOR_BACK_ARMS,
@@ -647,6 +650,76 @@ def _compute_shoulders_hybrid(
     return (_Result(pseudo_ratio, tier, f"hybrid:{source}" if not source.startswith("hybrid:") else source), breakdown)
 
 
+def _compute_barbell_with_isolation_hybrid(
+    db: Session,
+    user_id: int,
+    group: str,
+    bw_kg: float,
+    cutoff: date,
+    *,
+    isolation_map: dict[str, float],
+    isolation_thresholds: dict[str, float],
+    secondary_weight: float,
+    compound_proxy_map: dict[str, float] | None = None,
+) -> tuple[_Result, dict]:
+    """Barbell anchor + isolation secondary, blended in ELO space.
+
+    Used by hamstrings (deadlift + leg curl), quads (squat + leg extension),
+    chest (bench + fly). Pure-isolation cap applies when the anchor is missing.
+
+    `compound_proxy_map` is an optional second isolation source — for
+    hamstrings it carries hyperextensions/glute-ham raises (low-spec
+    compound work) against the same isolation threshold table. The proxy
+    pathway and the regular isolation pathway compete for the same iso slot
+    via max() — the higher-ratio source wins.
+    """
+    anchor = _best_barbell_ratio(db, user_id, group, bw_kg, cutoff)
+    anchor_thresholds = MUSCLE_RANK_THRESHOLDS[group]["thresholds"]
+
+    iso_ratio, iso_source = _best_isolation_ratio(
+        db, user_id, bw_kg, cutoff, isolation_map,
+    )
+
+    proxy_ratio = 0.0
+    proxy_source: str | None = None
+    if compound_proxy_map:
+        proxy_ratio, proxy_source = _best_isolation_ratio(
+            db, user_id, bw_kg, cutoff, compound_proxy_map,
+        )
+
+    # Take the higher of iso or compound proxy against the iso threshold table
+    if proxy_ratio > iso_ratio:
+        iso_ratio = proxy_ratio
+        iso_source = proxy_source
+
+    anchor_elo = continuous_score(anchor.ratio, anchor_thresholds) if anchor.ratio > 0 else 0.0
+    iso_elo = continuous_score(iso_ratio, isolation_thresholds) if iso_ratio > 0 else 0.0
+
+    # Pure-isolation cap.
+    if anchor_elo <= 0 and iso_elo > MAX_ISOLATION_ONLY_ELO:
+        iso_elo = float(MAX_ISOLATION_ONLY_ELO)
+
+    blended_elo = _weighted_avg_present([
+        (1.0 - secondary_weight, anchor_elo),
+        (secondary_weight,        iso_elo),
+    ])
+
+    if blended_elo <= 0:
+        return (_Result(0.0, "Copper", "no_data"), {
+            "anchor_elo": 0.0, "iso_elo": 0.0, "blended_elo": 0.0,
+        })
+
+    tier, _sub = tier_sub_from_elo(blended_elo)
+    pseudo_ratio = elo_to_ratio(blended_elo, anchor_thresholds)
+    source = anchor.source if anchor_elo >= iso_elo else (iso_source or f"hybrid:{group}-iso")
+    breakdown = {
+        "anchor_elo":  round(anchor_elo, 1),
+        "iso_elo":     round(iso_elo, 1),
+        "blended_elo": round(blended_elo, 1),
+    }
+    return (_Result(pseudo_ratio, tier, source), breakdown)
+
+
 def _compute_abs(
     db: Session,
     user_id: int,
@@ -815,6 +888,14 @@ def recompute_for_user(
             )
         elif group == "abs":
             result = _compute_abs(db, user_id, bw, cutoff)
+        elif group == "hamstrings":
+            result, _breakdown = _compute_barbell_with_isolation_hybrid(
+                db, user_id, "hamstrings", bw, cutoff,
+                isolation_map=HAMSTRINGS_LEG_CURL_ISOLATION,
+                isolation_thresholds=LEG_CURL_THRESHOLDS,
+                secondary_weight=0.20,
+                compound_proxy_map=HAMSTRINGS_COMPOUND_PROXY,
+            )
         elif group in anchor_results:
             result = anchor_results[group]
         else:

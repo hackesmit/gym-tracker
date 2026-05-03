@@ -798,3 +798,65 @@ def test_abs_size_bonus_applies_to_rep_fallback(db):
     light_score = rank_score(light_result["abs"]["rank"], light_result["abs"]["sub_index"])
     heavy_score = rank_score(heavy_result["abs"]["rank"], heavy_result["abs"]["sub_index"])
     assert heavy_score >= light_score
+
+
+# ---------------------------------------------------------------------------
+# Task 7: hamstrings hybrid (deadlift + leg curl + hyperext proxy)
+# ---------------------------------------------------------------------------
+
+def test_hamstring_leg_curl_populates_hamstring_rank(db):
+    """A Gold-tier seated leg curl (1.0× BW e1RM) without any deadlift work
+    moves hamstrings off Copper. This is the user-reported bug fix.
+    """
+    user = User(username="ham_test", password_hash="x", name="ham_test", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 80 kg @ 1 rep = 1.0× BW = Gold V on LEG_CURL_THRESHOLDS (ELO 1500)
+    _seed_exercise(db, user, "SEATED LEG CURL", "hamstrings", load_kg=80, reps=1)
+    result = recompute_for_user(db, user.id)
+    # Anchor ELO = 0; iso ELO = 1500; clipped to 1500 (under 2500 cap).
+    # Renormalized via _weighted_avg_present: only iso pathway has weight → blended_elo = 1500
+    # → Gold V hamstrings.
+    assert result["hamstrings"]["rank"] in ("Silver", "Gold")
+    assert result["hamstrings"]["elo"] > 500
+
+
+def test_pure_hamstring_isolation_cannot_reach_champion(db):
+    """A Champion-grade leg curl with no deadlift work caps at Diamond V."""
+    user = User(username="ham_iso_max", password_hash="x", name="ham_iso_max", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 152 kg @ 1 rep = 1.90× BW = Champion floor on LEG_CURL_THRESHOLDS
+    _seed_exercise(db, user, "SEATED LEG CURL", "hamstrings", load_kg=152, reps=1)
+    result = recompute_for_user(db, user.id)
+    # iso ELO would be CHAMPION_POINTS=3100, capped to MAX_ISOLATION_ONLY_ELO=2500 → Diamond V.
+    assert result["hamstrings"]["rank"] == "Diamond"
+
+
+def test_deadlift_plus_leg_curl_blends_in_elo_space(db):
+    """A Gold deadlift + Gold leg curl should land at Gold or above hamstrings,
+    confirming the blend math (0.8 × Gold_DL + 0.2 × Gold_LC = ~Gold)."""
+    user = User(username="ham_combo", password_hash="x", name="ham_combo", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # Gold floor for hamstrings anchor = 2.0× BW deadlift = 160 kg
+    _seed_exercise(db, user, "DEADLIFT", "hamstrings", load_kg=160, reps=1, day_offset=1)
+    # Gold floor for leg curl = 1.0× BW = 80 kg
+    _seed_exercise(db, user, "SEATED LEG CURL", "hamstrings", load_kg=80, reps=1, day_offset=2)
+    result = recompute_for_user(db, user.id)
+    assert result["hamstrings"]["rank"] in ("Gold", "Platinum")
+
+
+def test_hyperextension_compound_proxy_feeds_hamstring_rank(db):
+    """A 45-DEGREE BACK EXTENSION at moderate load (compound_proxy spec 0.40)
+    contributes to hamstrings via the leg curl threshold table.
+    """
+    user = User(username="ham_proxy", password_hash="x", name="ham_proxy", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 100 kg @ 1 rep × 0.40 spec / 80 BW = 0.50 ratio → Silver V on LEG_CURL_THRESHOLDS.
+    _seed_exercise(db, user, "45-DEGREE BACK EXTENSION", "hamstrings", load_kg=100, reps=1)
+    result = recompute_for_user(db, user.id)
+    # Iso pathway via compound proxy yields Silver-ish, blended with no anchor = Silver-ish hamstrings.
+    assert result["hamstrings"]["rank"] in ("Bronze", "Silver", "Gold")
+    assert result["hamstrings"]["elo"] > 500
