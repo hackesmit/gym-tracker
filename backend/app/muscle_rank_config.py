@@ -45,6 +45,21 @@ RANK_ORDER = [
 SUBDIVISIONS = ["V", "IV", "III", "II", "I"]
 SUBDIVISION_COUNT = 5
 
+# abs — primary weighted pathway (companion: ABS_WEIGHTED_CRUNCHES).
+# Defined here (rather than alongside the other isolation tables further
+# down) so MUSCLE_RANK_THRESHOLDS["abs"] can reference it directly without a
+# forward declaration. Cable crunch is the canonical lift; machine/roman
+# chair variants use spec multipliers.
+ABS_WEIGHTED_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.25,    # ~20 kg cable crunch @ 80 kg BW
+    "Silver":   0.55,    # ~44 kg
+    "Gold":     1.00,    # ~80 kg
+    "Platinum": 1.50,    # ~120 kg
+    "Diamond":  1.90,    # ~152 kg
+    "Champion": 2.20,    # ~176 kg (above Strength Level Elite of 2.19× BW)
+}
+
+
 # Per-group rank thresholds.  Each tier value is the MINIMUM metric value
 # required to earn that tier.  Anything below the Bronze cutoff collapses
 # to Copper.
@@ -129,7 +144,9 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
         },
     },
     # Triceps — display table; actual rank = blended ELO of
-    # (max(chest, shoulder-press) ELO + dip-anchor ELO) × 0.7 + tricep_iso × 0.3.
+    # max(chest_elo, shoulders_press_elo, dip_anchor_elo) × 0.7 + tricep_iso × 0.3.
+    # Press anchor and dip anchor collapse via max() into a single press term;
+    # tricep isolation is the separate 0.3-weight secondary.
     "triceps": {
         "metric": "weighted_dip_added_over_bodyweight_blended_with_tricep_isolation",
         "thresholds": {
@@ -142,18 +159,12 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
         },
     },
     # Abs — display table; actual rank = best of weighted-crunch e1RM/BW path or
-    # bodyweight rep fallback (max() across paths, like back).
+    # bodyweight rep fallback (max() across paths, like back). Reuses the
+    # ABS_WEIGHTED_THRESHOLDS constant defined above so the display table
+    # cannot drift from the engine's scoring table.
     "abs": {
         "metric": "weighted_crunch_1rm_over_bodyweight_or_strict_rep_count",
-        # Mirrors ABS_WEIGHTED_THRESHOLDS defined below — keep in sync.
-        "thresholds": {
-            "Bronze":   0.25,
-            "Silver":   0.55,
-            "Gold":     1.00,
-            "Platinum": 1.50,
-            "Diamond":  1.90,
-            "Champion": 2.20,
-        },
+        "thresholds": ABS_WEIGHTED_THRESHOLDS,
     },
 }
 
@@ -496,16 +507,10 @@ CHEST_FLY_THRESHOLDS: dict[str, float] = {
     "Champion": 1.30,    # ~104 kg (Strength Level Elite)
 }
 
-# abs — primary weighted pathway (companion: ABS_WEIGHTED_CRUNCHES).
-# Cable crunch is the canonical lift; machine/roman chair variants use spec multiplier.
-ABS_WEIGHTED_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.25,    # ~20 kg cable crunch @ 80 kg BW
-    "Silver":   0.55,    # ~44 kg
-    "Gold":     1.00,    # ~80 kg
-    "Platinum": 1.50,    # ~120 kg
-    "Diamond":  1.90,    # ~152 kg
-    "Champion": 2.20,    # ~176 kg (above Strength Level Elite of 2.19× BW)
-}
+# abs — primary weighted pathway (ABS_WEIGHTED_THRESHOLDS) is defined above
+# the MUSCLE_RANK_THRESHOLDS block so the display table can reference it
+# directly. The companion exercise pool ABS_WEIGHTED_CRUNCHES lives further
+# down with the other isolation pathway maps.
 
 # abs — bodyweight rep-count fallback (companion: ABS_BODYWEIGHT_FALLBACK).
 # Strict-form hanging leg raise reps, max set, with size_bonus applied.
