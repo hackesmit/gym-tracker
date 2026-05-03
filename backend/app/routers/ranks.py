@@ -7,6 +7,8 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..models import MuscleScore, User
 from ..muscle_rank_config import (
+    ABS_BODYWEIGHT_FALLBACK,
+    ABS_WEIGHTED_CRUNCHES,
     ARMS_BODYWEIGHT_DIPS,
     ARMS_CLOSE_GRIP_BENCH,
     ARMS_CURL_ISOLATION,
@@ -16,8 +18,12 @@ from ..muscle_rank_config import (
     BACK_BODYWEIGHT_PULLUPS,
     BACK_ROWS_PULLDOWNS,
     BACK_WEIGHTED_PULLUPS,
+    CHEST_FLY_ISOLATION,
     EXERCISE_MAP,
+    HAMSTRINGS_COMPOUND_PROXY,
+    HAMSTRINGS_LEG_CURL_ISOLATION,
     MUSCLE_RANK_THRESHOLDS,
+    QUADS_LEG_EXTENSION_ISOLATION,
     RANK_ORDER,
     SHOULDERS_LATERAL_ISOLATION,
     SUBDIVISION_COUNT,
@@ -38,7 +44,9 @@ _GROUP_LABELS = {
     "shoulders": "Shoulders",
     "quads": "Quads",
     "hamstrings": "Hamstrings",
-    "arms": "Arms",
+    "biceps": "Biceps",
+    "triceps": "Triceps",
+    "abs": "Abs",
 }
 
 _METRIC_HUMAN = {
@@ -48,27 +56,48 @@ _METRIC_HUMAN = {
     "overhead_press_1rm_over_bodyweight":    "Strict press 1RM ÷ bodyweight",
     "weighted_pullup_added_over_bodyweight": "Weighted pull-up added load ÷ bodyweight",
     "weighted_dip_added_over_bodyweight":    "Weighted dip added load ÷ bodyweight",
+    "weighted_pullup_added_over_bodyweight_blended_with_curl_isolation":
+        "Pull-up & row strength blended with curl isolation",
+    "weighted_dip_added_over_bodyweight_blended_with_tricep_isolation":
+        "Dip / press strength blended with triceps isolation",
+    "weighted_crunch_1rm_over_bodyweight_or_strict_rep_count":
+        "Weighted crunch 1RM ÷ bodyweight, or strict-form rep count",
 }
 
 
 # Per-group qualifying exercise pools. These extend EXERCISE_MAP to cover
-# the pathway-specific catalogs (pullups/rows for back, dips/close-grip/compound
-# tricep work for arms, lateral isolation for shoulders).
+# the pathway-specific catalogs (pullups/rows for back/biceps, dips/close-grip
+# /compound tricep + iso for triceps, isolation pools for shoulders/hamstrings/
+# quads/chest, weighted-crunch + bodyweight-fallback for abs).
 def _group_exercises(group: str) -> list[str]:
     pool: set[str] = set(EXERCISE_MAP.get(group, {}).keys())
     if group == "back":
         pool |= BACK_WEIGHTED_PULLUPS
         pool |= BACK_BODYWEIGHT_PULLUPS
         pool |= set(BACK_ROWS_PULLDOWNS.keys())
-    elif group == "arms":
+    elif group == "biceps":
+        pool |= BACK_WEIGHTED_PULLUPS
+        pool |= BACK_BODYWEIGHT_PULLUPS
+        pool |= set(BACK_ROWS_PULLDOWNS.keys())
+        pool |= set(ARMS_CURL_ISOLATION.keys())
+    elif group == "triceps":
         pool |= ARMS_WEIGHTED_DIPS
         pool |= ARMS_BODYWEIGHT_DIPS
         pool |= ARMS_CLOSE_GRIP_BENCH
         pool |= set(ARMS_TRICEP_COMPOUND.keys())
-        pool |= set(ARMS_CURL_ISOLATION.keys())
         pool |= set(ARMS_TRICEP_ISOLATION.keys())
     elif group == "shoulders":
         pool |= set(SHOULDERS_LATERAL_ISOLATION.keys())
+    elif group == "hamstrings":
+        pool |= set(HAMSTRINGS_LEG_CURL_ISOLATION.keys())
+        pool |= set(HAMSTRINGS_COMPOUND_PROXY.keys())
+    elif group == "quads":
+        pool |= set(QUADS_LEG_EXTENSION_ISOLATION.keys())
+    elif group == "chest":
+        pool |= set(CHEST_FLY_ISOLATION.keys())
+    elif group == "abs":
+        pool |= set(ABS_WEIGHTED_CRUNCHES.keys())
+        pool |= ABS_BODYWEIGHT_FALLBACK
     return sorted(pool)
 
 

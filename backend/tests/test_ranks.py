@@ -52,7 +52,6 @@ def test_standards_chest_thresholds_match_config(db, client):
     assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)", strict=True)
 def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     """Back, biceps, triceps pull their qualifying exercises from pathway-specific catalogs."""
     body = client.get("/api/ranks/standards").json()
@@ -67,7 +66,6 @@ def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     assert any("DIP" in e for e in triceps["qualifying_exercises"])
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)", strict=True)
 def test_standards_biceps_triceps_include_isolation_pools(db, client):
     """Biceps and triceps qualifying exercises include their respective isolation pools."""
     body = client.get("/api/ranks/standards").json()
