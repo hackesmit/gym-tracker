@@ -100,8 +100,8 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Silver":   0.25,
             "Gold":     0.50,
             "Platinum": 0.75,
-            "Diamond":  1.25,
-            "Champion": 1.50,
+            "Diamond":  1.00,  # 2026-05-02: was 1.25; published Elite is +1.08 BW
+            "Champion": 1.20,  # 2026-05-02: was 1.50; aligns with weighted-dip cap
         },
         "fallback_reps": {
             "Bronze":   1,
@@ -377,25 +377,31 @@ CURL_THRESHOLDS: dict[str, float] = {
 }
 
 # Tricep isolation pool — low-signal lifts that supplement the
-# ARMS_TRICEP_COMPOUND pathway. Pushdowns/extensions cap out Platinum on
-# their own; dips or heavy skull crushers remain required for Diamond+.
+# ARMS_TRICEP_COMPOUND pathway.
+# 2026-05-02: spec multipliers all 1.0 — the new TRICEP_ISOLATION_THRESHOLDS
+# table operates on raw e1RM/BW ratios.
 ARMS_TRICEP_ISOLATION: dict[str, float] = {
-    "TRICEPS PRESSDOWN":               0.25,
-    "TRICEP PRESSDOWN":                0.25,
-    "MACHINE TRICEPS EXTENSION":       0.35,
-    "OVERHEAD CABLE TRICEPS EXTENSIONS": 0.25,
-    "OVERHEAD CABLE TRICEP EXTENSION": 0.25,
-    "DB TRICEPS KICKBACK":             0.35,
-    "CABLE TRICEPS KICKBACK":          0.20,
+    "TRICEPS PRESSDOWN":                 1.0,
+    "TRICEP PRESSDOWN":                  1.0,
+    "MACHINE TRICEPS EXTENSION":         1.0,
+    "OVERHEAD CABLE TRICEPS EXTENSIONS": 1.0,
+    "OVERHEAD CABLE TRICEP EXTENSION":   1.0,
+    "DB TRICEPS KICKBACK":               1.0,
+    "CABLE TRICEPS KICKBACK":            1.0,
 }
 
+# 2026-05-02 recalibration. Old values (0.08→0.55) were spec-discounted; an
+# Elite tricep pushdown landed only at Gold under the old combo of low
+# threshold + 0.25 spec multiplier. New values are raw e1RM/BW ratios
+# matching strengthlevel.com Beginner→Elite percentiles. Spec multipliers
+# in `ARMS_TRICEP_ISOLATION` are now 1.0 (no discount).
 TRICEP_ISOLATION_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.08,
-    "Silver":   0.15,
-    "Gold":     0.22,
-    "Platinum": 0.30,
-    "Diamond":  0.40,
-    "Champion": 0.55,
+    "Bronze":   0.30,
+    "Silver":   0.50,
+    "Gold":     0.75,
+    "Platinum": 1.00,
+    "Diamond":  1.20,
+    "Champion": 1.40,
 }
 
 # Shoulder lateral-raise isolation. Lateral raises use the DB per-hand ×
@@ -416,6 +422,56 @@ LATERAL_THRESHOLDS: dict[str, float] = {
     "Platinum": 0.50,    # ~25 kg per-hand
     "Diamond":  0.65,    # ~32.5 kg per-hand
     "Champion": 0.85,    # ~42.5 kg per-hand (exceptional)
+}
+
+# 2026-05-02: Isolation pathway threshold tables for the rank coverage audit.
+# All numbers sourced from strengthlevel.com percentile data for adult males
+# at 80 kg BW reference. Mapping: Beginner→Bronze, Novice→Silver,
+# Intermediate→Gold, mid-Advanced→Platinum, Advanced→Diamond, Elite→Champion.
+
+LEG_CURL_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.40,
+    "Silver":   0.65,
+    "Gold":     1.00,
+    "Platinum": 1.30,
+    "Diamond":  1.60,
+    "Champion": 1.90,
+}
+
+LEG_EXTENSION_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.50,
+    "Silver":   0.80,
+    "Gold":     1.25,
+    "Platinum": 1.75,
+    "Diamond":  2.10,
+    "Champion": 2.40,
+}
+
+CHEST_FLY_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.10,
+    "Silver":   0.25,
+    "Gold":     0.50,
+    "Platinum": 0.85,
+    "Diamond":  1.10,
+    "Champion": 1.30,
+}
+
+ABS_WEIGHTED_THRESHOLDS: dict[str, float] = {
+    "Bronze":   0.25,
+    "Silver":   0.55,
+    "Gold":     1.00,
+    "Platinum": 1.50,
+    "Diamond":  1.90,
+    "Champion": 2.20,
+}
+
+ABS_FALLBACK_REPS: dict[str, int] = {
+    "Bronze":   1,
+    "Silver":   7,
+    "Gold":     18,
+    "Platinum": 28,
+    "Diamond":  38,
+    "Champion": 48,
 }
 
 # Manual 1RM keys on `User.manual_1rm` per group. The existing schema uses
@@ -443,6 +499,14 @@ MAX_RATIO_CAP       = 5.0     # sanity ceiling; suspicious values are dropped
 # in added load is implausible for pullups/dips and is silently dropped by
 # the rank engine.
 MAX_ADDED_RATIO_FOR_BACK_ARMS = 2.0
+
+# Pure-isolation cap. When a group's anchor pathway has no data (e.g. user
+# only logs leg curls, never a deadlift), the secondary/isolation pathway's
+# ELO is clipped to this floor before blending. Champion always requires
+# anchor evidence — isolation alone tops out at Diamond V (ELO 2500).
+# Exempt groups: shoulders (lateral cap is natural), back (uses max() of
+# weighted/rep paths), abs (no clean anchor — weighted and rep are co-equal).
+MAX_ISOLATION_ONLY_ELO = 2500
 
 # Size-bonus multiplier (interim fairness correction; Phase 2 replaces this
 # with DOTS). Heavier athletes get partial credit for moving more absolute
