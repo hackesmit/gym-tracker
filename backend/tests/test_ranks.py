@@ -860,3 +860,63 @@ def test_hyperextension_compound_proxy_feeds_hamstring_rank(db):
     # Iso pathway via compound proxy yields Silver-ish, blended with no anchor = Silver-ish hamstrings.
     assert result["hamstrings"]["rank"] in ("Bronze", "Silver", "Gold")
     assert result["hamstrings"]["elo"] > 500
+
+
+# ---------------------------------------------------------------------------
+# Task 8: quads + chest hybrids (leg extension / cable fly)
+# ---------------------------------------------------------------------------
+
+def test_quad_leg_extension_populates_quad_rank(db):
+    """A Gold-tier leg extension (1.25× BW) without squats moves quads off Copper."""
+    user = User(username="quad_iso", password_hash="x", name="quad_iso", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 100 kg @ 1 rep = 1.25× BW = Gold V on LEG_EXTENSION_THRESHOLDS.
+    _seed_exercise(db, user, "LEG EXTENSION", "quads", load_kg=100, reps=1)
+    result = recompute_for_user(db, user.id)
+    assert result["quads"]["rank"] in ("Silver", "Gold")
+    assert result["quads"]["elo"] > 500
+
+
+def test_chest_fly_populates_chest_rank(db):
+    """A Gold-tier cable fly (0.50× BW) without bench moves chest off Copper."""
+    user = User(username="chest_iso", password_hash="x", name="chest_iso", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    # 40 kg @ 1 rep = 0.50× BW = Gold V on CHEST_FLY_THRESHOLDS.
+    _seed_exercise(db, user, "CABLE CHEST FLY", "chest", load_kg=40, reps=1)
+    result = recompute_for_user(db, user.id)
+    assert result["chest"]["rank"] in ("Silver", "Gold")
+    assert result["chest"]["elo"] > 500
+
+
+def test_pure_isolation_caps_at_diamond_for_quads_and_chest(db):
+    """Champion-grade isolation alone caps at Diamond for both quads and chest."""
+    user_q = User(username="quad_max_iso", password_hash="x", name="quad_max_iso", bodyweight_kg=80.0)
+    db.add(user_q)
+    db.commit()
+    # 192 kg leg extension @ 1 rep = 2.40× BW = Champion floor on LEG_EXTENSION_THRESHOLDS.
+    _seed_exercise(db, user_q, "LEG EXTENSION", "quads", load_kg=192, reps=1)
+    result_q = recompute_for_user(db, user_q.id)
+    assert result_q["quads"]["rank"] == "Diamond"
+
+    user_c = User(username="chest_max_iso", password_hash="x", name="chest_max_iso", bodyweight_kg=80.0)
+    db.add(user_c)
+    db.commit()
+    # 104 kg cable fly @ 1 rep = 1.30× BW = Champion floor on CHEST_FLY_THRESHOLDS.
+    _seed_exercise(db, user_c, "CABLE CHEST FLY", "chest", load_kg=104, reps=1)
+    result_c = recompute_for_user(db, user_c.id)
+    assert result_c["chest"]["rank"] == "Diamond"
+
+
+def test_db_chest_fly_uses_per_hand_times_two_convention(db):
+    """DB CHEST FLY spec is 2.00 (per-hand × 2 convention). 25 kg per-hand
+    should produce ratio = 25 × 2.00 / 80 = 0.625 → Gold V on CHEST_FLY_THRESHOLDS.
+    """
+    user = User(username="db_fly_test", password_hash="x", name="db_fly_test", bodyweight_kg=80.0)
+    db.add(user)
+    db.commit()
+    _seed_exercise(db, user, "DB CHEST FLY", "chest", load_kg=25, reps=1)
+    result = recompute_for_user(db, user.id)
+    # Iso ELO at 0.625 lands above Gold V floor (0.50) → Gold tier.
+    assert result["chest"]["rank"] in ("Silver", "Gold")

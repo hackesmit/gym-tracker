@@ -40,6 +40,8 @@ from .muscle_rank_config import (
     BACK_ROWS_PULLDOWNS,
     BACK_WEIGHTED_PULLUPS,
     CHAMPION_POINTS,
+    CHEST_FLY_ISOLATION,
+    CHEST_FLY_THRESHOLDS,
     CURL_THRESHOLDS,
     EXERCISE_MAP,
     HAMSTRINGS_COMPOUND_PROXY,
@@ -47,6 +49,7 @@ from .muscle_rank_config import (
     HYBRID_WEIGHTS,
     LATERAL_THRESHOLDS,
     LEG_CURL_THRESHOLDS,
+    LEG_EXTENSION_THRESHOLDS,
     LOOKBACK_DAYS,
     MANUAL_1RM_KEY,
     MAX_ADDED_RATIO_FOR_BACK_ARMS,
@@ -57,6 +60,7 @@ from .muscle_rank_config import (
     MIN_BODYWEIGHT_KG,
     MUSCLE_RANK_THRESHOLDS,
     MVP_GROUPS,
+    QUADS_LEG_EXTENSION_ISOLATION,
     RANK_ORDER,
     SHOULDERS_LATERAL_ISOLATION,
     TRICEP_ISOLATION_THRESHOLDS,
@@ -895,6 +899,20 @@ def recompute_for_user(
                 isolation_thresholds=LEG_CURL_THRESHOLDS,
                 secondary_weight=0.20,
                 compound_proxy_map=HAMSTRINGS_COMPOUND_PROXY,
+            )
+        elif group == "quads":
+            result, _breakdown = _compute_barbell_with_isolation_hybrid(
+                db, user_id, "quads", bw, cutoff,
+                isolation_map=QUADS_LEG_EXTENSION_ISOLATION,
+                isolation_thresholds=LEG_EXTENSION_THRESHOLDS,
+                secondary_weight=0.15,
+            )
+        elif group == "chest":
+            result, _breakdown = _compute_barbell_with_isolation_hybrid(
+                db, user_id, "chest", bw, cutoff,
+                isolation_map=CHEST_FLY_ISOLATION,
+                isolation_thresholds=CHEST_FLY_THRESHOLDS,
+                secondary_weight=0.15,
             )
         elif group in anchor_results:
             result = anchor_results[group]
