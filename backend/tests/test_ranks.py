@@ -740,3 +740,45 @@ def test_recompute_with_lookback_override_includes_old_logs(db):
     # but recompute overwrites it on next read).
     default2 = recompute_for_user(db, user.id)
     assert default2["chest"]["rank"] == "Copper"
+
+
+def test_abs_weighted_crunch_populates_abs_rank(db):
+    """A ~Gold-tier cable crunch (1.0× BW e1RM) lands abs at Gold."""
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    # 80 kg @ 1 rep = 1.0× BW e1RM = Gold floor on ABS_WEIGHTED_THRESHOLDS.
+    _seed_exercise(db, user, "CABLE CRUNCH", "abs", load_kg=80, reps=1)
+    result = recompute_for_user(db, user.id)
+    assert result["abs"]["rank"] == "Gold"
+
+
+def test_abs_rep_fallback_uses_hanging_leg_raise(db):
+    """Hanging leg raises with 0 load fall back to rep-count tiers."""
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    # 18 strict reps = Gold floor on ABS_FALLBACK_REPS.
+    _seed_exercise(db, user, "HANGING LEG RAISE", "abs", load_kg=0, reps=18)
+    result = recompute_for_user(db, user.id)
+    assert result["abs"]["rank"] in ("Gold", "Platinum")  # size_bonus may bump
+
+
+def test_abs_size_bonus_applies_to_rep_fallback(db):
+    """A heavier athlete's reps count more (size_bonus = (BW/80)^0.5)."""
+    light = db.query(User).first()
+    light.bodyweight_kg = 60.0
+    db.commit()
+    _seed_exercise(db, light, "HANGING LEG RAISE", "abs", load_kg=0, reps=18)
+    light_result = recompute_for_user(db, light.id)
+
+    # New user @ 100 kg with same reps — should rank ≥ light user.
+    heavy = User(name="heavy_test", username="heavy_test", password_hash="x", bodyweight_kg=100.0)
+    db.add(heavy)
+    db.commit()
+    _seed_exercise(db, heavy, "HANGING LEG RAISE", "abs", load_kg=0, reps=18, day_offset=2)
+    heavy_result = recompute_for_user(db, heavy.id)
+
+    light_score = rank_score(light_result["abs"]["rank"], light_result["abs"]["sub_index"])
+    heavy_score = rank_score(heavy_result["abs"]["rank"], heavy_result["abs"]["sub_index"])
+    assert heavy_score >= light_score

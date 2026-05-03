@@ -27,6 +27,9 @@ from .models import (
     WorkoutLog,
 )
 from .muscle_rank_config import (
+    ABS_BODYWEIGHT_FALLBACK,
+    ABS_FALLBACK_REPS,
+    ABS_WEIGHTED_CRUNCHES,
     ARMS_BODYWEIGHT_DIPS,
     ARMS_CLOSE_GRIP_BENCH,
     ARMS_CURL_ISOLATION,
@@ -626,6 +629,89 @@ def _compute_shoulders_hybrid(
     return (_Result(pseudo_ratio, tier, f"hybrid:{source}" if not source.startswith("hybrid:") else source), breakdown)
 
 
+def _compute_abs(
+    db: Session,
+    user_id: int,
+    bw_kg: float,
+    cutoff: date,
+) -> _Result:
+    """Abs rank — best of weighted crunch e1RM/BW or strict rep fallback.
+
+    Mirrors the back rank's max(weighted_tier, rep_tier) pattern. Weighted
+    pathway uses the abs threshold table (cable crunch / machine crunch /
+    plate-weighted crunch / roman chair); rep fallback uses ABS_FALLBACK_REPS
+    with size_bonus applied so heavier athletes get partial credit for
+    moving more absolute mass during hanging leg raises etc.
+    """
+    abs_thresholds = MUSCLE_RANK_THRESHOLDS["abs"]["thresholds"]
+
+    weighted_pool = list(ABS_WEIGHTED_CRUNCHES.keys())
+    rep_pool = list(ABS_BODYWEIGHT_FALLBACK)
+    candidate_names = weighted_pool + rep_pool
+
+    rows = (
+        db.query(
+            ProgramExercise.exercise_name_canonical,
+            WorkoutLog.load_kg,
+            WorkoutLog.reps_completed,
+        )
+        .join(WorkoutLog, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(
+            WorkoutLog.user_id == user_id,
+            WorkoutLog.date >= cutoff,
+            WorkoutLog.reps_completed > 0,
+            ProgramExercise.exercise_name_canonical.in_(candidate_names),
+        )
+        .all()
+    ) if candidate_names else []
+
+    best_weighted_ratio = 0.0
+    best_weighted_source: str | None = None
+    best_rep_count = 0
+    best_rep_source: str | None = None
+
+    for name, load, reps in rows:
+        if name in ABS_WEIGHTED_CRUNCHES:
+            spec = ABS_WEIGHTED_CRUNCHES[name]
+            if load is None or load <= 0:
+                continue
+            if reps > MAX_REPS_FOR_E1RM:
+                continue
+            e1rm = _epley_e1rm(load, reps)
+            if e1rm <= 0:
+                continue
+            ratio = (e1rm * spec) / bw_kg
+            if ratio > MAX_RATIO_CAP:
+                continue
+            if ratio > best_weighted_ratio:
+                best_weighted_ratio = ratio
+                best_weighted_source = f"logged:{name}"
+        elif name in ABS_BODYWEIGHT_FALLBACK:
+            scaled = int(reps * size_bonus(bw_kg))
+            if scaled > best_rep_count:
+                best_rep_count = scaled
+                best_rep_source = f"logged_reps:{name}(scaled)"
+
+    weighted_tier = (
+        rank_from_threshold(best_weighted_ratio, abs_thresholds)
+        if best_weighted_ratio > 0 else None
+    )
+    rep_tier = (
+        rank_from_reps(best_rep_count, ABS_FALLBACK_REPS)
+        if best_rep_count > 0 else None
+    )
+
+    if weighted_tier is None and rep_tier is None:
+        return _Result(0.0, "Copper", "no_data")
+
+    final_tier = max_rank(weighted_tier or "Copper", rep_tier or "Copper")
+    wt = tier_index(weighted_tier or "Copper")
+    rt = tier_index(rep_tier or "Copper")
+    if wt >= rt and best_weighted_source is not None:
+        return _Result(best_weighted_ratio, final_tier, best_weighted_source)
+    return _Result(float(best_rep_count), final_tier, best_rep_source or "bodyweight_reps")
+
+
 def _compute_group(
     db: Session, user_id: int, group: str, bw_kg: float, cutoff: date,
 ) -> _Result:
@@ -704,6 +790,8 @@ def recompute_for_user(
                 db, user_id, bw, cutoff,
                 press_result=anchor_results["shoulders_press"],
             )
+        elif group == "abs":
+            result = _compute_abs(db, user_id, bw, cutoff)
         elif group in anchor_results:
             result = anchor_results[group]
         else:
