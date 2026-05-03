@@ -52,7 +52,7 @@ def test_standards_chest_thresholds_match_config(db, client):
     assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 7 (standards endpoint)")
+@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)")
 def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     """Back, biceps, triceps pull their qualifying exercises from pathway-specific catalogs."""
     body = client.get("/api/ranks/standards").json()
@@ -67,7 +67,7 @@ def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     assert any("DIP" in e for e in triceps["qualifying_exercises"])
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 7 (standards endpoint)")
+@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)")
 def test_standards_biceps_triceps_include_isolation_pools(db, client):
     """Biceps and triceps qualifying exercises include their respective isolation pools."""
     body = client.get("/api/ranks/standards").json()
@@ -429,7 +429,7 @@ def test_skull_crusher_ranks_triceps(db):
     assert result["biceps"]["rank"] == "Copper"   # no biceps work seeded
 
 
-@pytest.mark.xfail(reason="Biceps engine wired in Task 5")
+@pytest.mark.xfail(reason="Biceps engine wired in Task 6")
 def test_isolation_curl_contributes_to_biceps(db):
     """2026-05-02: Under the split, curls feed the biceps group directly.
 
@@ -474,7 +474,7 @@ def test_lateral_raise_lifts_shoulders_off_copper(db):
     assert result["shoulders"]["elo"] > 500
 
 
-@pytest.mark.xfail(reason="Biceps and triceps engines wired in Tasks 5-6")
+@pytest.mark.xfail(reason="Biceps and triceps engines wired in Task 6")
 def test_mixed_arms_training_beats_single_pathway(db):
     """Post-split: a lifter with curls + dips + rows + press beats a
     lifter with only dips at the same per-exercise tier."""
