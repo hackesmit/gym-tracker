@@ -101,7 +101,7 @@ MUSCLE_RANK_THRESHOLDS: dict[str, dict] = {
             "Gold":     0.50,
             "Platinum": 0.75,
             "Diamond":  1.00,  # 2026-05-02: was 1.25; published Elite is +1.08 BW
-            "Champion": 1.20,  # 2026-05-02: was 1.50; aligns with weighted-dip cap
+            "Champion": 1.20,  # 2026-05-02: was 1.50; Strength Level Elite is +1.08 BW — modest margin keeps Champion as a real cutoff
         },
         "fallback_reps": {
             "Bronze":   1,
@@ -377,7 +377,10 @@ CURL_THRESHOLDS: dict[str, float] = {
 }
 
 # Tricep isolation pool — low-signal lifts that supplement the
-# ARMS_TRICEP_COMPOUND pathway.
+# ARMS_TRICEP_COMPOUND pathway. Even at Elite (ratio ≥ 1.40), this pathway
+# is subject to MAX_ISOLATION_ONLY_ELO when blended; Diamond+ in the arms
+# group still requires compound anchor evidence (dips / close-grip / heavy
+# skull crusher).
 # 2026-05-02: spec multipliers all 1.0 — the new TRICEP_ISOLATION_THRESHOLDS
 # table operates on raw e1RM/BW ratios.
 ARMS_TRICEP_ISOLATION: dict[str, float] = {
@@ -428,50 +431,60 @@ LATERAL_THRESHOLDS: dict[str, float] = {
 # All numbers sourced from strengthlevel.com percentile data for adult males
 # at 80 kg BW reference. Mapping: Beginner→Bronze, Novice→Silver,
 # Intermediate→Gold, mid-Advanced→Platinum, Advanced→Diamond, Elite→Champion.
+# Each table is paired with an EXERCISES map added in Task 2 — see
+# HAMSTRINGS_LEG_CURL_ISOLATION, QUADS_LEG_EXTENSION_ISOLATION, etc.
 
+# hamstrings — secondary isolation pathway (companion: HAMSTRINGS_LEG_CURL_ISOLATION).
 LEG_CURL_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.40,
-    "Silver":   0.65,
-    "Gold":     1.00,
-    "Platinum": 1.30,
-    "Diamond":  1.60,
-    "Champion": 1.90,
+    "Bronze":   0.40,    # ~32 kg machine @ 80 kg BW
+    "Silver":   0.65,    # ~52 kg
+    "Gold":     1.00,    # ~80 kg (bodyweight equivalent)
+    "Platinum": 1.30,    # ~104 kg
+    "Diamond":  1.60,    # ~128 kg
+    "Champion": 1.90,    # ~152 kg (Strength Level Elite)
 }
 
+# quads — secondary isolation pathway (companion: QUADS_LEG_EXTENSION_ISOLATION).
 LEG_EXTENSION_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.50,
-    "Silver":   0.80,
-    "Gold":     1.25,
-    "Platinum": 1.75,
-    "Diamond":  2.10,
-    "Champion": 2.40,
+    "Bronze":   0.50,    # ~40 kg machine @ 80 kg BW
+    "Silver":   0.80,    # ~64 kg
+    "Gold":     1.25,    # ~100 kg
+    "Platinum": 1.75,    # ~140 kg
+    "Diamond":  2.10,    # ~168 kg
+    "Champion": 2.40,    # ~192 kg (above Strength Level Elite of 1.90× BW)
 }
 
+# chest — secondary isolation pathway (companion: CHEST_FLY_ISOLATION).
+# Cable / pec deck values are face value; DB fly values use per-hand × 2 convention.
 CHEST_FLY_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.10,
-    "Silver":   0.25,
-    "Gold":     0.50,
-    "Platinum": 0.85,
-    "Diamond":  1.10,
-    "Champion": 1.30,
+    "Bronze":   0.10,    # ~8 kg cable @ 80 kg BW
+    "Silver":   0.25,    # ~20 kg
+    "Gold":     0.50,    # ~40 kg
+    "Platinum": 0.85,    # ~68 kg
+    "Diamond":  1.10,    # ~88 kg
+    "Champion": 1.30,    # ~104 kg (Strength Level Elite)
 }
 
+# abs — primary weighted pathway (companion: ABS_WEIGHTED_CRUNCHES).
+# Cable crunch is the canonical lift; machine/roman chair variants use spec multiplier.
 ABS_WEIGHTED_THRESHOLDS: dict[str, float] = {
-    "Bronze":   0.25,
-    "Silver":   0.55,
-    "Gold":     1.00,
-    "Platinum": 1.50,
-    "Diamond":  1.90,
-    "Champion": 2.20,
+    "Bronze":   0.25,    # ~20 kg cable crunch @ 80 kg BW
+    "Silver":   0.55,    # ~44 kg
+    "Gold":     1.00,    # ~80 kg
+    "Platinum": 1.50,    # ~120 kg
+    "Diamond":  1.90,    # ~152 kg
+    "Champion": 2.20,    # ~176 kg (above Strength Level Elite of 2.19× BW)
 }
 
+# abs — bodyweight rep-count fallback (companion: ABS_BODYWEIGHT_FALLBACK).
+# Strict-form hanging leg raise reps, max set, with size_bonus applied.
 ABS_FALLBACK_REPS: dict[str, int] = {
-    "Bronze":   1,
-    "Silver":   7,
-    "Gold":     18,
-    "Platinum": 28,
-    "Diamond":  38,
-    "Champion": 48,
+    "Bronze":   1,       # 1 strict rep — clears beginner threshold
+    "Silver":   7,       # Strength Level Novice
+    "Gold":     18,      # Strength Level Intermediate
+    "Platinum": 28,      # mid-Advanced
+    "Diamond":  38,      # Advanced
+    "Champion": 48,      # above Strength Level Elite of 46 reps
 }
 
 # Manual 1RM keys on `User.manual_1rm` per group. The existing schema uses
@@ -500,10 +513,11 @@ MAX_RATIO_CAP       = 5.0     # sanity ceiling; suspicious values are dropped
 # the rank engine.
 MAX_ADDED_RATIO_FOR_BACK_ARMS = 2.0
 
-# Pure-isolation cap. When a group's anchor pathway has no data (e.g. user
-# only logs leg curls, never a deadlift), the secondary/isolation pathway's
-# ELO is clipped to this floor before blending. Champion always requires
-# anchor evidence — isolation alone tops out at Diamond V (ELO 2500).
+# Pathway blend policy (NOT an outlier guard — does not reject rows).
+# When a group's anchor pathway has no data (e.g. user only logs leg curls,
+# never a deadlift), the secondary/isolation pathway's ELO is clipped to
+# this floor before being blended. Champion always requires anchor evidence
+# — isolation alone tops out at Diamond V (ELO 2500).
 # Exempt groups: shoulders (lateral cap is natural), back (uses max() of
 # weighted/rep paths), abs (no clean anchor — weighted and rep are co-equal).
 MAX_ISOLATION_ONLY_ELO = 2500
