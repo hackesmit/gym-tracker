@@ -52,7 +52,7 @@ def test_standards_chest_thresholds_match_config(db, client):
     assert chest["thresholds"] == MUSCLE_RANK_THRESHOLDS["chest"]["thresholds"]
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)")
+@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)", strict=True)
 def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     """Back, biceps, triceps pull their qualifying exercises from pathway-specific catalogs."""
     body = client.get("/api/ranks/standards").json()
@@ -67,7 +67,7 @@ def test_standards_back_biceps_triceps_have_qualifying_exercises(db, client):
     assert any("DIP" in e for e in triceps["qualifying_exercises"])
 
 
-@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)")
+@pytest.mark.xfail(reason="Biceps/triceps qualifying_exercises populated in Task 9 (routers/ranks.py wiring)", strict=True)
 def test_standards_biceps_triceps_include_isolation_pools(db, client):
     """Biceps and triceps qualifying exercises include their respective isolation pools."""
     body = client.get("/api/ranks/standards").json()
@@ -140,11 +140,10 @@ def test_missing_bodyweight_defaults_to_copper(db):
 def test_bench_ratio_maps_to_expected_tier(db):
     """A ~1.17x bodyweight bench e1RM should land chest in Gold.
 
-    Under the post-2026-05-02 split, bench transfers to triceps via the
-    press anchor pathway (no curl/iso work), so triceps climbs to Bronze
-    (~half of the press-only tier). Biceps stays Copper (no back work).
-    Quads, hams, shoulders, back stay Copper — bench doesn't feed them.
-    Abs stays Copper — bench doesn't feed it.
+    Bench feeds chest directly. Quads/hams/shoulders/back/biceps/abs all
+    stay Copper — none of them consume chest. Triceps coverage is asserted
+    separately in test_bench_lifts_triceps_via_press_anchor (xfail until
+    Task 6 wires the press-anchor pathway).
     """
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
@@ -154,10 +153,21 @@ def test_bench_ratio_maps_to_expected_tier(db):
     assert result["chest"]["rank"] == "Gold"
     for g in ("quads", "hamstrings", "shoulders", "back", "biceps", "abs"):
         assert result[g]["rank"] == "Copper"
-    # Bench → triceps-press pathway → ~half of chest tier into triceps.
-    # xfail: triceps engine wired in Task 6 — for now engine returns Copper.
-    # When Task 6 lands this assertion should be: result["triceps"]["rank"] == "Bronze"
-    assert result["triceps"]["rank"] in ("Copper", "Bronze")
+
+
+@pytest.mark.xfail(reason="Triceps press-anchor pathway wired in Task 6", strict=True)
+def test_bench_lifts_triceps_via_press_anchor(db):
+    """Bench should feed triceps at ~half the chest tier via the press anchor.
+
+    Strict xfail — when Task 6 lands this test should xpass and break the
+    suite, prompting the implementer to remove the marker.
+    """
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _seed_bench(db, user, load_kg=80, reps=5)
+    result = recompute_for_user(db, user.id)
+    assert result["triceps"]["rank"] == "Bronze"
 
 
 def test_thresholds_match_spec():
@@ -411,7 +421,24 @@ def test_db_row_ranks_back(db):
     assert result["back"]["rank"] == "Gold"
 
 
-@pytest.mark.xfail(reason="Triceps engine wired in Task 6")
+@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
+def test_dip_only_lifts_triceps_off_copper(db):
+    """Weighted dip alone (the canonical triceps anchor) lifts triceps off
+    Copper; biceps stays Copper since no pull/curl work was seeded.
+
+    Strict xfail — Task 6 must remove the marker when wiring _compute_triceps.
+    """
+    user = db.query(User).first()
+    user.bodyweight_kg = 80.0
+    db.commit()
+    _seed_exercise(db, user, "WEIGHTED DIP", "triceps", load_kg=40, reps=1, day_offset=2)
+    result = recompute_for_user(db, user.id)
+    assert result["triceps"]["rank"] in ("Bronze", "Silver")
+    assert result["triceps"]["elo"] > 500
+    assert result["biceps"]["rank"] == "Copper"
+
+
+@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
 def test_skull_crusher_ranks_triceps(db):
     """EZ-bar skull crusher 50 kg → direct_tricep pathway at Silver.
 
@@ -429,7 +456,7 @@ def test_skull_crusher_ranks_triceps(db):
     assert result["biceps"]["rank"] == "Copper"   # no biceps work seeded
 
 
-@pytest.mark.xfail(reason="Biceps engine wired in Task 6")
+@pytest.mark.xfail(reason="Biceps engine wired in Task 6", strict=True)
 def test_isolation_curl_contributes_to_biceps(db):
     """2026-05-02: Under the split, curls feed the biceps group directly.
 
@@ -447,7 +474,7 @@ def test_isolation_curl_contributes_to_biceps(db):
     assert result["triceps"]["rank"] == "Copper"   # no triceps work seeded
 
 
-@pytest.mark.xfail(reason="Triceps engine wired in Task 6")
+@pytest.mark.xfail(reason="Triceps engine wired in Task 6", strict=True)
 def test_pure_press_ranks_triceps_via_press_transfer(db):
     """OHP-only lifter gets triceps credit via the press anchor pathway."""
     user = db.query(User).first()
@@ -497,7 +524,7 @@ def test_mixed_arms_training_beats_single_pathway(db):
     _seed_exercise(db, user_b, "BENCH PRESS", "chest", load_kg=100, reps=1, day_offset=5)
     _seed_exercise(db, user_b, "BARBELL CURL", "biceps", load_kg=50, reps=1, day_offset=6)
     result_b = recompute_for_user(db, user_b.id)
-    # After Tasks 5-6 are wired, biceps + triceps together should beat triceps-only.
+    # After Task 6 is wired, biceps + triceps together should beat triceps-only.
     assert result_b["triceps"]["elo"] >= result_a["triceps"]["elo"]
     assert result_b["biceps"]["elo"] > result_a["biceps"]["elo"]
 
