@@ -205,6 +205,8 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "MACHINE PRESS (BACK OFF)":        0.60,
         # Cable press
         "CABLE CHEST PRESS":               0.50,
+        "CABLE CHEST PRESS PUSHUPS":       0.50,   # alias — same cable-press setup, pushup-grip variation
+        # Bodyweight push-ups are NOT listed here; see CATALOG_AUDIT for rationale.
     },
     "quads": {
         "BARBELL BACK SQUAT":             1.00,
@@ -234,6 +236,10 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "WALKING LUNGES":                 0.45,
         "DB STEP UP":                     0.50,
         "GOBLET SQUAT":                   0.40,
+        # Bodyweight lunge variants (pure BW; post-migration load_kg = BW)
+        "BW WALKING LUNGES":              0.45,   # alias for WALKING LUNGES — same exercise
+        # Typo alias from spreadsheet (missing space before parenthesis)
+        "LEG PRESS(HEAVY)":               0.40,   # alias for LEG PRESS (HEAVY)
     },
     "hamstrings": {
         "CONVENTIONAL DEADLIFT":  1.00,
@@ -820,3 +826,57 @@ def continuous_score(
 
     base_points = (rank_score(tier, sub_index) - 1) * POINTS_PER_SUBDIVISION
     return float(base_points + within * POINTS_PER_SUBDIVISION)
+
+
+# ---------------------------------------------------------------------------
+# Catalog audit exclusions (2026-05-02 coverage audit — Task 11)
+#
+# Every catalog entry whose `muscle_group_primary` is in MVP_GROUPS must
+# either appear in a pathway map (EXERCISE_MAP, an *_ISOLATION map,
+# *_COMPOUND_PROXY, BACK_ROWS_PULLDOWNS, etc.) OR be listed here with a
+# non-empty reason. The completeness invariant is enforced by
+# tests/test_catalog_audit.py::test_every_mvp_catalog_entry_is_mapped_or_excluded.
+#
+# Maintenance: when adding a new catalog entry whose primary muscle is in
+# MVP_GROUPS, EITHER (a) add it to a pathway map so the engine scores it,
+# OR (b) add a key here with a reason. Do not leave entries silently
+# unscored — the test will fail.
+# ---------------------------------------------------------------------------
+CATALOG_AUDIT: dict[str, str] = {
+    # ── back ─────────────────────────────────────────────────────────────────
+    "2-GRIP PULLUP (ASSISTED)": (
+        "machine-assisted pullup — inverted load signal (counterweight reduces "
+        "effective load); cannot derive a meaningful added-load ratio for ranking"
+    ),
+    # ── chest ────────────────────────────────────────────────────────────────
+    "PUSHUPS": (
+        "pure bodyweight push-up — no external load, so e1RM/BW ratio is always "
+        "approximately 0; ranks chest on bodyweight only which is not meaningful"
+    ),
+    "CLOSE-GRIP PUSH UP": (
+        "pure bodyweight push-up variant — same limitation as PUSHUPS; "
+        "no external load anchor for ranking"
+    ),
+    # ── shoulders (rear-delt / rotator-cuff isolation) ────────────────────────
+    # The shoulder rank anchor is the OHP (press pathway) blended with lateral
+    # raises (medial-delt isolation). Rear-delt movements (reverse fly, facepull)
+    # target the posterior delt and upper traps rather than the prime mover for
+    # the OHP or lateral-raise pathway. Including them would dilute the rank
+    # signal; they are tracked for volume but excluded from rank scoring.
+    "REVERSE CABLE FLY": (
+        "rear-delt isolation — targets posterior deltoid / upper traps, not the "
+        "medial-delt lateral-raise nor OHP press anchor; excluded from rank scoring"
+    ),
+    "REVERSE PEC DECK": (
+        "rear-delt isolation — same posterior-delt category as REVERSE CABLE FLY; "
+        "excluded from shoulder rank scoring"
+    ),
+    "BENT-OVER REVERSE DB FLYE": (
+        "rear-delt isolation — same posterior-delt category as REVERSE CABLE FLY; "
+        "excluded from shoulder rank scoring"
+    ),
+    "ROPE FACEPULL": (
+        "rear-delt / rotator-cuff isolation — targets posterior delt and external "
+        "rotators; not part of the OHP or lateral-raise rank anchors"
+    ),
+}
