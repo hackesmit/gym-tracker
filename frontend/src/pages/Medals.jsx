@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import MedalBadge, { medalCategoryColor } from '../components/MedalBadge';
+import MedalLeaderboardModal from '../components/MedalLeaderboardModal';
 import { listMedals, getMyMedals } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
@@ -60,6 +61,7 @@ export default function Medals() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [filter, setFilter] = useState('all');
+  const [openMedal, setOpenMedal] = useState(null);
 
   useEffect(() => {
     Promise.all([listMedals(), getMyMedals()])
@@ -131,6 +133,7 @@ export default function Medals() {
             medal={m}
             owned={mineSet.has(m.id)}
             currentUsername={user?.username}
+            onClick={() => setOpenMedal(m)}
           />
         ))}
         {!visible.length && <p className="text-sm text-text-muted col-span-full">No medals match this filter.</p>}
@@ -141,30 +144,41 @@ export default function Medals() {
         {myMedals.length ? (
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
             {myMedals.map((m) => (
-              <div key={`tc-${m.id}`} className="flex flex-col items-center gap-1">
+              <button
+                type="button"
+                key={`tc-${m.id}`}
+                onClick={() => setOpenMedal(m)}
+                className="flex flex-col items-center gap-1 focus:outline-none focus:ring-2 focus:ring-accent/50 rounded"
+              >
                 <MedalBadge icon={m.icon} category={m.category} size={64} title={m.name} />
                 <span className="text-[9px] font-mono uppercase tracking-wider text-text-muted text-center leading-tight">
                   {m.name.replace('Strongest ', '').replace('Biggest ', '').replace('Fastest ', '').replace(' 30d', '').replace(' All-Time', '')}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
           <p className="text-sm text-text-muted">No medals held yet. Log a qualifying lift or cardio session to claim your first.</p>
         )}
       </Card>
+
+      {openMedal && (
+        <MedalLeaderboardModal medal={openMedal} onClose={() => setOpenMedal(null)} />
+      )}
     </div>
   );
 }
 
-function MedalCard({ medal, owned, currentUsername }) {
+function MedalCard({ medal, owned, currentUsername, onClick }) {
   const { name, icon, category, unit, higher_is_better, holder } = medal;
   const locked = !holder;
   const accent = medalCategoryColor(category);
   const holderName = holder?.username || (owned ? currentUsername || 'You' : null);
   return (
-    <div
-      className={`rounded-xl p-4 border transition-colors flex flex-col items-center gap-2 text-center ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl p-4 border transition-colors flex flex-col items-center gap-2 text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/50 ${
         owned
           ? 'border-accent/40 bg-accent/5'
           : 'border-surface-lighter bg-surface-light hover:border-surface-lighter/60'
@@ -191,6 +205,6 @@ function MedalCard({ medal, owned, currentUsername }) {
       {holder?.held_days != null && !owned && holder.held_days > 0 && (
         <span className="text-[9px] text-text-muted">Held {holder.held_days}d</span>
       )}
-    </div>
+    </button>
   );
 }
