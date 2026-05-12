@@ -307,3 +307,41 @@ def test_performance_1rm_increase_30d_orders_by_delta(db):
     rows = leaderboard_for(db, "performance_1rm_increase_30d")
     assert rows[0].username == "alice"
     assert rows[0].value == pytest.approx(10.0)
+
+
+def test_endpoint_returns_404_for_unknown_medal(client):
+    resp = client.get("/api/medals/9999/leaderboard")
+    assert resp.status_code == 404
+
+
+def test_endpoint_returns_entries_sorted(client, db):
+    seed_medal_catalog(db)
+    _mk_user(db, "alice", manual_1rm={"bench": {"value_kg": 100.0, "tested_at": "2026-01-01"}})
+    _mk_user(db, "bob", manual_1rm={"bench": {"value_kg": 120.0, "tested_at": "2026-01-01"}})
+    medal = db.query(Medal).filter(Medal.metric_type == "strength_1rm:bench").first()
+
+    resp = client.get(f"/api/medals/{medal.id}/leaderboard")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["medal"]["metric_type"] == "strength_1rm:bench"
+    assert [e["username"] for e in body["entries"]] == ["bob", "alice"]
+    assert body["entries"][0]["value"] == 120.0
+
+
+def test_leader_matches_current_holder_for_strength(client, db):
+    """Invariant: when MedalCurrentHolder exists, the top of the leaderboard equals it."""
+    seed_medal_catalog(db)
+    _mk_user(db, "alice", manual_1rm={"bench": {"value_kg": 100.0, "tested_at": "2026-01-01"}})
+    _mk_user(db, "bob", manual_1rm={"bench": {"value_kg": 130.0, "tested_at": "2026-01-01"}})
+    medal = db.query(Medal).filter(Medal.metric_type == "strength_1rm:bench").first()
+    # Simulate the engine running — write a MedalCurrentHolder row directly.
+    bob = db.query(User).filter(User.username == "bob").first()
+    db.add(MedalCurrentHolder(medal_id=medal.id, user_id=bob.id, value=130.0))
+    db.commit()
+
+    resp = client.get(f"/api/medals/{medal.id}/leaderboard")
+    body = resp.json()
+    top = body["entries"][0]
+    holder = db.get(MedalCurrentHolder, medal.id)
+    assert top["user_id"] == holder.user_id
+    assert top["value"] == holder.value

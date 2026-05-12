@@ -2,12 +2,13 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
 from ..medal_engine import ICON_KEY_BY_METRIC
+from ..medal_leaderboards import leaderboard_for
 from ..models import Medal, MedalCurrentHolder, User
 
 router = APIRouter(prefix="/api/medals", tags=["medals"])
@@ -75,3 +76,35 @@ def my_medals(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         }
         for (h, m) in held
     ]
+
+
+@router.get("/{medal_id}/leaderboard")
+def medal_leaderboard(
+    medal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    medal = db.get(Medal, medal_id)
+    if medal is None:
+        raise HTTPException(status_code=404, detail="medal not found")
+
+    entries = leaderboard_for(db, medal.metric_type)
+    return {
+        "medal": {
+            "id": medal.id,
+            "name": medal.name,
+            "metric_type": medal.metric_type,
+            "unit": medal.unit,
+            "higher_is_better": medal.higher_is_better,
+            "category": medal.category,
+        },
+        "entries": [
+            {
+                "user_id": e.user_id,
+                "username": e.username,
+                "value": e.value,
+                "achieved_at": e.achieved_at.isoformat() if e.achieved_at else None,
+            }
+            for e in entries
+        ],
+    }
