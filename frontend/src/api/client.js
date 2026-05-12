@@ -121,6 +121,7 @@ export const removeFriend = (id) =>
 // Medals
 export const listMedals = () => request('/medals');
 export const getMyMedals = () => request('/medals/my');
+export const getMedalLeaderboard = (medalId) => request(`/medals/${medalId}/leaderboard`);
 
 // Ranks
 export const getRanks = (userId) => request(`/ranks${userId ? `?user_id=${userId}` : ''}`);

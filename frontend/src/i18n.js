@@ -313,6 +313,8 @@ const STRINGS = {
     'medals.held': 'Held',
     'medals.available': 'Available',
     'medals.empty': 'No medals yet.',
+    'medals.leaderboard.title': 'Leaderboard',
+    'medals.leaderboard.empty': 'No records yet. Log a qualifying lift to claim this medal.',
 
     // ─── Compare / Profile ───
     'compare.title': 'Compare',
@@ -725,6 +727,8 @@ const STRINGS = {
     'medals.held': 'En tu poder',
     'medals.available': 'Disponibles',
     'medals.empty': 'Aún no hay medallas.',
+    'medals.leaderboard.title': 'Clasificación',
+    'medals.leaderboard.empty': 'Aún no hay registros. Registra un levantamiento elegible para reclamar esta medalla.',
 
     // ─── Compare / Profile ───
     'compare.title': 'Comparar',
