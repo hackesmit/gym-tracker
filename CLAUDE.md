@@ -222,6 +222,18 @@ refresh immediately on a manual 1RM save.
 Existing `manual_1rm` values saved before this fix won't retroactively
 award — a re-save kicks it off.
 
+## Medal leaderboards (2026-05-11)
+`GET /api/medals/{id}/leaderboard` returns every user's current value for the
+medal's metric, sorted. Backed by `backend/app/medal_leaderboards.py` — a single
+dispatch module that reuses the medal engine's categorization rules so the top
+of the leaderboard always matches `MedalCurrentHolder`.
+
+The `consistency_longest_streak` medal is never awarded by the engine today, so
+its leaderboard may have entries while `MedalCurrentHolder` is empty — accepted.
+
+UI: clicking any `MedalCard` on the Medals page opens
+`MedalLeaderboardModal`. Trophy-case tiles open the same modal.
+
 ## Program sharing (2026-04-21)
 A user can enable sharing on any of their programs to get an 8-character uppercase share code.
 Anyone with the code can preview the program (name, owner, frequency, weeks, exercise count) and
@@ -519,7 +531,7 @@ Manual 1RM is first-class; only loses to logged data if logged is both newer AND
 - Backend: `pytest -q` from `backend/`. Shared fixtures in `tests/conftest.py` spin up an
   in-memory SQLite DB + TestClient with `get_db`/`get_current_user` overrides.
 - Frontend: `npm test -- --run` from `frontend/`. Vitest covers `utils/units.js` and core API/analytics behavior.
-- Current state (2026-04-26): 152 pass, 1 pre-existing unrelated failure (`test_log_bulk_relog_replaces`).
+- Current state (2026-05-11): 194 pass, 47 frontend pass, 1 pre-existing unrelated failure (`test_log_bulk_relog_replaces`).
 
 ## Known issues / watch-outs
 See `docs/known-bugs.md`.
