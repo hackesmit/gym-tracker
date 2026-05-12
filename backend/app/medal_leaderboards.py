@@ -145,3 +145,67 @@ def _strength_single_lift(category: str) -> Callable[[Session], list[Entry]]:
 
 for _cat in ("bench", "squat", "deadlift", "ohp"):
     _HANDLERS[f"strength_1rm:{_cat}"] = _strength_single_lift(_cat)
+
+
+# ---------------------------------------------------------------------------
+# Strength derivatives
+# ---------------------------------------------------------------------------
+
+def _user_strength_components(db: Session, user: User) -> tuple[float, float, float, datetime | None]:
+    """Return (bench, squat, deadlift, latest_achieved_at) for a user."""
+    parts = []
+    latest: datetime | None = None
+    for cat in ("bench", "squat", "deadlift"):
+        mv, mw = _manual_1rm_value(user, cat)
+        lv, lw = _best_official_1rm_with_when(db, user.id, cat)
+        if mv >= lv:
+            v, w = mv, mw
+        else:
+            v, w = lv, lw
+        parts.append(v)
+        if w is not None and (latest is None or w > latest):
+            latest = w
+    return parts[0], parts[1], parts[2], latest
+
+
+def _bodyweight_kg(db: Session, user: User) -> float:
+    if user.bodyweight_kg and user.bodyweight_kg > 0:
+        return float(user.bodyweight_kg)
+    latest = (
+        db.query(BodyMetric)
+        .filter(BodyMetric.user_id == user.id)
+        .order_by(BodyMetric.date.desc())
+        .first()
+    )
+    if latest and latest.bodyweight_kg and latest.bodyweight_kg > 0:
+        return float(latest.bodyweight_kg)
+    return 0.0
+
+
+def _leaderboard_pl_total(db: Session) -> list[Entry]:
+    out: list[Entry] = []
+    for user in _real_users(db):
+        b, s, d, when = _user_strength_components(db, user)
+        if min(b, s, d) <= 0:
+            continue
+        out.append(Entry(user_id=user.id, username=user.username, value=b + s + d, achieved_at=when))
+    out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+    return out
+
+
+def _leaderboard_relative(db: Session) -> list[Entry]:
+    out: list[Entry] = []
+    for user in _real_users(db):
+        b, s, d, when = _user_strength_components(db, user)
+        if min(b, s, d) <= 0:
+            continue
+        bw = _bodyweight_kg(db, user)
+        if bw <= 0:
+            continue
+        out.append(Entry(user_id=user.id, username=user.username, value=(b + s + d) / bw, achieved_at=when))
+    out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+    return out
+
+
+_HANDLERS["strength_pl_total"] = _leaderboard_pl_total
+_HANDLERS["strength_relative"] = _leaderboard_relative

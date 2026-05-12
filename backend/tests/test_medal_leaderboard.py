@@ -129,3 +129,38 @@ def test_strength_logged_only_counts_true_1rm_attempts(db):
 
     rows = leaderboard_for(db, "strength_1rm:bench")
     assert rows == []
+
+
+def test_strength_pl_total_omits_users_missing_a_lift(db):
+    seed_medal_catalog(db)
+    full = _mk_user(db, "full", manual_1rm={
+        "bench": {"value_kg": 100.0, "tested_at": "2026-01-01"},
+        "squat": {"value_kg": 150.0, "tested_at": "2026-01-01"},
+        "deadlift": {"value_kg": 180.0, "tested_at": "2026-01-01"},
+    })
+    partial = _mk_user(db, "partial", manual_1rm={
+        "bench": {"value_kg": 100.0, "tested_at": "2026-01-01"},
+        "squat": {"value_kg": 150.0, "tested_at": "2026-01-01"},
+    })
+
+    rows = leaderboard_for(db, "strength_pl_total")
+    assert [e.username for e in rows] == ["full"]
+    assert rows[0].value == 430.0
+
+
+def test_strength_relative_omits_users_without_bodyweight(db):
+    seed_medal_catalog(db)
+    full = _mk_user(db, "full", bw_kg=80.0, manual_1rm={
+        "bench": {"value_kg": 100.0, "tested_at": "2026-01-01"},
+        "squat": {"value_kg": 150.0, "tested_at": "2026-01-01"},
+        "deadlift": {"value_kg": 200.0, "tested_at": "2026-01-01"},
+    })
+    no_bw = _mk_user(db, "no_bw", manual_1rm={
+        "bench": {"value_kg": 100.0, "tested_at": "2026-01-01"},
+        "squat": {"value_kg": 150.0, "tested_at": "2026-01-01"},
+        "deadlift": {"value_kg": 200.0, "tested_at": "2026-01-01"},
+    })
+
+    rows = leaderboard_for(db, "strength_relative")
+    assert [e.username for e in rows] == ["full"]
+    assert rows[0].value == pytest.approx(450.0 / 80.0)
