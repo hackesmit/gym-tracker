@@ -209,3 +209,78 @@ def _leaderboard_relative(db: Session) -> list[Entry]:
 
 _HANDLERS["strength_pl_total"] = _leaderboard_pl_total
 _HANDLERS["strength_relative"] = _leaderboard_relative
+
+
+# ---------------------------------------------------------------------------
+# Cardio
+# ---------------------------------------------------------------------------
+
+def _leaderboard_longest(modality: str) -> Callable[[Session], list[Entry]]:
+    def handler(db: Session) -> list[Entry]:
+        out: list[Entry] = []
+        for user in _real_users(db):
+            row = (
+                db.query(CardioLog.distance_km, CardioLog.date)
+                .filter(
+                    CardioLog.user_id == user.id,
+                    CardioLog.modality == modality,
+                    CardioLog.distance_km > 0,
+                )
+                .order_by(CardioLog.distance_km.desc())
+                .first()
+            )
+            if row is None:
+                continue
+            dist, d = row
+            when = datetime.combine(d, datetime.min.time()) if d else None
+            out.append(Entry(user_id=user.id, username=user.username, value=float(dist), achieved_at=when))
+        out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+        return out
+    return handler
+
+
+def _leaderboard_fastest(min_distance_km: float, scale_to_km: float | None) -> Callable[[Session], list[Entry]]:
+    """Min pace metric.
+
+    `min_distance_km` is the qualifying threshold (e.g. 1.6 for the mile).
+    `scale_to_km` is the constant the pace is multiplied by to produce a
+    total minutes value comparable across run lengths — None means "pace
+    only" (Fastest Mile is stored as min/km in the engine).
+    """
+    def handler(db: Session) -> list[Entry]:
+        out: list[Entry] = []
+        for user in _real_users(db):
+            rows = (
+                db.query(CardioLog.distance_km, CardioLog.duration_minutes, CardioLog.date)
+                .filter(
+                    CardioLog.user_id == user.id,
+                    CardioLog.modality == "run",
+                    CardioLog.distance_km >= min_distance_km,
+                    CardioLog.duration_minutes > 0,
+                )
+                .all()
+            )
+            best = None
+            best_when = None
+            for dist, dur, d in rows:
+                if not dist or not dur:
+                    continue
+                pace = float(dur) / float(dist)
+                value = pace * scale_to_km if scale_to_km is not None else pace
+                if best is None or value < best:
+                    best = value
+                    best_when = datetime.combine(d, datetime.min.time()) if d else None
+            if best is None:
+                continue
+            out.append(Entry(user_id=user.id, username=user.username, value=best, achieved_at=best_when))
+        out.sort(key=lambda e: (e.value, e.achieved_at or datetime.max))
+        return out
+    return handler
+
+
+_HANDLERS["cardio_longest:run"] = _leaderboard_longest("run")
+_HANDLERS["cardio_longest:bike"] = _leaderboard_longest("bike")
+_HANDLERS["cardio_longest:swim"] = _leaderboard_longest("swim")
+_HANDLERS["cardio_fastest_mile"] = _leaderboard_fastest(1.6, None)
+_HANDLERS["cardio_fastest_5k"] = _leaderboard_fastest(5.0, 5.0)
+_HANDLERS["cardio_fastest_10k"] = _leaderboard_fastest(10.0, 10.0)

@@ -164,3 +164,53 @@ def test_strength_relative_omits_users_without_bodyweight(db):
     rows = leaderboard_for(db, "strength_relative")
     assert [e.username for e in rows] == ["full"]
     assert rows[0].value == pytest.approx(450.0 / 80.0)
+
+
+def _mk_cardio(db, user_id: int, modality: str, distance_km: float, duration_min: float, when: date | None = None):
+    log = CardioLog(
+        user_id=user_id,
+        modality=modality,
+        distance_km=distance_km,
+        duration_minutes=duration_min,
+        date=when or date.today(),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+
+def test_cardio_longest_run_orders_descending(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    b = _mk_user(db, "bob")
+    _mk_cardio(db, a.id, "run", distance_km=5.0, duration_min=30.0)
+    _mk_cardio(db, a.id, "run", distance_km=10.0, duration_min=70.0)
+    _mk_cardio(db, b.id, "run", distance_km=8.0, duration_min=50.0)
+
+    rows = leaderboard_for(db, "cardio_longest:run")
+    assert [e.username for e in rows] == ["alice", "bob"]
+    assert rows[0].value == 10.0
+
+
+def test_cardio_fastest_mile_orders_ascending(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    b = _mk_user(db, "bob")
+    _mk_cardio(db, a.id, "run", distance_km=5.0, duration_min=30.0)  # 6 min/km
+    _mk_cardio(db, b.id, "run", distance_km=5.0, duration_min=25.0)  # 5 min/km
+
+    rows = leaderboard_for(db, "cardio_fastest_mile")
+    assert [e.username for e in rows] == ["bob", "alice"]
+    assert rows[0].value == pytest.approx(5.0)
+
+
+def test_cardio_preset_user_excluded(db):
+    seed_medal_catalog(db)
+    preset = _mk_user(db, "preset")
+    a = _mk_user(db, "alice")
+    _mk_cardio(db, preset.id, "run", distance_km=100.0, duration_min=600.0)
+    _mk_cardio(db, a.id, "run", distance_km=10.0, duration_min=60.0)
+
+    rows = leaderboard_for(db, "cardio_longest:run")
+    assert [e.username for e in rows] == ["alice"]
