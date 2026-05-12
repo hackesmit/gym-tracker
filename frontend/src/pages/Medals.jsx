@@ -5,6 +5,7 @@ import MedalBadge, { medalCategoryColor } from '../components/MedalBadge';
 import { listMedals, getMyMedals } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
+import { formatValue, displayUnit } from '../utils/medalFormat';
 
 const CATEGORIES = [
   { id: 'all',         label: 'All' },
@@ -49,27 +50,6 @@ function inferCategory(metric_type) {
   if (metric_type.startsWith('consistency_')) return 'consistency';
   if (metric_type.startsWith('performance_')) return 'performance';
   return 'strength';
-}
-
-function formatValue(v, unit, higherIsBetter) {
-  if (v == null) return '—';
-  if (unit === 'min' || unit === 'min/km') {
-    const display = unit === 'min/km' ? v * 1.609344 : v;
-    let minutes = Math.floor(display);
-    let seconds = Math.round((display - minutes) * 60);
-    if (seconds === 60) { minutes += 1; seconds = 0; }
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  }
-  if (typeof v !== 'number') return String(v);
-  // Strip trailing zeros on integer-looking floats.
-  const txt = Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : (v % 1 === 0 ? v.toString() : v.toFixed(1));
-  return `${higherIsBetter === false ? '' : ''}${txt}`;
-}
-
-// Stored unit → display unit. Pace is stored in min/km but a "Fastest Mile"
-// medal must read in /mi for the value to make sense.
-function displayUnit(unit) {
-  return unit === 'min/km' ? '/mi' : unit;
 }
 
 export default function Medals() {
