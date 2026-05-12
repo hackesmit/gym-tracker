@@ -269,3 +269,16 @@ def test_consistency_volume_30d_uses_added_load_for_bw_lifts(db):
     # 20 (plate) * 5 reps = 100, not 80*5=400.
     assert rows[0].username == "alice"
     assert rows[0].value == pytest.approx(100.0)
+
+
+def test_consistency_longest_streak_counts_consecutive_weeks(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    p = _mk_program(db, a.id)
+    today = date.today()
+    # 4 consecutive weeks of training, then a 1-week gap, then 1 more week.
+    for weeks_ago in (5, 4, 3, 2, 0):
+        _mk_session(db, a.id, p.id, today - timedelta(weeks=weeks_ago), name=f"w{weeks_ago}")
+    rows = leaderboard_for(db, "consistency_longest_streak")
+    assert rows[0].username == "alice"
+    assert int(rows[0].value) == 4

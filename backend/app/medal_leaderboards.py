@@ -381,3 +381,44 @@ _HANDLERS["consistency_sessions_30d"] = _leaderboard_sessions(30)
 _HANDLERS["consistency_sessions_all"] = _leaderboard_sessions(None)
 _HANDLERS["consistency_volume_30d"] = _leaderboard_volume_30d
 _HANDLERS["consistency_perfect_weeks"] = _leaderboard_perfect_weeks
+
+
+def _leaderboard_longest_streak(db: Session) -> list[Entry]:
+    out: list[Entry] = []
+    for user in _real_users(db):
+        rows = (
+            db.query(SessionLog.date)
+            .filter(
+                SessionLog.user_id == user.id,
+                SessionLog.status == "completed",
+            )
+            .all()
+        )
+        if not rows:
+            continue
+        weeks = sorted({(d.isocalendar()[0], d.isocalendar()[1]) for (d,) in rows})
+        if not weeks:
+            continue
+
+        def _next_week(yw: tuple[int, int]) -> tuple[int, int]:
+            y, w = yw
+            monday = date.fromisocalendar(y, w, 1) + timedelta(days=7)
+            ny, nw, _ = monday.isocalendar()
+            return (ny, nw)
+
+        best = 1
+        run = 1
+        for i in range(1, len(weeks)):
+            if weeks[i] == _next_week(weeks[i - 1]):
+                run += 1
+                best = max(best, run)
+            else:
+                run = 1
+        latest = max(d for (d,) in rows)
+        out.append(Entry(user_id=user.id, username=user.username, value=float(best),
+                         achieved_at=datetime.combine(latest, datetime.min.time())))
+    out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+    return out
+
+
+_HANDLERS["consistency_longest_streak"] = _leaderboard_longest_streak
