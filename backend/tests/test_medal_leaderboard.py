@@ -282,3 +282,28 @@ def test_consistency_longest_streak_counts_consecutive_weeks(db):
     rows = leaderboard_for(db, "consistency_longest_streak")
     assert rows[0].username == "alice"
     assert int(rows[0].value) == 4
+
+
+def test_performance_1rm_increase_30d_orders_by_delta(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    p = _mk_program(db, a.id)
+    pe = _mk_exercise(db, p.id, "Barbell Bench Press")
+    today = date.today()
+    # Last 30d: 110kg x1; Prior 30d: 100kg x1 → delta 10kg.
+    log_recent = WorkoutLog(
+        user_id=a.id, program_exercise_id=pe.id,
+        date=today - timedelta(days=5),
+        set_number=1, load_kg=110.0, reps_completed=1,
+    )
+    log_prior = WorkoutLog(
+        user_id=a.id, program_exercise_id=pe.id,
+        date=today - timedelta(days=45),
+        set_number=1, load_kg=100.0, reps_completed=1,
+    )
+    db.add_all([log_recent, log_prior])
+    db.commit()
+
+    rows = leaderboard_for(db, "performance_1rm_increase_30d")
+    assert rows[0].username == "alice"
+    assert rows[0].value == pytest.approx(10.0)

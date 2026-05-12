@@ -422,3 +422,68 @@ def _leaderboard_longest_streak(db: Session) -> list[Entry]:
 
 
 _HANDLERS["consistency_longest_streak"] = _leaderboard_longest_streak
+
+
+# ---------------------------------------------------------------------------
+# Performance (rolling 30d deltas)
+# ---------------------------------------------------------------------------
+
+from .medal_engine import _best_estimated_1rm_in_window  # noqa: E402
+
+
+def _performance_user_metrics(db: Session, user_id: int) -> dict[str, float]:
+    """Recompute the 3 performance metrics for one user. Returns {metric: value} for nonzero values only."""
+    today = date.today()
+    last_start = today - timedelta(days=30)
+    prior_start = today - timedelta(days=60)
+    prior_end = last_start - timedelta(days=1)
+
+    best_delta_kg = 0.0
+    best_pct = 0.0
+    for cat in EXERCISE_TO_LIFT_CATEGORY:
+        last = _best_estimated_1rm_in_window(db, user_id, cat, last_start, today)
+        prior = _best_estimated_1rm_in_window(db, user_id, cat, prior_start, prior_end)
+        if last <= 0 or prior <= 0:
+            continue
+        delta = last - prior
+        if delta > best_delta_kg:
+            best_delta_kg = delta
+            best_pct = (last - prior) / prior * 100.0
+
+    out: dict[str, float] = {}
+    if best_delta_kg > 0:
+        out["performance_1rm_increase_30d"] = best_delta_kg
+        out["performance_most_improved_pct"] = best_pct
+
+    vol_last = (
+        db.query(func.coalesce(func.sum(func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed), 0.0))
+        .filter(WorkoutLog.user_id == user_id, WorkoutLog.date >= last_start, WorkoutLog.date <= today)
+        .scalar()
+    ) or 0.0
+    vol_prior = (
+        db.query(func.coalesce(func.sum(func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed), 0.0))
+        .filter(WorkoutLog.user_id == user_id, WorkoutLog.date >= prior_start, WorkoutLog.date <= prior_end)
+        .scalar()
+    ) or 0.0
+    if vol_prior > 0 and vol_last > vol_prior:
+        out["performance_volume_increase_30d"] = (float(vol_last) - float(vol_prior)) / float(vol_prior) * 100.0
+    return out
+
+
+def _leaderboard_performance(metric: str) -> Callable[[Session], list[Entry]]:
+    def handler(db: Session) -> list[Entry]:
+        out: list[Entry] = []
+        for user in _real_users(db):
+            metrics = _performance_user_metrics(db, user.id)
+            v = metrics.get(metric, 0.0)
+            if v <= 0:
+                continue
+            out.append(Entry(user_id=user.id, username=user.username, value=v, achieved_at=None))
+        out.sort(key=lambda e: -e.value)
+        return out
+    return handler
+
+
+_HANDLERS["performance_1rm_increase_30d"] = _leaderboard_performance("performance_1rm_increase_30d")
+_HANDLERS["performance_volume_increase_30d"] = _leaderboard_performance("performance_volume_increase_30d")
+_HANDLERS["performance_most_improved_pct"] = _leaderboard_performance("performance_most_improved_pct")
