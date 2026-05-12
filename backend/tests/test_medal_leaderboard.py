@@ -214,3 +214,58 @@ def test_cardio_preset_user_excluded(db):
 
     rows = leaderboard_for(db, "cardio_longest:run")
     assert [e.username for e in rows] == ["alice"]
+
+
+def _mk_session(db, user_id: int, program_id: int, when: date, name: str = "A"):
+    s = SessionLog(
+        user_id=user_id,
+        program_id=program_id,
+        week=1,
+        session_name=name,
+        date=when,
+        status="completed",
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+def test_consistency_sessions_30d_counts_recent(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    pa = _mk_program(db, a.id)
+    today = date.today()
+    for i, name in enumerate(["A", "B", "C"]):
+        _mk_session(db, a.id, pa.id, today - timedelta(days=i), name=name)
+
+    b = _mk_user(db, "bob")
+    pb = _mk_program(db, b.id)
+    _mk_session(db, b.id, pb.id, today, name="A")
+    _mk_session(db, b.id, pb.id, today - timedelta(days=60), name="B")  # too old
+
+    rows = leaderboard_for(db, "consistency_sessions_30d")
+    assert [(e.username, int(e.value)) for e in rows] == [("alice", 3), ("bob", 1)]
+
+
+def test_consistency_volume_30d_uses_added_load_for_bw_lifts(db):
+    seed_medal_catalog(db)
+    a = _mk_user(db, "alice")
+    p = _mk_program(db, a.id)
+    pe = _mk_exercise(db, p.id, "Weighted Pullup")
+    log = WorkoutLog(
+        user_id=a.id,
+        program_exercise_id=pe.id,
+        date=date.today(),
+        set_number=1,
+        load_kg=80.0,      # bw 80 + 20kg plate
+        added_load_kg=20.0,
+        reps_completed=5,
+    )
+    db.add(log)
+    db.commit()
+
+    rows = leaderboard_for(db, "consistency_volume_30d")
+    # 20 (plate) * 5 reps = 100, not 80*5=400.
+    assert rows[0].username == "alice"
+    assert rows[0].value == pytest.approx(100.0)

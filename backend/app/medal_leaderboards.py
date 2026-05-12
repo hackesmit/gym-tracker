@@ -284,3 +284,100 @@ _HANDLERS["cardio_longest:swim"] = _leaderboard_longest("swim")
 _HANDLERS["cardio_fastest_mile"] = _leaderboard_fastest(1.6, None)
 _HANDLERS["cardio_fastest_5k"] = _leaderboard_fastest(5.0, 5.0)
 _HANDLERS["cardio_fastest_10k"] = _leaderboard_fastest(10.0, 10.0)
+
+
+# ---------------------------------------------------------------------------
+# Consistency
+# ---------------------------------------------------------------------------
+
+def _leaderboard_sessions(window_days: int | None) -> Callable[[Session], list[Entry]]:
+    def handler(db: Session) -> list[Entry]:
+        out: list[Entry] = []
+        today = date.today()
+        cutoff = today - timedelta(days=window_days) if window_days else None
+        for user in _real_users(db):
+            q = (
+                db.query(func.count(SessionLog.id), func.max(SessionLog.date))
+                .filter(
+                    SessionLog.user_id == user.id,
+                    SessionLog.status == "completed",
+                )
+            )
+            if cutoff is not None:
+                q = q.filter(SessionLog.date >= cutoff)
+            count, last_d = q.one()
+            count = int(count or 0)
+            if count <= 0:
+                continue
+            when = datetime.combine(last_d, datetime.min.time()) if last_d else None
+            out.append(Entry(user_id=user.id, username=user.username, value=float(count), achieved_at=when))
+        out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+        return out
+    return handler
+
+
+def _leaderboard_volume_30d(db: Session) -> list[Entry]:
+    today = date.today()
+    cutoff = today - timedelta(days=30)
+    out: list[Entry] = []
+    for user in _real_users(db):
+        vol = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed
+                    ),
+                    0.0,
+                )
+            )
+            .filter(WorkoutLog.user_id == user.id, WorkoutLog.date >= cutoff)
+            .scalar()
+        ) or 0.0
+        vol = float(vol)
+        if vol <= 0:
+            continue
+        last_d = (
+            db.query(func.max(WorkoutLog.date))
+            .filter(WorkoutLog.user_id == user.id, WorkoutLog.date >= cutoff)
+            .scalar()
+        )
+        when = datetime.combine(last_d, datetime.min.time()) if last_d else None
+        out.append(Entry(user_id=user.id, username=user.username, value=vol, achieved_at=when))
+    out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+    return out
+
+
+def _leaderboard_perfect_weeks(db: Session) -> list[Entry]:
+    today = date.today()
+    window_start = today - timedelta(days=180)
+    out: list[Entry] = []
+    for user in _real_users(db):
+        rows = (
+            db.query(SessionLog.date)
+            .filter(
+                SessionLog.user_id == user.id,
+                SessionLog.status == "completed",
+                SessionLog.date >= window_start,
+            )
+            .all()
+        )
+        week_counter: dict[tuple[int, int], int] = {}
+        latest: date | None = None
+        for (d,) in rows:
+            y, w, _ = d.isocalendar()
+            week_counter[(y, w)] = week_counter.get((y, w), 0) + 1
+            if latest is None or d > latest:
+                latest = d
+        perfect = sum(1 for v in week_counter.values() if v >= 3)
+        if perfect <= 0:
+            continue
+        when = datetime.combine(latest, datetime.min.time()) if latest else None
+        out.append(Entry(user_id=user.id, username=user.username, value=float(perfect), achieved_at=when))
+    out.sort(key=lambda e: (-e.value, e.achieved_at or datetime.max))
+    return out
+
+
+_HANDLERS["consistency_sessions_30d"] = _leaderboard_sessions(30)
+_HANDLERS["consistency_sessions_all"] = _leaderboard_sessions(None)
+_HANDLERS["consistency_volume_30d"] = _leaderboard_volume_30d
+_HANDLERS["consistency_perfect_weeks"] = _leaderboard_perfect_weeks
