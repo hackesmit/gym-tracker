@@ -201,6 +201,28 @@ export default function Logger() {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
+  const addSet = (exerciseName) => {
+    setSets((prev) => {
+      let lastIdx = -1;
+      for (let i = 0; i < prev.length; i++) {
+        if (prev[i].exercise_name === exerciseName) lastIdx = i;
+      }
+      if (lastIdx === -1) return prev;
+      const lastSet = prev[lastIdx];
+      const newSet = {
+        ...lastSet,
+        set_number: lastSet.set_number + 1,
+        is_dropset: false,
+        dropset_load_kg: '',
+        dropset_reps: '',
+      };
+      const next = [...prev];
+      next.splice(lastIdx + 1, 0, newSet);
+      return next;
+    });
+    setSaved(false);
+  };
+
   // Wrap changeWeek to also reset saved state
   const handleChangeWeek = (newWeek) => {
     changeWeek(newWeek);
@@ -666,6 +688,14 @@ export default function Logger() {
                             </div>
                             );
                           })}
+                          {/* Add-set button */}
+                          <button
+                            type="button"
+                            onClick={() => addSet(group.name)}
+                            className="w-full mt-1 flex items-center justify-center gap-1.5 text-xs text-text-muted hover:text-accent-light border border-dashed border-surface-lighter hover:border-accent/40 rounded-lg py-2 transition-colors touch-manipulation"
+                          >
+                            <Plus size={12} /> {t('logger.addSet') || 'Add set'}
+                          </button>
                           {/* Rest timer */}
                           {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (
                             <div className="mt-2">
