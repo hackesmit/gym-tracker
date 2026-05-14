@@ -383,6 +383,7 @@ def get_program_schedule(
                 "id": ex.id,
                 "exercise_order": ex.exercise_order,
                 "exercise_name": ex.exercise_name_canonical,
+                "exercise_name_raw": ex.exercise_name_raw,
                 "warm_up_sets": ex.warm_up_sets,
                 "working_sets": ex.working_sets,
                 "prescribed_reps": ex.prescribed_reps,

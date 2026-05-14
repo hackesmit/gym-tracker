@@ -187,22 +187,18 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "INCLINE BARBELL PRESS":           0.90,
         "INCLINE BARBELL BENCH PRESS":     0.90,
         # Dumbbell variants (per-hand load × 2 × transferability)
-        "FLAT DB PRESS (HEAVY)":           1.60,
-        "FLAT DB PRESS (GET OFF)":         1.50,
+        "FLAT DB PRESS":                   1.60,
         "INCLINE DB PRESS":                1.45,
         "INCLINE DB CHEST PRESS":          1.45,
         "INCLINE DUMBBELL PRESS":          1.45,
-        "SLIGHT INCLINE DB PRESS (HEAVY)": 1.55,
-        "SLIGHT INCLINE DB PRESS (BACK OFF)": 1.45,
+        "SLIGHT INCLINE DB PRESS":         1.55,
         # Smith machine (guided barbell — retains bar, some stability loss)
         "SMITH MACHINE CHEST PRESS":       0.85,
         "INCLINE SMITH MACHINE PRESS":     0.80,
         # Selectorized / plate-loaded machine press
         "INCLINE MACHINE PRESS":           0.70,
-        "MACHINE CHEST PRESS (HEAVY)":     0.65,
-        "MACHINE CHEST PRESS (BACK OFF)":  0.60,
+        "MACHINE CHEST PRESS":             0.65,
         "MACHINE PRESS":                   0.65,
-        "MACHINE PRESS (BACK OFF)":        0.60,
         # Cable press
         "CABLE CHEST PRESS":               0.50,
         "CABLE CHEST PRESS PUSHUPS":       0.50,   # alias — same cable-press setup, pushup-grip variation
@@ -215,21 +211,15 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "FRONT SQUAT":                    0.88,
         "SAFETY BAR SQUAT":               0.95,
         # Smith-machine squat (guided barbell)
-        "SMITH MACHINE SQUAT (HEAVY)":    0.85,
-        "SMITH MACHINE SQUAT (BACK OFF)": 0.80,
+        "SMITH MACHINE SQUAT":            0.85,
         "NARROW STANCE SMITH SQUAT":      0.80,
         # Hack / machine squat
-        "HACK SQUAT (HEAVY)":             0.70,
-        "HACK SQUAT (BACK OFF)":          0.65,
+        "HACK SQUAT":                     0.70,
         "CLOSE STANCE HACK SQUAT":        0.70,
-        "MACHINE SQUAT (HEAVY)":          0.70,
-        "MACHINE SQUAT (BACK OFF)":       0.65,
+        "MACHINE SQUAT":                  0.70,
         # Leg press (high load, limited ROM, sled-supported)
-        "LEG PRESS (HEAVY)":              0.40,
         "LEG PRESS":                      0.40,
-        "LEG PRESS (BACK OFF)":           0.35,
-        "SINGLE-LEG LEG PRESS (HEAVY)":   0.60,
-        "SINGLE-LEG LEG PRESS (BACK OFF)": 0.55,
+        "SINGLE-LEG LEG PRESS":           0.60,
         # Unilateral loaded movements
         "DB BULGARIAN SPLIT SQUAT":       0.60,
         "DB WALKING LUNGE":               0.55,
@@ -238,8 +228,6 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "GOBLET SQUAT":                   0.40,
         # Bodyweight lunge variants (pure BW; post-migration load_kg = BW)
         "BW WALKING LUNGES":              0.45,   # alias for WALKING LUNGES — same exercise
-        # Typo alias from spreadsheet (missing space before parenthesis)
-        "LEG PRESS(HEAVY)":               0.40,   # alias for LEG PRESS (HEAVY)
     },
     "hamstrings": {
         "CONVENTIONAL DEADLIFT":  1.00,
@@ -295,8 +283,6 @@ BACK_BODYWEIGHT_PULLUPS: set[str] = {
 ARMS_WEIGHTED_DIPS: set[str] = {
     "WEIGHTED DIP",
     "WEIGHTED DIPS",
-    "WEIGHTED DIP (HEAVY)",
-    "WEIGHTED DIP (BACK OFF)",
 }
 ARMS_BODYWEIGHT_DIPS: set[str] = {
     "BODYWEIGHT DIP",

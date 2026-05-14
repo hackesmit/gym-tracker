@@ -336,7 +336,7 @@ def test_db_bench_lifts_chest_off_copper(db):
     user.bodyweight_kg = 80.0
     db.commit()
     # 30 kg per-hand × 1 rep, spec 1.60 → ratio 0.60 → Bronze
-    _seed_exercise(db, user, "FLAT DB PRESS (HEAVY)", "chest", load_kg=30, reps=1)
+    _seed_exercise(db, user, "FLAT DB PRESS", "chest", load_kg=30, reps=1)
     result = recompute_for_user(db, user.id)
     assert result["chest"]["rank"] == "Bronze"
     assert result["chest"]["elo"] > 500
@@ -350,7 +350,7 @@ def test_machine_chest_press_contributes(db):
     user.bodyweight_kg = 80.0
     db.commit()
     # 150 kg × 1 rep, spec 0.65 → ratio 1.22 → Gold
-    _seed_exercise(db, user, "MACHINE CHEST PRESS (HEAVY)", "chest", load_kg=150, reps=1)
+    _seed_exercise(db, user, "MACHINE CHEST PRESS", "chest", load_kg=150, reps=1)
     result = recompute_for_user(db, user.id)
     assert result["chest"]["rank"] == "Gold"
 
@@ -372,7 +372,7 @@ def test_hack_squat_ranks_quads(db):
     user = db.query(User).first()
     user.bodyweight_kg = 80.0
     db.commit()
-    _seed_exercise(db, user, "HACK SQUAT (HEAVY)", "quads", load_kg=200, reps=1)
+    _seed_exercise(db, user, "HACK SQUAT", "quads", load_kg=200, reps=1)
     result = recompute_for_user(db, user.id)
     assert result["quads"]["rank"] == "Gold"
 

@@ -8,7 +8,6 @@ import Card from '../components/Card';
 import RestTimer from '../components/RestTimer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import WarmUpPyramid from '../components/WarmUpPyramid';
-import PlateCalculator, { PlateCalcButton } from '../components/PlateCalculator';
 import SessionSummary from '../components/SessionSummary';
 import SetRow from '../components/SetRow';
 import { useApp } from '../context/AppContext';
@@ -96,7 +95,6 @@ export default function Logger() {
   const [tab, setTab] = useState('workout'); // workout | metrics
   const [prList, setPrList] = useState([]);
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
-  const [plateCalcWeight, setPlateCalcWeight] = useState(null);
   const [undoInfo, setUndoInfo] = useState(null); // { sessionLogId, savedSets, timer }
   const undoTimerRef = useRef(null);
 
@@ -179,6 +177,7 @@ export default function Logger() {
         newSets.push({
           program_exercise_id: ex.id,
           exercise_name: exName,
+          exercise_name_raw: ex.exercise_name_raw || exName,
           set_number: s,
           load_kg: setLoad,
           reps_completed: setReps,
@@ -359,6 +358,7 @@ export default function Logger() {
     if (s.exercise_name !== currentEx) {
       exerciseGroups.push({
         name: s.exercise_name,
+        raw_name: s.exercise_name_raw || s.exercise_name,
         sets: [],
         is_superset: s.is_superset,
         superset_group: s.superset_group,
@@ -556,7 +556,13 @@ export default function Logger() {
                     </div>
                   )}
                   <div className={dg.type === 'superset' ? 'border border-accent/20 rounded-xl p-2 sm:p-3 space-y-3' : ''}>
-                    {dg.exercises.map((group) => (
+                    {dg.exercises.map((group) => {
+                      const _rawName = group.raw_name || group.name;
+                      const _intensityMatch = /\((HEAVY|BACK OFF|GET OFF)\)/i.exec(_rawName);
+                      const intensityMarker = _intensityMatch
+                        ? (_intensityMatch[1].toUpperCase() === 'HEAVY' ? 'HEAVY' : 'BACK OFF')
+                        : null;
+                      return (
                       <Card key={group.name} className="!p-3 sm:!p-5">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Dumbbell size={14} className="text-accent-light shrink-0" />
@@ -566,6 +572,15 @@ export default function Logger() {
                               {t('logger.bodyweight')}
                             </span>
                           )}
+                          {intensityMarker && (
+                            <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 font-bold ${
+                              intensityMarker === 'HEAVY'
+                                ? 'text-amber-400 bg-amber-400/10'
+                                : 'text-sky-400 bg-sky-400/10'
+                            }`}>
+                              {intensityMarker === 'HEAVY' ? t('logger.intensity.heavy') : t('logger.intensity.backoff')}
+                            </span>
+                          )}
                           <button
                             onClick={() => openSwapModal(group.name)}
                             title={t('logger.swap')}
@@ -573,7 +588,6 @@ export default function Logger() {
                           >
                             <ArrowLeftRight size={13} />
                           </button>
-                          <PlateCalcButton onClick={() => setPlateCalcWeight(group.sets[0]?.load_kg ? +group.sets[0].load_kg : 0)} />
                           {group.warm_up_sets && group.warm_up_sets !== '0' && (
                             <span className="text-[10px] text-text-muted shrink-0">
                               {group.warm_up_sets} warm-up
@@ -665,7 +679,8 @@ export default function Logger() {
                           )}
                         </div>
                       </Card>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               ))}
@@ -760,16 +775,6 @@ export default function Logger() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Plate Calculator Modal */}
-      {plateCalcWeight != null && plateCalcWeight > 0 && (
-        <PlateCalculator
-          targetWeight={plateCalcWeight}
-          units={units}
-          unitLabel={unitLabel}
-          onClose={() => setPlateCalcWeight(null)}
-        />
       )}
 
       {/* Undo Snackbar */}

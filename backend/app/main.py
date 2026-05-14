@@ -258,6 +258,121 @@ def _rebuild_cardio_medals_once(db):
     print("Cardio medals: rebuilt holders from current CardioLog rows.", flush=True)
 
 
+def _merge_heavy_backoff_2026_05(db):
+    """One-shot: collapse HEAVY/BACK-OFF prescription suffixes into base
+    canonical exercise names in both `program_exercises` and
+    `exercise_catalog`.
+
+    The HEAVY/BACK-OFF distinction is a prescription marker on the program
+    row, not a different exercise. After this migration:
+    - 'X (HEAVY)' / 'X (BACK OFF)' / 'X(HEAVY)' / 'X (GET OFF)' →  'X'
+      in exercise_name_canonical.
+    - In exercise_catalog: variant rows are updated to the base name if the
+      base doesn't already exist, or deleted if it does.
+
+    Gated by a `migration_log` row named 'merge_heavy_backoff_2026_05'.
+    Subsequent deploys are no-ops.
+    """
+    from .models import MigrationLog
+
+    name = "merge_heavy_backoff_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    is_sqlite = str(engine.url).startswith("sqlite")
+
+    # 1. Strip suffixes from program_exercises.exercise_name_canonical
+    suffixes = [" (HEAVY)", " (BACK OFF)", "(HEAVY)", " (GET OFF)"]
+    for suffix in suffixes:
+        try:
+            if is_sqlite:
+                db.execute(text(
+                    "UPDATE program_exercises "
+                    "SET exercise_name_canonical = TRIM(REPLACE(exercise_name_canonical, :sfx, '')) "
+                    "WHERE exercise_name_canonical LIKE :pat"
+                ), {"sfx": suffix, "pat": f"%{suffix}%"})
+            else:
+                db.execute(text(
+                    "UPDATE program_exercises "
+                    "SET exercise_name_canonical = TRIM(REPLACE(exercise_name_canonical, :sfx, '')) "
+                    "WHERE exercise_name_canonical ILIKE :pat"
+                ), {"sfx": suffix, "pat": f"%{suffix}%"})
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            print(f"merge_heavy_backoff: program_exercises update failed for '{suffix}': {exc}", flush=True)
+
+    # 2. Collapse exercise_catalog rows
+    from .models import ExerciseCatalog
+    variants_to_process = db.query(ExerciseCatalog).filter(
+        ExerciseCatalog.canonical_name.like("% (HEAVY)")
+        | ExerciseCatalog.canonical_name.like("% (BACK OFF)")
+        | ExerciseCatalog.canonical_name.like("%(HEAVY)")
+        | ExerciseCatalog.canonical_name.like("% (GET OFF)")
+    ).all()
+
+    import re as _re
+    _suffix_pat = _re.compile(r'\s*\((HEAVY|BACK OFF|GET OFF)\)\s*', _re.IGNORECASE)
+
+    for variant_row in variants_to_process:
+        base_name = _suffix_pat.sub('', variant_row.canonical_name).strip()
+        base_exists = db.query(ExerciseCatalog).filter_by(canonical_name=base_name).first()
+        if base_exists is None:
+            # Rename the variant to the base name
+            variant_row.canonical_name = base_name
+            db.commit()
+        else:
+            # Base already exists — delete the variant row
+            db.delete(variant_row)
+            db.commit()
+
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print(
+        f"merge_heavy_backoff migration: collapsed {len(variants_to_process)} variant catalog rows; "
+        "stripped suffixes from program_exercises.",
+        flush=True,
+    )
+
+
+def _backfill_user_bodyweight_once(db):
+    """One-shot: sync `User.bodyweight_kg` from each user's latest BodyMetric.
+
+    Before the 2026-05-03 fix, `POST /api/body-metrics` never wrote to
+    `User.bodyweight_kg`, so users who saved a BW via the inline chip
+    ended up with `body_metrics` rows but a NULL User column. The Logger
+    reads `user.bodyweight_kg` directly, so the "Set BW" prompt looped
+    forever. This backfill closes the gap for anyone affected.
+    """
+    from .models import BodyMetric, MigrationLog
+
+    name = "user_bw_sync_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    candidates = db.query(User).filter(
+        (User.bodyweight_kg.is_(None)) | (User.bodyweight_kg <= 0)
+    ).all()
+    fixed = 0
+    for u in candidates:
+        latest = (
+            db.query(BodyMetric)
+            .filter(BodyMetric.user_id == u.id)
+            .order_by(BodyMetric.date.desc(), BodyMetric.id.desc())
+            .first()
+        )
+        if latest and latest.bodyweight_kg and latest.bodyweight_kg > 0:
+            u.bodyweight_kg = float(latest.bodyweight_kg)
+            fixed += 1
+    db.add(MigrationLog(name=name))
+    db.commit()
+    if fixed:
+        print(
+            f"User BW sync migration: synced {fixed} users from latest BodyMetric.",
+            flush=True,
+        )
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -299,6 +414,8 @@ async def lifespan(app: FastAPI):
         _run_pure_load_cleanup_once(db)
         _recompute_all_ranks_once(db)
         _run_split_arms_migration_once(db)   # 2026-05-02 audit
+        _merge_heavy_backoff_2026_05(db)      # 2026-05-11 collapse HEAVY/BACK-OFF variants
+        _backfill_user_bodyweight_once(db)   # 2026-05-03 BW sync fix
         seed_preset_programs(db)
         backfill_consistency_medals(db)
         _rebuild_cardio_medals_once(db)

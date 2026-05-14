@@ -144,6 +144,8 @@ const STRINGS = {
     'logger.undo': 'Undo',
     'logger.finish': 'Finish session',
     'logger.bodyweight': 'Bodyweight',
+    'logger.intensity.heavy': 'Heavy',
+    'logger.intensity.backoff': 'Back-off',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Log another session',
 
@@ -558,6 +560,8 @@ const STRINGS = {
     'logger.undo': 'Deshacer',
     'logger.finish': 'Terminar sesión',
     'logger.bodyweight': 'Peso corporal',
+    'logger.intensity.heavy': 'Pesado',
+    'logger.intensity.backoff': 'Bajada',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Registrar otra sesión',
 
