@@ -777,7 +777,17 @@ export default function Logger() {
                 </button>
               </div>
             )}
-            <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5">
+            <div
+              className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5"
+              onTouchStart={() => {
+                // Dismiss the search keyboard before the tap registers on a
+                // list button. Without this, mobile Safari consumes the first
+                // tap on an exercise to dismiss the keyboard, requiring a
+                // second tap to actually select.
+                const el = document.activeElement;
+                if (el instanceof HTMLElement && el.tagName === 'INPUT') el.blur();
+              }}
+            >
               {swapLoading ? (
                 <p className="text-xs text-text-muted text-center py-4">Loading catalog...</p>
               ) : filteredCatalog.length === 0 ? (
@@ -791,8 +801,9 @@ export default function Logger() {
                   return (
                     <button
                       key={name}
+                      type="button"
                       onClick={() => handleSwapSelect(name)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-text hover:bg-surface-light transition-colors touch-manipulation flex items-center gap-2"
+                      className="w-full text-left px-3 py-2.5 min-h-[44px] rounded-lg text-sm text-text hover:bg-surface-light active:bg-surface-light cursor-pointer transition-colors touch-manipulation flex items-center gap-2"
                     >
                       <span className="truncate">{name}</span>
                       {showAllMuscleGroups && mg && (
