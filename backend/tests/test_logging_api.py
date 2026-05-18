@@ -185,3 +185,48 @@ def test_single_log_round_trips_added_load_kg(db, client):
     log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
     assert log.added_load_kg == 25.0
     assert log.load_kg == 105.0
+
+
+def test_body_metric_post_syncs_user_bodyweight_kg(client, db):
+    """POSTing /api/body-metrics must update User.bodyweight_kg.
+
+    Without this, the Logger's inline 'Set BW' chip loops forever — the
+    BodyMetric is saved but `user.bodyweight_kg` (read by the frontend
+    via /api/auth/me) stays NULL, so the chip keeps re-prompting and
+    `needsBwButMissing` keeps refusing the session save.
+    """
+    user = db.query(User).first()
+    assert user.bodyweight_kg in (None, 0)
+
+    resp = client.post(
+        "/api/body-metrics",
+        json={"date": "2026-05-03", "bodyweight_kg": 78.5},
+    )
+    assert resp.status_code == 201, resp.text
+
+    db.refresh(user)
+    assert user.bodyweight_kg == 78.5
+
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200, me.text
+    assert me.json()["bodyweight_kg"] == 78.5
+
+
+def test_body_metric_post_does_not_regress_user_bw_with_older_date(client, db):
+    """Logging an older BodyMetric must not pull User.bodyweight_kg
+    backwards — the live field always tracks the most recent measurement."""
+    r1 = client.post(
+        "/api/body-metrics",
+        json={"date": "2026-05-03", "bodyweight_kg": 80.0},
+    )
+    assert r1.status_code == 201, r1.text
+
+    r2 = client.post(
+        "/api/body-metrics",
+        json={"date": "2026-04-26", "bodyweight_kg": 70.0},
+    )
+    assert r2.status_code == 201, r2.text
+
+    user = db.query(User).first()
+    db.refresh(user)
+    assert user.bodyweight_kg == 80.0

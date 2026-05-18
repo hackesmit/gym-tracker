@@ -333,13 +333,23 @@ def log_bulk_session(
     )
     pe_name_map = {pe.id: pe.exercise_name_canonical for pe in pe_rows}
 
-    # Compute best e1RM per exercise in *this* session
+    # Compute best e1RM per exercise in *this* session.
+    # For bodyweight-class lifts the wire payload's `load_kg` is BW + plate;
+    # use `added_load_kg` (plate-only) so the e1RM is comparable to historical
+    # rows after the BW migration and doesn't inflate as the user's bodyweight
+    # changes between sessions.
+    def _effective(load_kg, added_load_kg):
+        return float(added_load_kg) if added_load_kg is not None else float(load_kg or 0.0)
+
     session_best: dict[str, float] = {}
     for s in payload.sets:
         name = pe_name_map.get(s.program_exercise_id)
-        if not name or s.load_kg <= 0 or s.reps_completed <= 0:
+        if not name or s.reps_completed <= 0:
             continue
-        e1rm = round(s.load_kg * (1 + s.reps_completed / 30), 2)
+        eff = _effective(s.load_kg, s.added_load_kg)
+        if eff <= 0:
+            continue
+        e1rm = round(eff * (1 + s.reps_completed / 30), 2)
         if name not in session_best or e1rm > session_best[name]:
             session_best[name] = e1rm
 
@@ -354,18 +364,20 @@ def log_bulk_session(
         ]
         # Query all previous workout logs for these pe_ids (excluding today's session date)
         prev_logs = (
-            db.query(WorkoutLog.load_kg, WorkoutLog.reps_completed)
+            db.query(WorkoutLog.load_kg, WorkoutLog.added_load_kg, WorkoutLog.reps_completed)
             .filter(
                 WorkoutLog.program_exercise_id.in_(all_pe_ids),
                 WorkoutLog.date < payload.date,
-                WorkoutLog.load_kg > 0,
                 WorkoutLog.reps_completed > 0,
             )
             .all()
         )
         prev_best = 0.0
         for log in prev_logs:
-            e1rm = round(log.load_kg * (1 + log.reps_completed / 30), 2)
+            eff = _effective(log.load_kg, log.added_load_kg)
+            if eff <= 0:
+                continue
+            e1rm = round(eff * (1 + log.reps_completed / 30), 2)
             if e1rm > prev_best:
                 prev_best = e1rm
 
@@ -581,6 +593,7 @@ def update_session(
 
 class SetUpdateRequest(BaseModel):
     load_kg: Optional[float] = Field(None, ge=0)
+    added_load_kg: Optional[float] = Field(None, ge=0)
     reps_completed: Optional[int] = Field(None, ge=1, le=200)
     rpe_actual: Optional[float] = Field(None, ge=1, le=10)
 
@@ -601,11 +614,24 @@ def update_set(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WorkoutLog not found")
     if payload.load_kg is not None:
         log.load_kg = payload.load_kg
+    if payload.added_load_kg is not None:
+        log.added_load_kg = payload.added_load_kg
     if payload.reps_completed is not None:
         log.reps_completed = payload.reps_completed
     if payload.rpe_actual is not None:
         log.rpe_actual = payload.rpe_actual
     db.commit()
+
+    # Edits change the rank-engine inputs; recompute so a deleted/edited PR
+    # can't strand a stale Champion tier.
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, current_user.id)
+    except Exception:
+        # Don't fail the user-visible edit if the recompute hits a transient
+        # error — the ranks endpoint also auto-recomputes on read.
+        pass
+
     return {"updated": True, "log_id": log_id}
 
 
@@ -652,6 +678,14 @@ def undo_session(
     db.delete(session_log)
     db.commit()
 
+    # Removing a session can drop the user out of an inflated rank tier
+    # (e.g. they logged a fake 1RM PR then immediately deleted it).
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, current_user.id)
+    except Exception:
+        pass
+
     return {"undone": True, "sets_deleted": deleted_count}
 
 
@@ -683,6 +717,21 @@ def create_body_metric(
         soreness_level=payload.soreness_level,
     )
     db.add(metric)
+    db.flush()
+
+    # Sync User.bodyweight_kg to the most recent BodyMetric. The Logger
+    # reads user.bodyweight_kg directly via /api/auth/me; without this
+    # sync, saving BW from the inline "Set BW" chip leaves the field
+    # NULL and the chip keeps re-prompting forever.
+    latest = (
+        db.query(BodyMetric)
+        .filter(BodyMetric.user_id == user.id)
+        .order_by(BodyMetric.date.desc(), BodyMetric.id.desc())
+        .first()
+    )
+    if latest and latest.bodyweight_kg and latest.bodyweight_kg > 0:
+        user.bodyweight_kg = float(latest.bodyweight_kg)
+
     db.commit()
     db.refresh(metric)
     return metric
@@ -753,7 +802,7 @@ def update_manual_1rm(
     flag_modified(user, "manual_1rm")
     db.commit()
 
-    from ..medal_engine import _update_holder
+    from ..medal_engine import _recompute_strength_derivatives, _update_holder
     from ..models import Medal
 
     for category, entry in payload.lifts.items():
@@ -762,6 +811,21 @@ def update_manual_1rm(
         medal = db.query(Medal).filter(Medal.metric_type == f"strength_1rm:{category}").first()
         if medal:
             _update_holder(db, medal, user.id, float(entry.value_kg), "manual_1rm", None)
+
+    # Manual 1RM feeds the same derivative chain (Powerlifting Total, Best
+    # Relative Strength, Most Improved). Without this call the user can claim
+    # the four direct strength medals but never the derived ones, even though
+    # `_best_official_1rm` already prefers manual values.
+    _recompute_strength_derivatives(db, user.id)
+
+    # Manual 1RM is a first-class input to the muscle-rank engine, so a save
+    # here should refresh ranks immediately rather than waiting for the next
+    # workout log.
+    try:
+        from ..rank_engine import recompute_for_user
+        recompute_for_user(db, user.id)
+    except Exception:
+        pass
 
     return {"manual_1rm": user.manual_1rm}
 
