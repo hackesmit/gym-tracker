@@ -21,6 +21,39 @@ import useLoggerSession from '../hooks/useLoggerSession';
 import useExerciseSwap from '../hooks/useExerciseSwap';
 import useWorkoutDraft from '../hooks/useWorkoutDraft';
 
+/**
+ * Group consecutive sets by program_exercise_id (or exercise_name as a
+ * fallback for legacy callers without a pe_id). Each group gets a unique
+ * `pe_id`, the canonical and raw exercise names, and the superset / rest /
+ * warm-up metadata pulled from the first set. Every set is tagged with its
+ * global idx so updateSet() can keep using array-index identity.
+ *
+ * Exported because grouping is the load-bearing logic for state isolation
+ * between merged-canonical PEs (post-HEAVY/BACK-OFF-collapse fix, 2026-05-18).
+ */
+export function groupSetsByProgramExercise(sets) {
+  const groups = [];
+  let currentKey = null;
+  sets.forEach((s, idx) => {
+    const key = s.program_exercise_id != null ? s.program_exercise_id : s.exercise_name;
+    if (key !== currentKey) {
+      groups.push({
+        pe_id: s.program_exercise_id ?? null,
+        name: s.exercise_name,
+        raw_name: s.exercise_name_raw || s.exercise_name,
+        sets: [],
+        is_superset: s.is_superset,
+        superset_group: s.superset_group,
+        rest_period: s.rest_period,
+        warm_up_sets: s.warm_up_sets,
+      });
+      currentKey = key;
+    }
+    groups[groups.length - 1].sets.push({ ...s, idx });
+  });
+  return groups;
+}
+
 function getWeightHint(exerciseName, catalog) {
   if (!catalog || !catalog.length) return null;
   const entry = catalog.find((ex) => {
@@ -195,11 +228,11 @@ export default function Logger() {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
-  const addSet = (exerciseName) => {
+  const addSet = (peId) => {
     setSets((prev) => {
       let lastIdx = -1;
       for (let i = 0; i < prev.length; i++) {
-        if (prev[i].exercise_name === exerciseName) lastIdx = i;
+        if (prev[i].program_exercise_id === peId) lastIdx = i;
       }
       if (lastIdx === -1) return prev;
       const lastSet = prev[lastIdx];
@@ -367,24 +400,7 @@ export default function Logger() {
     </div>
   );
 
-  // Group sets by exercise, respecting superset grouping
-  const exerciseGroups = [];
-  let currentEx = null;
-  sets.forEach((s, idx) => {
-    if (s.exercise_name !== currentEx) {
-      exerciseGroups.push({
-        name: s.exercise_name,
-        raw_name: s.exercise_name_raw || s.exercise_name,
-        sets: [],
-        is_superset: s.is_superset,
-        superset_group: s.superset_group,
-        rest_period: s.rest_period,
-        warm_up_sets: s.warm_up_sets,
-      });
-      currentEx = s.exercise_name;
-    }
-    exerciseGroups[exerciseGroups.length - 1].sets.push({ ...s, idx });
-  });
+  const exerciseGroups = groupSetsByProgramExercise(sets);
 
   // Group supersets together for visual display
   const displayGroups = [];
@@ -579,7 +595,7 @@ export default function Logger() {
                         ? (_intensityMatch[1].toUpperCase() === 'HEAVY' ? 'HEAVY' : 'BACK OFF')
                         : null;
                       return (
-                      <Card key={group.name} className="!p-3 sm:!p-5">
+                      <Card key={group.pe_id ?? group.name} className="!p-3 sm:!p-5">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Dumbbell size={14} className="text-accent-light shrink-0" />
                           <span className="truncate">{group.name}</span>
@@ -685,7 +701,7 @@ export default function Logger() {
                           {/* Add-set button */}
                           <button
                             type="button"
-                            onClick={() => addSet(group.name)}
+                            onClick={() => addSet(group.pe_id)}
                             className="w-full mt-1 flex items-center justify-center gap-1.5 text-xs text-text-muted hover:text-accent-light border border-dashed border-surface-lighter hover:border-accent/40 rounded-lg py-2 transition-colors touch-manipulation"
                           >
                             <Plus size={12} /> {t('logger.addSet') || 'Add set'}

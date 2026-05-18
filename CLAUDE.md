@@ -387,6 +387,19 @@ These rules apply only to bodyweight-class catalog rows
 (`bodyweight_kind IS NOT NULL`). External lifts continue to use
 `load_kg` directly.
 
+## Logger exercise grouping (2026-05-18)
+
+The Logger groups consecutive sets by `program_exercise_id`, not by
+canonical `exercise_name`. Post-HEAVY/BACK-OFF-collapse (2026-05-13)
+two ProgramExercise rows can share an `exercise_name_canonical` (e.g.
+both pullup variants resolve to "PULLUP"). Grouping by canonical name
+merged them into one rendered Card, which let React reconciliation
+swap state across sibling SetRows (typing in set 1 mirrored into
+set 2 in real time). Grouping by `program_exercise_id` gives each PE
+its own Card with stable `key`, isolating state. Pure helper:
+`groupSetsByProgramExercise` in `frontend/src/pages/Logger.jsx`,
+covered by `frontend/src/pages/__tests__/Logger.test.jsx`.
+
 ## Editorial Theme System (2026-04-23)
 The frontend ships two coexisting modes, defaulting to minimal.
 
