@@ -228,11 +228,19 @@ export default function Logger() {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
-  const addSet = (peId) => {
+  // groupKey is the same `group.pe_id ?? group.name` used for the Card key
+  // and the rest-timer key. Accepts either a numeric program_exercise_id or
+  // the canonical exercise_name fallback so legacy sets without a pe_id
+  // still scope to the right exercise rather than the last null-pe_id set.
+  const addSet = (groupKey) => {
+    const matches = (s) =>
+      s.program_exercise_id != null
+        ? s.program_exercise_id === groupKey
+        : s.exercise_name === groupKey;
     setSets((prev) => {
       let lastIdx = -1;
       for (let i = 0; i < prev.length; i++) {
-        if (prev[i].program_exercise_id === peId) lastIdx = i;
+        if (matches(prev[i])) lastIdx = i;
       }
       if (lastIdx === -1) return prev;
       const lastSet = prev[lastIdx];
@@ -594,8 +602,9 @@ export default function Logger() {
                       const intensityMarker = _intensityMatch
                         ? (_intensityMatch[1].toUpperCase() === 'HEAVY' ? 'HEAVY' : 'BACK OFF')
                         : null;
+                      const groupKey = group.pe_id ?? group.name;
                       return (
-                      <Card key={group.pe_id ?? group.name} className="!p-3 sm:!p-5">
+                      <Card key={groupKey} className="!p-3 sm:!p-5">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Dumbbell size={14} className="text-accent-light shrink-0" />
                           <span className="truncate">{group.name}</span>
@@ -650,9 +659,8 @@ export default function Logger() {
                         <div className="space-y-2">
                           {/* Set rows */}
                           {group.sets.map((s) => {
-                            const timerKey = group.pe_id ?? group.name;
                             const triggerTimer = () => setRestTimerTriggers((prev) => ({
-                              ...prev, [timerKey]: (prev[timerKey] || 0) + 1,
+                              ...prev, [groupKey]: (prev[groupKey] || 0) + 1,
                             }));
                             return (
                             <div key={s.idx} className="space-y-1.5">
@@ -702,25 +710,22 @@ export default function Logger() {
                           {/* Add-set button */}
                           <button
                             type="button"
-                            onClick={() => addSet(group.pe_id)}
+                            onClick={() => addSet(groupKey)}
                             className="w-full mt-1 flex items-center justify-center gap-1.5 text-xs text-text-muted hover:text-accent-light border border-dashed border-surface-lighter hover:border-accent/40 rounded-lg py-2 transition-colors touch-manipulation"
                           >
                             <Plus size={12} /> {t('logger.addSet') || 'Add set'}
                           </button>
                           {/* Rest timer */}
-                          {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (() => {
-                            const timerKey = group.pe_id ?? group.name;
-                            return (
+                          {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (
                             <div className="mt-2">
                               <RestTimer
-                                key={`${timerKey}-${restTimerTriggers[timerKey] || 0}`}
+                                key={`${groupKey}-${restTimerTriggers[groupKey] || 0}`}
                                 restPeriod={group.rest_period}
                                 defaultSeconds={defaultRestSeconds}
-                                autoStart={(restTimerTriggers[timerKey] || 0) > 0}
+                                autoStart={(restTimerTriggers[groupKey] || 0) > 0}
                               />
                             </div>
-                            );
-                          })()}
+                          )}
                         </div>
                       </Card>
                     );
