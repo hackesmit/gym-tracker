@@ -36,8 +36,11 @@ def get_friend_ids(db: Session, user_id: int) -> list[int]:
 def _aggregate(db: Session, user_id: int) -> dict:
     today = date.today()
     cutoff_30d = today - timedelta(days=30)
+    # Plate-only contribution per set: bodyweight-class lifts use
+    # added_load_kg, external lifts fall back to load_kg.
+    _effective_load = func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg)
     volume_30d = (
-        db.query(func.coalesce(func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed), 0.0))
+        db.query(func.coalesce(func.sum(_effective_load * WorkoutLog.reps_completed), 0.0))
         .filter(WorkoutLog.user_id == user_id, WorkoutLog.date >= cutoff_30d)
         .scalar()
     ) or 0.0

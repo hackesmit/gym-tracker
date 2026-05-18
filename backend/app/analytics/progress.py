@@ -33,11 +33,17 @@ def _fetch_exercise_history(
     """Query all logged sets for an exercise (by canonical name).
 
     Returns a list of dicts with keys: date, load_kg, reps_completed.
+
+    `load_kg` here is the *training-relevant* load: for bodyweight-class lifts
+    (where `added_load_kg` is non-NULL) we strip the bodyweight component and
+    return the plate-only value, so e1RM charts compare like-with-like across
+    sessions even when the user's bodyweight drifts.
     """
     rows = (
         db.query(
             WorkoutLog.date,
             WorkoutLog.load_kg,
+            WorkoutLog.added_load_kg,
             WorkoutLog.reps_completed,
         )
         .join(ProgramExercise, WorkoutLog.program_exercise_id == ProgramExercise.id)
@@ -49,7 +55,11 @@ def _fetch_exercise_history(
         .all()
     )
     return [
-        {"date": r.date, "load_kg": r.load_kg, "reps_completed": r.reps_completed}
+        {
+            "date": r.date,
+            "load_kg": r.added_load_kg if r.added_load_kg is not None else r.load_kg,
+            "reps_completed": r.reps_completed,
+        }
         for r in rows
     ]
 

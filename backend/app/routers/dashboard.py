@@ -85,8 +85,12 @@ def get_dashboard(
         )
         .scalar()
     ) or 0
+    # `coalesce(added_load_kg, load_kg)` collapses to plate-only for
+    # bodyweight-class lifts (where added_load_kg is set) and total weight
+    # for external lifts (where added_load_kg is NULL).
+    _effective_load = func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg)
     week_volume = (
-        db.query(func.coalesce(func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed), 0.0))
+        db.query(func.coalesce(func.sum(_effective_load * WorkoutLog.reps_completed), 0.0))
         .filter(WorkoutLog.user_id == uid, WorkoutLog.date >= week_start)
         .scalar()
     ) or 0.0

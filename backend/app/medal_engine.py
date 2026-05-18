@@ -520,7 +520,7 @@ def check_consistency_medals(db: Session, session: SessionLog):
 
     # volume_30d
     volume = (
-        db.query(func.coalesce(func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed), 0.0))
+        db.query(func.coalesce(func.sum(func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed), 0.0))
         .filter(WorkoutLog.user_id == user_id, WorkoutLog.date >= cutoff_30d)
         .scalar()
     ) or 0.0
@@ -632,7 +632,7 @@ def check_performance_medals(db: Session, user_id: int):
 
     # Biggest volume increase (%) — total tonnage last 30d vs prior 30d.
     vol_last = (
-        db.query(func.coalesce(func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed), 0.0))
+        db.query(func.coalesce(func.sum(func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed), 0.0))
         .filter(
             WorkoutLog.user_id == user_id,
             WorkoutLog.date >= last_start,
@@ -641,7 +641,7 @@ def check_performance_medals(db: Session, user_id: int):
         .scalar()
     ) or 0.0
     vol_prior = (
-        db.query(func.coalesce(func.sum(WorkoutLog.load_kg * WorkoutLog.reps_completed), 0.0))
+        db.query(func.coalesce(func.sum(func.coalesce(WorkoutLog.added_load_kg, WorkoutLog.load_kg) * WorkoutLog.reps_completed), 0.0))
         .filter(
             WorkoutLog.user_id == user_id,
             WorkoutLog.date >= prior_start,

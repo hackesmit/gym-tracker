@@ -278,7 +278,11 @@ def get_weekly_tonnage(
 
     for wl in logs:
         week_start = _monday_of(wl.date).isoformat()
-        weekly_tonnage[week_start] += wl.load_kg * wl.reps_completed
+        # For bodyweight-class lifts, `load_kg` is BW + plate. We want plate
+        # contribution only; otherwise tonnage explodes by `bw * reps` per
+        # weighted-pullup set.
+        effective = wl.added_load_kg if wl.added_load_kg is not None else wl.load_kg
+        weekly_tonnage[week_start] += (effective or 0.0) * wl.reps_completed
 
     weeks_sorted = sorted(weekly_tonnage.keys())
 

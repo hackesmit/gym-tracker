@@ -409,6 +409,7 @@ def get_week_detail(
                             "id": wl.id,
                             "set_number": wl.set_number,
                             "load_kg": wl.load_kg,
+                            "added_load_kg": wl.added_load_kg,
                             "reps": wl.reps_completed,
                             "rpe": wl.rpe_actual,
                         }

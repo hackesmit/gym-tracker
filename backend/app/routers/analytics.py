@@ -112,6 +112,7 @@ def exercise_catalog(db: Session = Depends(get_db)):
             "muscle_group": row.muscle_group_primary,
             "equipment": row.equipment,
             "is_unilateral": row.is_unilateral,
+            "bodyweight_kind": row.bodyweight_kind,
         }
         for row in rows
     ]

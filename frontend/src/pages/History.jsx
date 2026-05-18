@@ -124,12 +124,23 @@ export default function History() {
   const handleSetSave = async () => {
     if (!editingSet) return;
     const loadKg = displayToKg(editingSet.load, units);
+    const body = {
+      load_kg: loadKg,
+      reps_completed: +editingSet.reps,
+      rpe_actual: editingSet.rpe ? +editingSet.rpe : null,
+    };
+    // For bodyweight-class sets the displayed "load" is BW + plate. We can't
+    // recover the plate-only value without knowing BW at log time, so the
+    // simplest correct option is to keep added_load_kg in sync: if the user
+    // edited a row that already had a non-null added_load_kg, recompute it as
+    // (new total) - (old total - old added). That preserves plate semantics
+    // when the user adjusts reps/RPE only.
+    if (editingSet.originalAddedKg != null && editingSet.originalLoadKg != null) {
+      const bwAtLog = editingSet.originalLoadKg - editingSet.originalAddedKg;
+      body.added_load_kg = Math.max(0, loadKg - bwAtLog);
+    }
     try {
-      await updateSet(editingSet.logId, {
-        load_kg: loadKg,
-        reps_completed: +editingSet.reps,
-        rpe_actual: editingSet.rpe ? +editingSet.rpe : null,
-      });
+      await updateSet(editingSet.logId, body);
       // Refresh the expanded session details
       const key = expandedKey;
       setSessionDetails((prev) => ({ ...prev, [key]: undefined }));
@@ -438,6 +449,8 @@ export default function History() {
                                               load: convert(set.load_kg),
                                               reps: set.reps,
                                               rpe: set.rpe || '',
+                                              originalLoadKg: set.load_kg,
+                                              originalAddedKg: set.added_load_kg ?? null,
                                             })}
                                             className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-surface-lighter text-text-muted hover:text-accent transition-opacity"
                                             title="Edit set"
