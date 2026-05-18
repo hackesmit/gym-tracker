@@ -39,7 +39,6 @@ class SetLogRequest(BaseModel):
     reps_completed: int = Field(..., ge=1, le=200)
     rpe_actual: Optional[float] = Field(None, ge=1, le=10)
     notes: Optional[str] = None
-    is_bodyweight: bool = False
     is_dropset: bool = False
     dropset_load_kg: Optional[float] = Field(None, ge=0)
     added_load_kg: Optional[float] = Field(None, ge=0)
@@ -55,7 +54,6 @@ class SetLogResponse(BaseModel):
     reps_completed: int
     rpe_actual: Optional[float]
     notes: Optional[str]
-    is_bodyweight: bool
     is_dropset: bool
     dropset_load_kg: Optional[float]
     added_load_kg: Optional[float]
@@ -69,7 +67,6 @@ class BulkSetItem(BaseModel):
     load_kg: float = Field(..., ge=0)
     reps_completed: int = Field(..., ge=1, le=200)
     rpe_actual: Optional[float] = Field(None, ge=1, le=10)
-    is_bodyweight: bool = False
     is_dropset: bool = False
     dropset_load_kg: Optional[float] = Field(None, ge=0)
     added_load_kg: Optional[float] = Field(None, ge=0)
@@ -119,7 +116,6 @@ class WorkoutLogOut(BaseModel):
     reps_completed: int
     rpe_actual: Optional[float]
     notes: Optional[str]
-    is_bodyweight: bool
     is_dropset: bool
     dropset_load_kg: Optional[float]
     added_load_kg: Optional[float] = None
@@ -190,7 +186,6 @@ def log_single_set(
         reps_completed=payload.reps_completed,
         rpe_actual=payload.rpe_actual,
         notes=payload.notes,
-        is_bodyweight=payload.is_bodyweight,
         is_dropset=payload.is_dropset,
         dropset_load_kg=payload.dropset_load_kg,
         added_load_kg=payload.added_load_kg,
@@ -288,7 +283,6 @@ def log_bulk_session(
             reps_completed=s.reps_completed,
             rpe_actual=s.rpe_actual,
             notes=s.notes,
-            is_bodyweight=s.is_bodyweight,
             is_dropset=s.is_dropset,
             dropset_load_kg=s.dropset_load_kg,
             added_load_kg=s.added_load_kg,

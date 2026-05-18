@@ -10,7 +10,7 @@ export default function SessionSummary({ sets, prList, sessionName, week, units,
   const t = useT();
 
   const weightedSets = sets.filter(s => s.load_kg > 0);
-  const countedSets = sets.filter(s => s.load_kg > 0 || s.is_bodyweight);
+  const countedSets = sets.filter(s => s.load_kg > 0 || s.added_load_kg != null);
   const exercises = new Set(sets.map(s => s.exercise_name));
   const displayVolume = Math.round(weightedSets.reduce((sum, s) => sum + s.load_kg * s.reps_completed, 0));
 

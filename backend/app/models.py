@@ -147,7 +147,6 @@ class WorkoutLog(Base):
     reps_completed: Mapped[int] = mapped_column(Integer, nullable=False)
     rpe_actual: Mapped[float | None] = mapped_column(Float, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_bodyweight: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dropset: Mapped[bool] = mapped_column(Boolean, default=False)
     dropset_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     added_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)

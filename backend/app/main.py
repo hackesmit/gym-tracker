@@ -61,7 +61,6 @@ def _run_migrations(db):
 
     # workout_logs: session_log_id added after initial table creation
     _ensure_column("workout_logs", "session_log_id", "INTEGER", nullable=True)
-    _ensure_column("workout_logs", "is_bodyweight", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "is_dropset", "BOOLEAN", default="false")
     _ensure_column("workout_logs", "dropset_load_kg", "FLOAT", nullable=True)
     _ensure_column("workout_logs", "added_load_kg", "FLOAT", nullable=True)
@@ -432,6 +431,38 @@ def _untag_bw_data_fix_once(db):
         print(f"Untag-BW migration: touched {touched} workout logs.", flush=True)
 
 
+def _drop_is_bodyweight_column_once(db):
+    """One-shot: drop the deprecated workout_logs.is_bodyweight column.
+
+    The authoritative test for a bodyweight-class set is added_load_kg IS NOT
+    NULL (CLAUDE.md, 'Plate-only display semantics'). is_bodyweight is no
+    longer read by any code path after the 2026-05-18 cleanup. Drop it from
+    Postgres to keep the schema honest. SQLite local dev never executed the
+    ensure_column for it after this cleanup, so the column is absent there.
+
+    Gated by migration_log row 'drop_is_bodyweight_2026_05'.
+    """
+    from sqlalchemy import inspect, text
+    from .models import MigrationLog
+
+    name = "drop_is_bodyweight_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    inspector = inspect(db.bind)
+    cols = {c["name"] for c in inspector.get_columns("workout_logs")}
+    if "is_bodyweight" in cols:
+        try:
+            db.execute(text("ALTER TABLE workout_logs DROP COLUMN is_bodyweight"))
+        except Exception as e:
+            print(f"drop_is_bodyweight: DROP COLUMN skipped: {e}", flush=True)
+            return
+
+    db.add(MigrationLog(name=name))
+    db.commit()
+    print("drop_is_bodyweight: column removed.", flush=True)
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -476,6 +507,7 @@ async def lifespan(app: FastAPI):
         _merge_heavy_backoff_2026_05(db)      # 2026-05-11 collapse HEAVY/BACK-OFF variants
         _backfill_user_bodyweight_once(db)   # 2026-05-03 BW sync fix
         _untag_bw_data_fix_once(db)          # 2026-05-18 retag PLATE-WEIGHTED CRUNCH / WALKING LUNGES / LEG RAISES
+        _drop_is_bodyweight_column_once(db)   # 2026-05-18 dead column removal
         seed_preset_programs(db)
         backfill_consistency_medals(db)
         _rebuild_cardio_medals_once(db)

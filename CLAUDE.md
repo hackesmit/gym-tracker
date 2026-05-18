@@ -59,7 +59,6 @@ gym-tracker/
 │   ├── requirements.txt
 │   ├── Dockerfile             # Used by Fly.io
 │   ├── fly.toml               # Fly.io app config (iad region, shared-cpu-1x)
-│   └── Procfile               # Legacy Render start command (unused)
 ├── frontend/
 │   ├── src/
 │   │   ├── api/client.js              # All API calls (single file)
@@ -74,7 +73,6 @@ gym-tracker/
 │   │   │   ├── ErrorMessage.jsx
 │   │   │   ├── Toast.jsx              # Replaces alert()
 │   │   │   ├── AchievementToast.jsx   # Achievement notifications
-│   │   │   ├── PlateCalculator.jsx    # Plate-loading calculator modal
 │   │   │   ├── RestTimer.jsx          # Countdown + compact bar variant
 │   │   │   ├── WarmUpPyramid.jsx      # Auto-generated warm-up pyramid widget
 │   │   │   ├── ProgramUpload.jsx      # Excel (.xlsx) uploader
@@ -355,6 +353,15 @@ Every change is audited into the new `untag_bw_audit` table
 edits from silently flipping a row back. Round-trip test:
 `backend/tests/test_untag_bw_migration.py`.
 
+## is_bodyweight column removal (2026-05-18)
+
+The deprecated `workout_logs.is_bodyweight` column is dropped via the
+`_drop_is_bodyweight_column_once` lifespan migration (gated by
+`migration_log` row `drop_is_bodyweight_2026_05`). The authoritative
+test for a bodyweight-class set has been `added_load_kg IS NOT NULL`
+since 2026-04-25 (see "Plate-only display semantics"). The frontend
+SessionSummary set-counter now reads `added_load_kg != null` instead.
+
 ## Plate-only display semantics (2026-04-26)
 
 After the BW input migration, `WorkoutLog.load_kg` for bodyweight-class
@@ -529,14 +536,14 @@ All managed by SQLAlchemy ORM. Foreign keys enforce referential integrity.
 - `SessionLog` has `UniqueConstraint("program_id", "week", "session_name")`
 - `ProgramExercise` has `UniqueConstraint("program_id", "week", "session_name", "exercise_order")`
 - `Friendship` has `UniqueConstraint("requester_id", "addressee_id")`
-- `WorkoutLog` supports `is_dropset`, `dropset_load_kg`, `is_bodyweight`, `is_true_1rm_attempt`,
+- `WorkoutLog` supports `is_dropset`, `dropset_load_kg`, `is_true_1rm_attempt`,
   `completed_successfully`, and `session_log_id` (CASCADE on session delete)
 - `WorkoutLog.added_load_kg` (2026-04-25): plate-only load for
   bodyweight-class lifts. NULL = external load (barbell/DB/machine).
   0 = pure BW set (pushup, ab work, BW pullup). >0 = weighted-capable
   set (weighted pullup/dip). `WorkoutLog.load_kg` always = effective
-  load (BW + plate for bodyweight class). `is_bodyweight` is deprecated;
-  authoritative test is `added_load_kg IS NOT NULL`.
+  load (BW + plate for bodyweight class). The deprecated `is_bodyweight`
+  column was dropped via `_drop_is_bodyweight_column_once` on 2026-05-18.
 - `ExerciseCatalog.bodyweight_kind` (2026-04-25): drives Logger SetRow
   layout. "pure" / "weighted_capable" / NULL.
 

@@ -211,7 +211,6 @@ export default function Logger() {
           rpe_actual: setRpe,
           rest_period: ex.rest_period || '',
           warm_up_sets: ex.warm_up_sets || '',
-          is_bodyweight: false,
           added_load_kg: '',
           is_dropset: false,
           dropset_load_kg: '',
