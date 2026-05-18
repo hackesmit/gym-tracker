@@ -650,8 +650,9 @@ export default function Logger() {
                         <div className="space-y-2">
                           {/* Set rows */}
                           {group.sets.map((s) => {
+                            const timerKey = group.pe_id ?? group.name;
                             const triggerTimer = () => setRestTimerTriggers((prev) => ({
-                              ...prev, [group.name]: (prev[group.name] || 0) + 1,
+                              ...prev, [timerKey]: (prev[timerKey] || 0) + 1,
                             }));
                             return (
                             <div key={s.idx} className="space-y-1.5">
@@ -707,16 +708,19 @@ export default function Logger() {
                             <Plus size={12} /> {t('logger.addSet') || 'Add set'}
                           </button>
                           {/* Rest timer */}
-                          {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (
+                          {(group.rest_period && group.rest_period !== '0 MINS' || defaultRestSeconds > 0) && (() => {
+                            const timerKey = group.pe_id ?? group.name;
+                            return (
                             <div className="mt-2">
                               <RestTimer
-                                key={`${group.name}-${restTimerTriggers[group.name] || 0}`}
+                                key={`${timerKey}-${restTimerTriggers[timerKey] || 0}`}
                                 restPeriod={group.rest_period}
                                 defaultSeconds={defaultRestSeconds}
-                                autoStart={(restTimerTriggers[group.name] || 0) > 0}
+                                autoStart={(restTimerTriggers[timerKey] || 0) > 0}
                               />
                             </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       </Card>
                     );
