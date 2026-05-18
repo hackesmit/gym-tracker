@@ -1,5 +1,6 @@
 """Authentication endpoints: register, login, me."""
 
+import unicodedata
 from datetime import datetime
 from typing import Optional
 
@@ -15,6 +16,22 @@ from ..auth import (
 )
 from ..database import get_db
 from ..models import User
+
+
+def _normalize_username(raw: str | None) -> str:
+    """NFKC-normalize, strip whitespace, and reject control/format chars.
+
+    Defends against zero-width-space and homoglyph squatting (`hackesmit​`
+    rendering identical to `hackesmit`).
+    """
+    if raw is None:
+        return ""
+    norm = unicodedata.normalize("NFKC", str(raw)).strip()
+    for ch in norm:
+        cat = unicodedata.category(ch)
+        if cat[0] == "C":  # Cc, Cf, Cs, Co, Cn — control / format / surrogate
+            raise HTTPException(status_code=400, detail="Username contains invalid characters")
+    return norm
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -54,18 +71,21 @@ RESERVED_USERNAMES = {"preset", "system", "admin"}
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(payload: RegisterPayload, db: Session = Depends(get_db)):
-    if payload.username.lower() in RESERVED_USERNAMES:
+    username = _normalize_username(payload.username)
+    if len(username) < 2 or len(username) > 40:
+        raise HTTPException(status_code=400, detail="Username must be 2-40 characters")
+    if username.lower() in RESERVED_USERNAMES:
         raise HTTPException(status_code=409, detail="Username already taken")
-    existing = db.query(User).filter(User.username == payload.username).first()
+    existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
     if payload.email:
         if db.query(User).filter(User.email == payload.email).first():
             raise HTTPException(status_code=409, detail="Email already in use")
     user = User(
-        username=payload.username,
+        username=username,
         email=payload.email,
-        name=payload.name or payload.username,
+        name=payload.name or username,
         password_hash=hash_password(payload.password),
         preferred_units="kg",
     )
@@ -102,7 +122,7 @@ class ChangeUsernamePayload(BaseModel):
 @router.get("/username-captcha")
 def username_captcha(current_user: User = Depends(get_current_user)):
     from ..captcha import generate_challenge
-    problem, challenge = generate_challenge()
+    problem, challenge = generate_challenge(current_user.id)
     return {"problem": problem, "challenge": challenge}
 
 
@@ -114,12 +134,14 @@ def change_username(
 ):
     from ..captcha import verify_challenge
 
-    new_username = payload.new_username.strip()
+    new_username = _normalize_username(payload.new_username)
+    if len(new_username) < 2 or len(new_username) > 40:
+        raise HTTPException(status_code=400, detail="Username must be 2-40 characters")
     if not new_username or new_username == current_user.username:
         raise HTTPException(status_code=400, detail="Username unchanged")
     if new_username.lower() in RESERVED_USERNAMES:
         raise HTTPException(status_code=409, detail="Username already taken")
-    if not verify_challenge(payload.challenge, payload.answer):
+    if not verify_challenge(payload.challenge, payload.answer, current_user.id):
         raise HTTPException(status_code=400, detail="Incorrect answer — try a new problem")
     if db.query(User).filter(User.username == new_username, User.id != current_user.id).first():
         raise HTTPException(status_code=409, detail="Username already taken")
@@ -129,8 +151,11 @@ def change_username(
     return current_user
 
 
+# Username changes are intentionally NOT exposed here — they go through the
+# CAPTCHA-gated `/change-username` route (above). `extra="forbid"` makes any
+# attempt to smuggle a `username` field fail loudly with 422.
 class UpdateMePayload(BaseModel):
-    username: Optional[str] = Field(None, min_length=2, max_length=40)
+    model_config = {"extra": "forbid"}
     name: Optional[str] = None
     email: Optional[str] = None
 
@@ -141,10 +166,6 @@ def update_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if payload.username and payload.username != current_user.username:
-        if db.query(User).filter(User.username == payload.username, User.id != current_user.id).first():
-            raise HTTPException(status_code=409, detail="Username already taken")
-        current_user.username = payload.username
     if payload.name is not None:
         current_user.name = payload.name
     if payload.email is not None:
@@ -310,8 +331,10 @@ def absorb(
     from sqlalchemy import update
 
     from ..models import (
+        Achievement,
         BodyMetric,
         CardioLog,
+        ChatMessage,
         FeedEvent,
         Friendship,
         MedalCurrentHolder,
@@ -341,6 +364,12 @@ def absorb(
         (FeedEvent, "feed_events"),
         (MedalRecord, "medal_records"),
         (MedalCurrentHolder, "medal_current_holders"),
+        # Without these two, `db.delete(src)` below trips the foreign-key
+        # constraint (FK has no ON DELETE CASCADE) and the whole absorb
+        # transaction rolls back for any user who has earned a PR or sent a
+        # chat message.
+        (Achievement, "achievements"),
+        (ChatMessage, "chat_messages"),
     ]:
         q = db.query(model).filter(model.user_id == src.id)
         count = q.count()

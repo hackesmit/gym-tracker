@@ -6,6 +6,8 @@ expiry, so the frontend doesn't need a server-side session to verify it.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Callable
@@ -15,6 +17,14 @@ from jose import JWTError, jwt
 from .auth import JWT_ALGORITHM, JWT_SECRET
 
 CHALLENGE_TTL_SECONDS = 10 * 60  # 10 minutes is plenty to type an answer
+
+# Domain-separated key derived from JWT_SECRET so the CAPTCHA can never be
+# minted by code paths that legitimately sign access tokens.
+_CAPTCHA_KEY = hmac.new(
+    JWT_SECRET.encode("utf-8") if isinstance(JWT_SECRET, str) else JWT_SECRET,
+    b"username_captcha/v1",
+    hashlib.sha256,
+).hexdigest()
 
 
 def _template_watermelons() -> tuple[str, int]:
@@ -86,25 +96,28 @@ _TEMPLATES: list[Callable[[], tuple[str, int]]] = [
 ]
 
 
-def generate_challenge() -> tuple[str, str]:
-    """Return (problem_text, signed_challenge_token)."""
+def generate_challenge(user_id: int) -> tuple[str, str]:
+    """Return (problem_text, signed_challenge_token) bound to a specific user."""
     problem, answer = random.choice(_TEMPLATES)()
     payload = {
         "ans": int(answer),
         "exp": datetime.now(timezone.utc) + timedelta(seconds=CHALLENGE_TTL_SECONDS),
         "iat": datetime.now(timezone.utc),
         "kind": "username_captcha",
+        "sub": str(int(user_id)),
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    token = jwt.encode(payload, _CAPTCHA_KEY, algorithm=JWT_ALGORITHM)
     return problem, token
 
 
-def verify_challenge(token: str, answer_str: str) -> bool:
+def verify_challenge(token: str, answer_str: str, user_id: int) -> bool:
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, _CAPTCHA_KEY, algorithms=[JWT_ALGORITHM])
     except JWTError:
         return False
     if payload.get("kind") != "username_captcha":
+        return False
+    if str(payload.get("sub")) != str(int(user_id)):
         return False
     try:
         return int(answer_str.strip()) == int(payload["ans"])

@@ -7,12 +7,19 @@ from app.models import User
 
 
 def test_captcha_roundtrip():
-    problem, token = generate_challenge()
+    problem, token = generate_challenge(user_id=1)
     assert problem
     # Deterministic recovery of the correct answer via templated numbers is
     # intentionally impossible — tests go through the API instead. Here we
     # just confirm a wrong answer is rejected.
-    assert verify_challenge(token, "99999999") is False
+    assert verify_challenge(token, "99999999", user_id=1) is False
+
+
+def test_captcha_rejects_cross_user_replay():
+    """Token minted for user A must not verify for user B."""
+    _, token = generate_challenge(user_id=1)
+    # Even if user B somehow knew the answer, the binding refuses.
+    assert verify_challenge(token, "0", user_id=2) is False
 
 
 def test_change_username_requires_correct_answer(client, db):
@@ -87,8 +94,10 @@ def test_change_username_happy_path(client, db):
     """Verify full success by synthesizing a challenge with a known answer."""
     from datetime import datetime, timedelta, timezone
     from jose import jwt
-    from app.auth import JWT_ALGORITHM, JWT_SECRET
+    from app.auth import JWT_ALGORITHM
+    from app.captcha import _CAPTCHA_KEY
 
+    me = db.query(User).filter(User.username == "testuser").first()
     known_answer = 42
     token = jwt.encode(
         {
@@ -96,8 +105,9 @@ def test_change_username_happy_path(client, db):
             "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
             "iat": datetime.now(timezone.utc),
             "kind": "username_captcha",
+            "sub": str(me.id),
         },
-        JWT_SECRET,
+        _CAPTCHA_KEY,
         algorithm=JWT_ALGORITHM,
     )
     r = client.post("/api/auth/change-username", json={
@@ -108,5 +118,38 @@ def test_change_username_happy_path(client, db):
     assert r.status_code == 200, r.text
     assert r.json()["username"] == "renamed"
 
-    me = db.query(User).filter(User.id == r.json()["id"]).first()
-    assert me.username == "renamed"
+    refreshed = db.query(User).filter(User.id == r.json()["id"]).first()
+    assert refreshed.username == "renamed"
+
+
+def test_patch_me_cannot_change_username(client, db):
+    """The CAPTCHA wall must not be bypassable via PATCH /me."""
+    me = db.query(User).filter(User.username == "testuser").first()
+    r = client.patch("/api/auth/me", json={"username": "bypassed"})
+    # Pydantic refuses the unknown field with 422.
+    assert r.status_code == 422
+    db.refresh(me)
+    assert me.username == "testuser"
+
+
+def test_change_username_rejects_zero_width_squat(client, db):
+    """A zero-width-space appended to a username must be rejected, not
+    silently allowed (which would produce a homoglyph of an existing user)."""
+    me = db.query(User).filter(User.username == "testuser").first()
+    r = client.post("/api/auth/change-username", json={
+        "new_username": "testuser​",
+        "challenge": "irrelevant",
+        "answer": "0",
+    })
+    assert r.status_code == 400
+    db.refresh(me)
+    assert me.username == "testuser"
+
+
+def test_register_rejects_zero_width_squat(client, db):
+    """Registration must reject usernames with zero-width / control chars."""
+    r = client.post("/api/auth/register", json={
+        "username": "evil​user",
+        "password": "password",
+    })
+    assert r.status_code == 400
