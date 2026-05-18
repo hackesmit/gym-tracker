@@ -1,6 +1,5 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
-
-export const TOKEN_KEY = 'gym-token';
+const TOKEN_KEY = 'gym-token';
 
 export function getToken() {
   try {
@@ -79,14 +78,10 @@ export const register = (data) =>
 export const login = (data) =>
   request('/auth/login', { method: 'POST', body: JSON.stringify(data) });
 export const getMe = () => request('/auth/me');
-export const updateMe = (data) =>
-  request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) });
 export const absorbAccount = (source_username, source_password) =>
   request('/auth/absorb', { method: 'POST', body: JSON.stringify({ source_username, source_password }) });
 export const adminResetPassword = (target_username, new_password) =>
   request('/auth/admin-reset', { method: 'POST', body: JSON.stringify({ target_username, new_password }) });
-export const adminWipeUser = (target_username) =>
-  request('/auth/admin-wipe-user', { method: 'POST', body: JSON.stringify({ target_username }) });
 export const getUsernameCaptcha = () => request('/auth/username-captcha');
 export const changeUsername = (new_username, challenge, answer) =>
   request('/auth/change-username', { method: 'POST', body: JSON.stringify({ new_username, challenge, answer }) });
@@ -125,12 +120,9 @@ export const getMedalLeaderboard = (medalId) => request(`/medals/${medalId}/lead
 
 // Ranks
 export const getRanks = (userId) => request(`/ranks${userId ? `?user_id=${userId}` : ''}`);
-export const compareRanks = (userId) => request(`/ranks/compare/${userId}`);
 export const getRankStandards = () => request('/ranks/standards');
 
 // Social
-export const getSocialFeed = () => request('/social/feed');
-export const getLeaderboard = () => request('/social/leaderboard');
 export const getCompare = (userId) => request(`/social/compare/${userId}`);
 
 // Chat
@@ -178,12 +170,7 @@ export const importSharedProgram = (code, opts = {}) =>
   });
 
 // Logging
-export const logSet = (data) => request('/log', { method: 'POST', body: JSON.stringify(data) });
 export const logBulkSession = (data) => request('/log/bulk', { method: 'POST', body: JSON.stringify(data) });
-export const getLogs = (params = {}) => {
-  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null));
-  return request(`/logs?${qs}`);
-};
 
 // Session management
 export const undoSession = (sessionLogId) =>
@@ -214,17 +201,10 @@ export const getBodyMetrics = (params = {}) => {
 // Tracker
 export const getTracker = (pid) => request(`/tracker/${pid}`);
 export const getTrackerWeek = (pid, week) => request(`/tracker/${pid}/week/${week}`);
-export const postSession = (pid, data) =>
-  request(`/tracker/${pid}/session`, { method: 'POST', body: JSON.stringify(data) });
-export const advanceTracker = (pid) =>
-  request(`/tracker/${pid}/advance`, { method: 'PATCH' });
 export const getCalendar = (pid) => request(`/tracker/${pid}/calendar`);
 export const getAdherence = (pid) => request(`/tracker/${pid}/adherence`);
 export const getCalendarOverview = (days = 90) =>
   request(`/tracker/calendar-overview?days=${days}`);
-
-// Workout
-export const getWorkoutToday = () => request('/workout/today');
 
 // Analytics
 export const getProgress = (exercise) => request(`/analytics/progress/${encodeURIComponent(exercise)}`);
@@ -234,7 +214,6 @@ export const getStrengthStandards = () => request('/analytics/strength-standards
 export const getOverloadPlan = (programId, week, sessionName) =>
   request(`/analytics/overload-plan?program_id=${programId}&week=${week}&session_name=${encodeURIComponent(sessionName)}`);
 export const getSummary = () => request('/analytics/summary');
-export const getDeloadCheck = () => request('/analytics/deload-check');
 export const getExerciseCatalog = () => request('/analytics/exercise-catalog');
 export const getTonnage = (weeks = 12) => request(`/analytics/tonnage?weeks_back=${weeks}`);
 
@@ -250,8 +229,6 @@ export const updateManual1RM = (lifts) =>
   request('/manual-1rm', { method: 'PATCH', body: JSON.stringify({ lifts }) });
 
 // Vacation
-export const getVacations = () => request('/vacation');
 export const getActiveVacation = () => request('/vacation/active');
 export const startVacation = (data) => request('/vacation', { method: 'POST', body: JSON.stringify(data) });
 export const endVacation = (id, data) => request(`/vacation/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-export const deleteVacation = (id) => request(`/vacation/${id}`, { method: 'DELETE' });
