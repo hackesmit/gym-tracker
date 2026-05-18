@@ -846,7 +846,6 @@ EXERCISE_CATALOG = [
         "is_compound": True,
         "is_unilateral": True,
         "difficulty_level": "beginner",
-        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "DB STEP UP",
@@ -1304,7 +1303,6 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
-        "bodyweight_kind": "pure",
     },
     {
         "canonical_name": "ROMAN CHAIR CRUNCH",
@@ -1326,7 +1324,6 @@ EXERCISE_CATALOG = [
         "is_compound": False,
         "is_unilateral": False,
         "difficulty_level": "beginner",
-        "bodyweight_kind": "weighted_capable",
     },
     {
         "canonical_name": "TWO-ARMS TWO-LEGS DEAD BUG",

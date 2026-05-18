@@ -7,7 +7,7 @@ from app.seed_catalog import seed_exercise_catalog
 def test_pure_bw_exercises_tagged(db):
     seed_exercise_catalog(db)
     expected_pure = ["PULLUP", "2-GRIP PULLUP", "DIP", "DIPS",
-                     "WALKING LUNGES", "BW WALKING LUNGES"]
+                     "BW WALKING LUNGES"]
     for name in expected_pure:
         cat = db.query(ExerciseCatalog).filter_by(canonical_name=name).first()
         assert cat is not None, f"missing catalog entry: {name}"
@@ -60,3 +60,46 @@ def test_backfill_updates_existing_rows(db):
 
     refreshed = db.query(ExerciseCatalog).filter_by(canonical_name="PULLUP").first()
     assert refreshed.bodyweight_kind == "pure"
+
+
+# 2026-05-18: explicit lockdown of every catalog row's bodyweight_kind so a
+# future seed-list edit can't silently flip a classification.
+EXPECTED_BODYWEIGHT_KIND = {
+    "WEIGHTED DIP": "weighted_capable",
+    "DIP": "pure",
+    "DIPS": "pure",
+    "BODYWEIGHT DIP": "pure",
+    "PULLUP": "pure",
+    "WEIGHTED PULLUP": "weighted_capable",
+    "2-GRIP PULLUP": "pure",
+    "BW WALKING LUNGES": "pure",
+    "HANGING LEG RAISE": "pure",
+    "ROMAN CHAIR CRUNCH": "pure",
+    "TWO-ARMS TWO-LEGS DEAD BUG": "pure",
+}
+
+UNTAGGED_AMBIGUOUS = ["PLATE-WEIGHTED CRUNCH", "WALKING LUNGES", "LEG RAISES"]
+
+
+def test_bw_classification_locked():
+    """Every BW-tagged canonical row must match its expected kind. If you're
+    adding a new BW row, add it to EXPECTED_BODYWEIGHT_KIND above."""
+    from app.seed_catalog import EXERCISE_CATALOG
+    by_name = {e["canonical_name"]: e for e in EXERCISE_CATALOG}
+    for name, kind in EXPECTED_BODYWEIGHT_KIND.items():
+        got = by_name[name].get("bodyweight_kind")
+        assert got == kind, (
+            f"{name} expected bodyweight_kind={kind!r}, got {got!r}"
+        )
+
+
+def test_untagged_ambiguous_lifts_are_not_bw():
+    """User-flagged as ambiguous defaults. Must stay untagged so the Logger
+    renders them with the normal weighted layout, not the BW chip."""
+    from app.seed_catalog import EXERCISE_CATALOG
+    by_name = {e["canonical_name"]: e for e in EXERCISE_CATALOG}
+    for name in UNTAGGED_AMBIGUOUS:
+        got = by_name[name].get("bodyweight_kind")
+        assert got is None, (
+            f"{name} must NOT be tagged as BW (untagged 2026-05-18); got {got!r}"
+        )

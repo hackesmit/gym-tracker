@@ -373,6 +373,65 @@ def _backfill_user_bodyweight_once(db):
         )
 
 
+def _untag_bw_data_fix_once(db):
+    """One-shot: collapse plate-only semantics on WorkoutLog rows whose
+    exercise was untagged as BW-class on 2026-05-18 (PLATE-WEIGHTED CRUNCH,
+    WALKING LUNGES, LEG RAISES).
+
+    For each WorkoutLog whose program_exercise.exercise_name_canonical is in
+    the untagged set AND added_load_kg IS NOT NULL:
+      - added_load_kg > 0 (weighted_capable era):
+          load_kg <- added_load_kg, added_load_kg <- NULL
+      - added_load_kg = 0 (pure era):
+          load_kg <- 0, added_load_kg <- NULL
+
+    Audits every change into untag_bw_audit. Gated by migration_log row
+    'untag_bw_2026_05'.
+    """
+    from .models import MigrationLog, ProgramExercise, UntagBwAudit, WorkoutLog
+
+    name = "untag_bw_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    UNTAGGED = ("PLATE-WEIGHTED CRUNCH", "WALKING LUNGES", "LEG RAISES")
+    rows = (
+        db.query(WorkoutLog, ProgramExercise.exercise_name_canonical)
+        .join(ProgramExercise, WorkoutLog.program_exercise_id == ProgramExercise.id)
+        .filter(
+            ProgramExercise.exercise_name_canonical.in_(UNTAGGED),
+            WorkoutLog.added_load_kg.isnot(None),
+        )
+        .all()
+    )
+
+    touched = 0
+    for wl, canon in rows:
+        before_load = wl.load_kg
+        before_added = wl.added_load_kg
+        if (wl.added_load_kg or 0.0) > 0:
+            wl.load_kg = float(wl.added_load_kg)
+            reason = "weighted_capable_collapsed"
+        else:
+            wl.load_kg = 0.0
+            reason = "pure_collapsed"
+        wl.added_load_kg = None
+        db.add(UntagBwAudit(
+            log_id=wl.id,
+            exercise_name=canon,
+            before_load_kg=float(before_load or 0.0),
+            before_added_load_kg=float(before_added) if before_added is not None else None,
+            after_load_kg=float(wl.load_kg),
+            reason=reason,
+        ))
+        touched += 1
+
+    db.add(MigrationLog(name=name))
+    db.commit()
+    if touched:
+        print(f"Untag-BW migration: touched {touched} workout logs.", flush=True)
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -416,6 +475,7 @@ async def lifespan(app: FastAPI):
         _run_split_arms_migration_once(db)   # 2026-05-02 audit
         _merge_heavy_backoff_2026_05(db)      # 2026-05-11 collapse HEAVY/BACK-OFF variants
         _backfill_user_bodyweight_once(db)   # 2026-05-03 BW sync fix
+        _untag_bw_data_fix_once(db)          # 2026-05-18 retag PLATE-WEIGHTED CRUNCH / WALKING LUNGES / LEG RAISES
         seed_preset_programs(db)
         backfill_consistency_medals(db)
         _rebuild_cardio_medals_once(db)

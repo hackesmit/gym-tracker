@@ -421,6 +421,26 @@ class BwMigrationAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class UntagBwAudit(Base):
+    """Audit log for the 2026-05-18 untag-BW data fix.
+
+    Mirrors BwMigrationAudit's shape: rows recording every WorkoutLog whose
+    plate-only semantics were collapsed back to external-load semantics
+    when its exercise was un-tagged as BW-class.
+    """
+
+    __tablename__ = "untag_bw_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    log_id: Mapped[int] = mapped_column(Integer, ForeignKey("workout_logs.id"))
+    exercise_name: Mapped[str] = mapped_column(String, nullable=False)
+    before_load_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    before_added_load_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    after_load_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class MigrationLog(Base):
     """Records which one-shot migrations have run, so they don't re-execute."""
 

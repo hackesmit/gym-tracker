@@ -328,12 +328,32 @@ and clears the audit table. Per-user re-run at
 who set their bodyweight after the initial migration.
 
 Catalog tagging: `seed_catalog.py` sets `bodyweight_kind` on PULLUP, DIP,
-WEIGHTED PULLUP, WEIGHTED DIP, WALKING LUNGES, ab/core lifts.
+WEIGHTED PULLUP, WEIGHTED DIP, BW WALKING LUNGES, ab/core lifts.
 `backfill_catalog_bodyweight_kind` runs on every lifespan startup to
 update existing rows idempotently. **`bodyweight_kind` is exposed on
 `GET /api/analytics/exercise-catalog`** — without this the SetRow
 component on the Logger silently falls back to the legacy single-load
 layout for every exercise (closed 2026-04-26).
+
+## Untag-BW data fix (2026-05-18)
+
+PLATE-WEIGHTED CRUNCH, WALKING LUNGES, and LEG RAISES were retagged from
+BW-class to normal weighted on 2026-05-18 (user flagged them as
+ambiguous). A one-shot lifespan migration `_untag_bw_data_fix_once`
+(in `backend/app/main.py`, gated by `migration_log` row
+`untag_bw_2026_05`) collapses plate-only semantics on existing WorkoutLog
+rows for these three exercises:
+
+- If `added_load_kg > 0` (weighted_capable era): `load_kg <- added_load_kg`,
+  `added_load_kg <- NULL`.
+- If `added_load_kg = 0` (pure era): `load_kg <- 0`, `added_load_kg <- NULL`.
+
+Every change is audited into the new `untag_bw_audit` table
+(model: `UntagBwAudit`). The locked-classification test
+`test_bw_classification_locked` in
+`backend/tests/test_catalog_bodyweight_kind.py` prevents future seed-list
+edits from silently flipping a row back. Round-trip test:
+`backend/tests/test_untag_bw_migration.py`.
 
 ## Plate-only display semantics (2026-04-26)
 
