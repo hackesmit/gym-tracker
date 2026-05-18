@@ -18,9 +18,9 @@ vi.mock('../../context/ToastContext', () => ({
 import useExerciseSwap from '../useExerciseSwap';
 import { swapExercise, getSchedule } from '../../api/client';
 
-describe('useExerciseSwap', () => {
+describe('useExerciseSwap.handleSwapSelect', () => {
   let setSets, setSessions, setScheduleData, setSelectedSession, setCatalogData;
-  let skipSetsInit, swapInProgress;
+  let skipSetsInit;
 
   beforeEach(() => {
     setSets = vi.fn();
@@ -29,19 +29,19 @@ describe('useExerciseSwap', () => {
     setSelectedSession = vi.fn();
     setCatalogData = vi.fn();
     skipSetsInit = { current: false };
-    swapInProgress = { current: false };
     vi.clearAllMocks();
   });
 
-  it('does NOT set skipSetsInit after swap (so sets re-init from new overload)', async () => {
-    getSchedule.mockResolvedValue({
+  function setupHook() {
+    const scheduleRes = {
       schedule: { 1: { 'Pull A': [{ id: 99, exercise_name: 'BENT-OVER BARBELL ROW', working_sets: 3 }] } },
-    });
+    };
+    getSchedule.mockResolvedValue(scheduleRes);
 
-    const { result } = renderHook(() =>
+    const hook = renderHook(() =>
       useExerciseSwap(
         { id: 7 },
-        swapInProgress,
+        null,
         {
           currentWeek: 1,
           selectedSession: { session_name: 'Pull A', exercises: [] },
@@ -58,17 +58,49 @@ describe('useExerciseSwap', () => {
         }
       )
     );
+    return { hook, scheduleRes };
+  }
 
-    await act(async () => {
-      await result.current.openSwapModal('BARBELL ROW');
-    });
-
-    await act(async () => {
-      await result.current.handleSwapSelect('BENT-OVER BARBELL ROW');
-    });
+  it('does NOT set skipSetsInit after swap (sets re-init from new overload)', async () => {
+    const { hook } = setupHook();
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
 
     expect(swapExercise).toHaveBeenCalledWith(7, 'BARBELL ROW', 'BENT-OVER BARBELL ROW');
-    expect(skipSetsInit.current).toBe(false);   // CRITICAL — must not skip
-    expect(swapInProgress.current).toBe(false); // CRITICAL — no leftover flag
+    expect(skipSetsInit.current).toBe(false);
+  });
+
+  it('drops the swapped-out exercise rows from sets', async () => {
+    const { hook } = setupHook();
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
+
+    // setSets is called with a functional updater. Run it against a mock
+    // prev-sets array to verify the swapped-out exercise's rows are removed
+    // while other exercises in the session stay.
+    expect(setSets).toHaveBeenCalledWith(expect.any(Function));
+    const updater = setSets.mock.calls[0][0];
+    const prev = [
+      { exercise_name: 'BARBELL ROW', set_number: 1, load_kg: 60 },
+      { exercise_name: 'BARBELL ROW', set_number: 2, load_kg: 60 },
+      { exercise_name: 'OHP', set_number: 1, load_kg: 40 },
+    ];
+    expect(updater(prev)).toEqual([
+      { exercise_name: 'OHP', set_number: 1, load_kg: 40 },
+    ]);
+  });
+
+  it('refreshes the schedule and re-selects the same session', async () => {
+    const { hook, scheduleRes } = setupHook();
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
+
+    expect(setScheduleData).toHaveBeenCalledWith(scheduleRes);
+    expect(setSessions).toHaveBeenCalledWith([
+      { session_name: 'Pull A', exercises: [{ id: 99, exercise_name: 'BENT-OVER BARBELL ROW', working_sets: 3 }] },
+    ]);
+    expect(setSelectedSession).toHaveBeenCalledWith(
+      expect.objectContaining({ session_name: 'Pull A' }),
+    );
   });
 });
