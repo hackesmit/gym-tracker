@@ -83,8 +83,6 @@ export default function Logger() {
     loading,
     catalogData,
     setCatalogData,
-    skipSetsInit,
-    swapInProgress,
     changeWeek,
   } = useLoggerSession(activeProgram, units);
 
@@ -119,10 +117,10 @@ export default function Logger() {
     openSwapModal,
     handleSwapSelect,
     closeSwapModal,
-  } = useExerciseSwap(activeProgram, swapInProgress, {
+  } = useExerciseSwap(activeProgram, null, {
     currentWeek, selectedSession, setSelectedSession,
     setSessions, setScheduleData, setSets, setCatalogData, catalogData,
-    skipSetsInit,
+    skipSetsInit: null,
   });
 
   // --- Hook 3: draft persistence (replaces inline localStorage logic) ---
@@ -138,10 +136,6 @@ export default function Logger() {
 
   // Initialize sets when session or overload changes
   useEffect(() => {
-    if (skipSetsInit.current) {
-      skipSetsInit.current = false;
-      return;
-    }
     if (!selectedSession) return;
     const exercises = selectedSession.exercises || [];
     const newSets = [];

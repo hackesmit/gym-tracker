@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSchedule, getOverloadPlan, getTracker, getExerciseCatalog } from '../api/client';
 
 /**
@@ -27,10 +27,6 @@ export default function useLoggerSession(activeProgram, units) {
   const [scheduleData, setScheduleData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [catalogData, setCatalogData] = useState([]);
-
-  // Refs to skip sets re-init after exercise swap (preserves user-entered data)
-  const skipSetsInit = useRef(false);
-  const swapInProgress = useRef(false);
 
   // Load schedule + tracker on mount
   useEffect(() => {
@@ -80,20 +76,9 @@ export default function useLoggerSession(activeProgram, units) {
   // Load overload suggestions when session changes
   useEffect(() => {
     if (!activeProgram || !selectedSession) return;
-    const isSwap = swapInProgress.current;
     getOverloadPlan(activeProgram.id, currentWeek, selectedSession.session_name)
-      .then((data) => {
-        setOverload(data);
-        if (isSwap) {
-          // Overload updated after a swap — skip the sets-init effect it triggers
-          skipSetsInit.current = true;
-          swapInProgress.current = false;
-        }
-      })
-      .catch(() => {
-        setOverload(null);
-        swapInProgress.current = false;
-      });
+      .then((data) => setOverload(data))
+      .catch(() => setOverload(null));
   }, [activeProgram, selectedSession, currentWeek]);
 
   // Change displayed week
@@ -119,8 +104,6 @@ export default function useLoggerSession(activeProgram, units) {
     loading,
     catalogData,
     setCatalogData,
-    skipSetsInit,
-    swapInProgress,
     changeWeek,
   };
 }
