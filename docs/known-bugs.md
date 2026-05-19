@@ -28,7 +28,6 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 19. ~~Restore-unsaved-workout flow had 7 bugs: BW reps-only never persisted, no TTL, cross-session bleed, etc.~~ — fixed 2026-04-25. Replaced inline localStorage logic in Logger.jsx with useWorkoutDraft hook (commit b0cd3af). Hook persists when ANY set has load OR reps > 0, has 14-day TTL, clears pendingRestore on session/week switch, sweeps orphaned keys on mount, explicit accept/discard cleans the key.
 20. ~~`/api/analytics/exercise-catalog` did not return `bodyweight_kind`, so the entire SetRow refactor (pure-BW chip, weighted-capable Added field, SetBwPrompt) silently fell through to the legacy single-load layout in production.~~ Fixed 2026-04-26. One-line addition to the catalog endpoint now exposes the field that Logger.jsx already reads.
 21. ~~CAPTCHA wall on username change was symbolic.~~ Fixed 2026-04-26. Three holes: (a) `PATCH /api/auth/me` accepted `username` with no CAPTCHA — now `UpdateMePayload` rejects unknown fields (`extra="forbid"`); (b) the CAPTCHA token had no `sub` claim and reused `JWT_SECRET`, so a token minted for user A was reusable by user B and minted by any code path that signed access tokens — now bound to `user_id` and signed with a domain-separated key derived via `HMAC(JWT_SECRET, b"username_captcha/v1")`; (c) usernames could carry zero-width-space and other format chars, allowing homoglyph squatting — `_normalize_username` NFKC-normalizes, strips, and rejects any character in Unicode category C (control/format/surrogate).
-31. ~~Program status PATCH mismatch: frontend sends query string, backend expects JSON body~~ — fixed 2026-05-18. `frontend/src/api/client.js::updateProgramStatus()` was hitting `PATCH /api/programs/{id}/status?status=X` with status as a query parameter, but the backend's `StatusUpdate` pydantic model expected a JSON body `{"status": "X"}`, causing all Pause/Complete/Abandon/Resume buttons to return 422. Changed frontend to send JSON body matching backend schema. All 54 frontend tests pass.
 22. ~~Rank engine never recomputed on PATCH `/api/log/set/{id}` or DELETE `/api/log/session/{id}`.~~ Fixed 2026-04-26. A user could log a fake 1RM PR to spike their rank, then delete the session, and the inflated tier persisted until the next POST. Both paths now call `recompute_for_user` after commit (best-effort, non-fatal).
 23. ~~`SetUpdateRequest` did not accept `added_load_kg`, so editing a weighted-pullup set in History silently overwrote the post-migration semantic and stranded the row in an inconsistent state.~~ Fixed 2026-04-26. Endpoint now accepts `added_load_kg`; the History edit form computes a corrected `added_load_kg = max(0, new_load - bw_at_log)` from the original row's `load_kg - added_load_kg`. Tracker week payload also surfaces `added_load_kg` so the edit form has the original snapshot to work from.
 24. ~~Tonnage / weekly volume / `consistency_volume_30d` / `performance_volume_increase_30d` inflated for any user with weighted-pullup or dip history because the BW migration stored `load_kg = bw + plate` and the SQL summed `load_kg * reps_completed` directly.~~ Fixed 2026-04-26. All four call sites (`analytics/volume.py`, `routers/dashboard.py` `week_volume`, `routers/friends.py` `_aggregate`, `medal_engine.py` lines 453/565/574) now use `coalesce(added_load_kg, load_kg) * reps_completed` so the per-set contribution is plate-only for bodyweight-class lifts and total for external lifts.
@@ -42,24 +41,20 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 32. ~~Dashboard "Week Streak" label shows a day count (O7)~~ — fixed 2026-05-18. `dashboard.py` now calls `_compute_streaks` on the active program to produce a week-based `current_streak` field in the `week_stats` payload. `Dashboard.jsx` reads `week.current_streak ?? week.streak_days ?? 0` so week-based counts take priority over the old day-count fallback. `streak_days` kept in payload for back-compat.
 33. ~~`_compute_streaks` current-streak freezes instead of breaking (O8)~~ — fixed 2026-05-18. `all_weeks` now extends to `max(latest_log_date, today)` so the walk reaches the present. The in-progress current week is skipped (not credited, not penalised) until `frequency` sessions are completed, preventing mid-week flicker. `_compute_streaks` accepts an optional `today` parameter for deterministic testing. Two new regression tests added to `backend/tests/test_tracker_progression.py`.
 34. ~~Dead `missed: 0` / `total_missed: 0` fields in tracker responses (O9)~~ — fixed 2026-05-18. Both fields removed from `get_tracker` and `get_adherence` in `tracker.py`. Confirmed no frontend consumer reads either field.
+35. ~~`test_log_bulk_relog_replaces` was asserting nonexistent behavior~~ — fixed 2026-05-18 (commit `22b0217`). `log_bulk_session` deliberately reuses the SessionLog row via the `UniqueConstraint("program_id", "week", "session_name")` and replaces its workout_log children. The test was checking that `session_log_id` differed between calls — which happens to be true on Postgres (auto-increment) but not on SQLite (id recycling). Rewrote the assertion to verify the actual replace semantic: exactly one WorkoutLog row tied to the returned id, carrying the second payload's values.
+36. ~~Friend profile UI renders `undefined` labels and hides medals/PRs~~ — fixed 2026-05-18 (commit `537a0db`). `_build_profile` in `backend/app/routers/social.py` now returns `elo: {total, mean, max, dominant_tier}` (via `aggregate_elo`), `medals: [...]` (mirroring `/api/medals/my`), and `recent_prs: [...]` (last 5 `Achievement` rows of `type == "e1rm_pr"`). `UserProfile.jsx` already reads these keys — no frontend change needed. Test: `backend/tests/test_social_compare_shape.py`.
+37. ~~Theme flash-of-unthemed-content (FOUC) on first paint~~ — fixed 2026-05-18 (commit `a6fda64`). Blocking inline `<script>` in `frontend/index.html` reads `gym-tracker-theme`, `gym-theme-mode`, and `gym-realm` from localStorage and writes the four `--color-accent*` vars (minimal mode) or `data-realm` (LOTR mode) onto `<html>` before the React bundle loads. The 13-preset palette is duplicated from `src/theme/presets.js`; a comment in `AppContext.jsx` flags both copies as needing to stay in sync.
 
 ## Still Open
 
-### O1. No session status enum validation (was O11)
+### O1. No session status enum validation
 **File:** `backend/app/routers/tracker.py` (~line 391)
 Status is checked against `{"completed","partial","skipped"}` at the endpoint but the
 model accepts any string. A direct DB insert could bypass validation.
 **Fix:** SQLAlchemy `Enum` column + DB migration.
 **Priority:** Low — endpoint-level validation is sufficient for API access.
 
-### O2. `test_log_bulk_relog_replaces` is flaky / broken
-**File:** `backend/tests/test_logging_api.py:71`
-Pre-existing test failure — `resp2`'s returned `session_log_id` equals `resp1`'s even
-though the payload changed. Unrelated to rank/share work. Skipped/ignored in recent
-commits but still present in the suite.
-**Priority:** Low — rest of suite passes (55/56 as of 2026-04-21).
-
-### O3. Logger UI never sets `is_true_1rm_attempt`
+### O2. Logger UI never sets `is_true_1rm_attempt`
 **Files:** `frontend/src/pages/Logger.jsx`, `backend/app/models.py` (`WorkoutLog.is_true_1rm_attempt`).
 The column exists and the backend's `check_strength_medals()` keys off it, but no
 frontend control ever sets it. In practice strength medals can only be awarded via
@@ -67,31 +62,9 @@ Settings → Manual 1RM (workaround shipped 2026-04-21). Add a "True 1RM attempt
 checkbox in the Logger to close the loop for in-workout 1RM tests.
 **Priority:** Low — Manual 1RM path covers the use case.
 
-### O4. Chat has no rooms
+### O3. Chat has no rooms
 An external session implemented room-aware chat with a WebSocket endpoint, but that
 work lived in an isolated environment and never reached `origin/master`. Current
 `backend/app/routers/chat.py` is global-only, polling-based (no WS). If rooms are
 wanted, the design needs to be re-implemented here.
 **Priority:** Feature, not bug.
-
-### O5. Friend profile UI renders `undefined` labels and hides medals/PRs
-**File:** `frontend/src/pages/UserProfile.jsx` (route `/users/:id`).
-`UserProfile.jsx` expects the shape returned by a full `/ranks/compare/:id`-style
-endpoint — fields `muscle_group`, `sub_index`, `sub_label`, `elo`, `thresholds`,
-`ratio`, plus `recent_prs`, `medals`, and total `elo`. The actual
-`/social/compare/:id` response returns only `{group, rank, score}` per rank and
-does not include `recent_prs` or `medals`. As a result, sub-tab labels show
-"undefined", total ELO shows 0, and the medals/PR sections never render.
-This bug predates the nav-consolidation split — it was carried over verbatim from
-the old combined `Profile.jsx` friend-view branch. Fix options: extend
-`/social/compare` to return the richer shape, or fetch `/ranks/compare/:id`
-alongside, or mount a dedicated endpoint.
-**Priority:** Medium — friend profile is visually broken for any user who visits it.
-
-~~O10. Theme flash-of-unthemed-content (FOUC) on first paint~~ — **Resolved 2026-05-18.**
-A blocking inline `<script>` added to `frontend/index.html` (before the bundle)
-reads `gym-tracker-theme`, `gym-theme-mode`, and `gym-realm` from localStorage
-and writes the four `--color-accent*` CSS vars (minimal mode) or `data-realm`
-(LOTR mode) onto `<html>` before React loads. The 13-preset map in the script is
-duplicated from `src/theme/presets.js`; a comment in `AppContext.jsx` flags both
-copies as needing to stay in sync.
