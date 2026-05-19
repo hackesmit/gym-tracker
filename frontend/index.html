@@ -13,6 +13,68 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Fraunces:ital,wght@0,400;0,700;0,900;1,400;1,900&family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <meta name="theme-color" content="#1a1d2e">
     <title>Anabolic Analyzer</title>
+    <!--
+      No-FOUC theme init — runs synchronously before the React bundle loads.
+      Reads gym-tracker-theme / gym-theme-mode / gym-realm from localStorage and
+      writes the four --color-accent* CSS vars (minimal mode) or data-realm
+      (LOTR mode) onto <html> so the first paint uses the stored preset.
+
+      IMPORTANT: the preset map below must stay in sync with
+      src/theme/presets.js (accent hex + ink) and the writeAccentVars /
+      applyTheme logic in src/context/AppContext.jsx.
+    -->
+    <script>
+      (function () {
+        try {
+          // Mirror of MINIMAL_PRESETS in src/theme/presets.js
+          // { accent, ink } only — tint/border derived via alpha channels below.
+          var presets = {
+            lime:    { accent: '#d4ff4a', ink: '#000000' },
+            amber:   { accent: '#f5b544', ink: '#000000' },
+            cyan:    { accent: '#4ad4ff', ink: '#000000' },
+            crimson: { accent: '#ff4a5a', ink: '#ffffff' },
+            ember:   { accent: '#ff6a1a', ink: '#000000' },
+            saffron: { accent: '#ffb300', ink: '#000000' },
+            mint:    { accent: '#4aff9e', ink: '#000000' },
+            teal:    { accent: '#2dd4bf', ink: '#000000' },
+            sky:     { accent: '#7cc4ff', ink: '#000000' },
+            indigo:  { accent: '#8b7cff', ink: '#ffffff' },
+            magenta: { accent: '#ff4ac4', ink: '#ffffff' },
+            rose:    { accent: '#ff8fa3', ink: '#000000' },
+            ivory:   { accent: '#e8e4d8', ink: '#000000' },
+          };
+
+          // Minimal hexToRgba — mirrors src/theme/presets.js hexToRgba()
+          function hexToRgba(hex, alpha) {
+            var h = hex.replace(/^#/, '');
+            if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+            var r = parseInt(h.slice(0,2),16);
+            var g = parseInt(h.slice(2,4),16);
+            var b = parseInt(h.slice(4,6),16);
+            return 'rgba('+r+','+g+','+b+','+alpha+')';
+          }
+
+          var html = document.documentElement;
+          var mode = localStorage.getItem('gym-theme-mode') || 'neutral';
+
+          if (mode === 'lotr') {
+            // LOTR mode: set data-realm and data-mode; no accent vars needed
+            var realm = localStorage.getItem('gym-realm') || 'gondor';
+            html.setAttribute('data-mode', 'lotr');
+            html.setAttribute('data-realm', realm);
+          } else {
+            // Minimal mode: write four accent CSS vars
+            var key = localStorage.getItem('gym-tracker-theme') || 'lime';
+            var p = presets[key] || presets['lime'];
+            html.setAttribute('data-mode', 'minimal');
+            html.style.setProperty('--color-accent',        p.accent);
+            html.style.setProperty('--color-accent-ink',    p.ink);
+            html.style.setProperty('--color-accent-tint',   hexToRgba(p.accent, 0.07));
+            html.style.setProperty('--color-accent-border', hexToRgba(p.accent, 0.20));
+          }
+        } catch (e) { /* localStorage may be blocked in private-browsing or sandboxed iframes */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

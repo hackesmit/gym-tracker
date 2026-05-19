@@ -25,6 +25,10 @@ export function AppProvider({ children }) {
   const REALMS = ['gondor', 'rohan', 'rivendell', 'mordor', 'shire'];
   const [realm, setRealmState] = useState(() => localStorage.getItem('gym-realm') || 'gondor');
 
+  // NOTE: index.html contains a no-FOUC inline <script> that mirrors this
+  // logic (preset map + writeAccentVars + applyTheme).  If you change the
+  // four CSS var names, localStorage keys, or any preset hex/ink value, you
+  // MUST update the inline script in index.html to match.
   const writeAccentVars = (presetKey) => {
     const preset = getPreset(presetKey);
     const html = document.documentElement;

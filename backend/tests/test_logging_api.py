@@ -55,6 +55,11 @@ def test_log_bulk_session_success(client, db):
 
 
 def test_log_bulk_relog_replaces(client, db):
+    """Re-logging the same (program, week, session) replaces the old workout_log
+    rows.  The handler deletes the old SessionLog and creates a fresh one, so
+    the returned session_log_id may or may not differ (SQLite recycles IDs after
+    DELETE, Postgres does not).  What matters is the replace semantic: after the
+    second call only the second payload's sets exist for that session."""
     program, exercises = _seed_program(db)
     payload = {
         "program_id": program.id, "week": 1, "session_name": "TEST",
@@ -66,11 +71,25 @@ def test_log_bulk_relog_replaces(client, db):
     assert resp1.status_code == 201
     id1 = resp1.json()["session_log_id"]
 
+    # Relog with a different weight — should replace, not append
     payload["sets"][0]["load_kg"] = 85.0
     resp2 = client.post("/api/log/bulk", json=payload)
     assert resp2.status_code == 201
     id2 = resp2.json()["session_log_id"]
-    assert id2 != id1
+
+    # The session_log_id must be valid
+    assert id2 > 0
+
+    # Only ONE workout_log row should exist for this session (replace, not append)
+    logs = (
+        db.query(WorkoutLog)
+        .filter(WorkoutLog.session_log_id == id2)
+        .all()
+    )
+    assert len(logs) == 1, f"Expected 1 set after relog, got {len(logs)}"
+    assert logs[0].load_kg == 85.0, (
+        f"Expected relog load 85.0 kg, got {logs[0].load_kg}"
+    )
 
 
 def test_log_invalid_exercise_id(client, db):
