@@ -61,6 +61,40 @@ describe('SetRow', () => {
     expect(screen.getByRole('button', { name: /DS/ })).toBeInTheDocument();
   });
 
+  it('shows 1RM button on external layout when reps_completed === 1', () => {
+    renderRow({
+      bodyweightKind: null,
+      set: { ...baseSet, reps_completed: 1, is_true_1rm_attempt: false },
+    });
+    expect(screen.getByRole('button', { name: /1RM/ })).toBeInTheDocument();
+  });
+
+  it('hides 1RM button on external layout when reps_completed > 1', () => {
+    renderRow({
+      bodyweightKind: null,
+      set: { ...baseSet, reps_completed: 5, is_true_1rm_attempt: false },
+    });
+    expect(screen.queryByRole('button', { name: /1RM/ })).not.toBeInTheDocument();
+  });
+
+  it('shows 1RM button on pure-BW layout when reps_completed === 1', () => {
+    renderRow({
+      bodyweightKind: 'pure',
+      userBodyweightKg: 80,
+      set: { ...baseSet, reps_completed: 1, is_true_1rm_attempt: false },
+    });
+    expect(screen.getByRole('button', { name: /1RM/ })).toBeInTheDocument();
+  });
+
+  it('hides 1RM button on pure-BW layout when reps_completed > 1', () => {
+    renderRow({
+      bodyweightKind: 'pure',
+      userBodyweightKg: 80,
+      set: { ...baseSet, reps_completed: 3, is_true_1rm_attempt: false },
+    });
+    expect(screen.queryByRole('button', { name: /1RM/ })).not.toBeInTheDocument();
+  });
+
   it('weighted-capable Total in lbs mode converts added correctly', () => {
     // BW 80 kg = 176.5 lbs; user types added=20 in display units (lbs).
     // Total kg = 80 + displayToKg(20, 'lbs') = 80 + 9.072 = 89.07 kg.
