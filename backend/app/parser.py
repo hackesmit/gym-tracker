@@ -40,18 +40,6 @@ _SUPERSET_RE = re.compile(r"^([A-Z])(\d):\s*(.+)$", re.IGNORECASE)
 # Regex for WEEK header in column 0
 _WEEK_RE = re.compile(r"^WEEK\s+(\d+)$", re.IGNORECASE)
 
-# Known session names (used for validation, not detection)
-_KNOWN_SESSIONS = {
-    "UPPER BODY",
-    "LOWER BODY",
-    "FULL BODY",
-    "FULL BODY A",
-    "FULL BODY B",
-    "PUSH",
-    "PULL",
-    "LEGS",
-}
-
 
 def _safe_str(value: Any) -> str | None:
     """Convert a cell value to a cleaned string, or None if empty."""

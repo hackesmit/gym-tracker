@@ -15,8 +15,8 @@ from .models import User
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me-please")
 JWT_ALGORITHM = "HS256"
-DEFAULT_EXPIRY_DAYS = 7
-REMEMBER_EXPIRY_DAYS = 30
+_DEFAULT_EXPIRY_DAYS = 7
+_REMEMBER_EXPIRY_DAYS = 30
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
@@ -35,7 +35,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(sub: str | int, remember: bool = False) -> str:
-    days = REMEMBER_EXPIRY_DAYS if remember else DEFAULT_EXPIRY_DAYS
+    days = _REMEMBER_EXPIRY_DAYS if remember else _DEFAULT_EXPIRY_DAYS
     payload = {
         "sub": str(sub),
         "exp": datetime.now(timezone.utc) + timedelta(days=days),

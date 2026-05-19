@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..analytics.deload import get_deload_check
-from ..analytics.overload import get_overload_plan, suggest_next_session
+from ..analytics.overload import get_overload_plan
 from ..analytics.progress import get_exercise_progress
 from ..analytics.recovery import get_recovery_status
 from ..analytics.strength import get_strength_standards
