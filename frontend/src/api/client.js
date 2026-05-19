@@ -137,7 +137,7 @@ export const createCustomProgram = (data) =>
   request('/programs/custom', { method: 'POST', body: JSON.stringify(data) });
 export const getSchedule = (id) => request(`/program/${id}/schedule`);
 export const updateProgramStatus = (id, status) =>
-  request(`/program/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PATCH' });
+  request(`/program/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 export const swapExercise = (programId, oldName, newName) =>
   request(`/program/${programId}/exercise/${encodeURIComponent(oldName)}`, {
     method: 'PATCH',

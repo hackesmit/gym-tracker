@@ -36,8 +36,9 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 26. ~~`PATCH /api/manual-1rm` only fired `_update_holder` for the four `strength_1rm:*` medals, never the derivative chain (`_recompute_strength_derivatives`).~~ Fixed 2026-04-26. Saves now invoke the derivative chain so Powerlifting Total, Best Relative Strength, and Most Improved fire from Settings without requiring a logged 1RM attempt. Also calls `recompute_for_user` so muscle ranks reflect the new manual value immediately. CLAUDE.md "Medal awarding" section updated to reflect the actual behavior.
 27. ~~`POST /api/auth/absorb` raised IntegrityError and rolled back the entire transaction whenever the source user had any Achievement or ChatMessage rows~~ — both have FKs to `users.id` without `ON DELETE CASCADE`. Fixed 2026-04-26. Both models added to the migration list before `db.delete(src)`. Documented "claim my hackesmit data" flow now works for users who have ever earned a PR or sent a chat message. Regression test in `backend/tests/test_absorb.py`.
 28. ~~Logging hamstring curls / leg extensions / chest flies / ab work didn't move the corresponding rank~~ — fixed 2026-05-02. Spec at `docs/superpowers/specs/2026-05-02-muscle-rank-coverage-audit-design.md`. New isolation pathways added for every previously-uncovered group; arms split into biceps + triceps; abs added as a ranked group. Pure-isolation cap (`MAX_ISOLATION_ONLY_ELO = 2500`) prevents leg-curl-only Champion claims.
-29. ~~No guard against overlapping open vacation periods~~ — fixed 2026-05-18. `POST /api/vacation` now rejects a new period with 409 if an open one (`end_date IS NULL`) already exists for the user, with detail "An open vacation period already exists. End it first." Prevents stale open rows from accumulating. Regression test added in `backend/tests/test_vacation.py`.
-30. ~~Render backend decommissioned~~ — fixed 2026-05-18. The free-tier Render deploy at `gym-tracker-09w0.onrender.com` has been dead for months. Fly.io at `gym-tracker-api-bold-violet-7582.fly.dev` is the authoritative backend. CLAUDE.md Live URLs section no longer references Render.
+29. ~~Program status PATCH mismatch: frontend sends query string, backend expects JSON body~~ — fixed 2026-05-18. `frontend/src/api/client.js::updateProgramStatus()` was hitting `PATCH /api/programs/{id}/status?status=X` with status as a query parameter, but the backend's `StatusUpdate` pydantic model expected a JSON body `{"status": "X"}`, causing all Pause/Complete/Abandon/Resume buttons to return 422. Changed frontend to send JSON body matching backend schema. All 54 frontend tests pass.
+30. ~~No guard against overlapping open vacation periods~~ — fixed 2026-05-18. `POST /api/vacation` now rejects a new period with 409 if an open one (`end_date IS NULL`) already exists for the user, with detail "An open vacation period already exists. End it first." Prevents stale open rows from accumulating. Regression test added in `backend/tests/test_vacation.py`.
+31. ~~Render backend decommissioned~~ — fixed 2026-05-18. The free-tier Render deploy at `gym-tracker-09w0.onrender.com` has been dead for months. Fly.io at `gym-tracker-api-bold-violet-7582.fly.dev` is the authoritative backend. CLAUDE.md Live URLs section no longer references Render.
 
 ## Still Open
 
@@ -70,7 +71,7 @@ work lived in an isolated environment and never reached `origin/master`. Current
 wanted, the design needs to be re-implemented here.
 **Priority:** Feature, not bug.
 
-### O6. Dashboard "Week Streak" label shows a day count
+### O5. Dashboard "Week Streak" label shows a day count
 **Files:** `frontend/src/pages/Dashboard.jsx:161`, `backend/app/routers/dashboard.py:94-110`, `frontend/src/i18n.js` (`common.streak`).
 Label was renamed to "Week Streak" as part of the 2026-04-22 completion-based
 progression work, but Dashboard still reads `week.streak_days` — a count of
