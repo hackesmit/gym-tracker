@@ -149,9 +149,21 @@ def _compute_streaks(
     logs_map: dict[tuple[int, str], "SessionLog"],
     frequency: int,
     vacation_periods: list,
+    today: date | None = None,
 ) -> tuple[int, int]:
     """Return (current_streak, longest_streak) of consecutive calendar weeks
-    where the user completed >= frequency sessions. Vacation weeks are transparent."""
+    where the user completed >= frequency sessions. Vacation weeks are transparent.
+
+    The walk always extends to the present (or *today* override) so a user who
+    stops training eventually sees current_streak drop to 0 — it never freezes
+    at whatever it was on the last logged date.
+
+    The in-progress current week (today's ISO week) does NOT count toward the
+    streak until the user reaches *frequency* completed sessions for it, so the
+    streak does not flicker mid-week."""
+    if today is None:
+        today = date.today()
+
     if not logs_map:
         return 0, 0
 
@@ -187,7 +199,14 @@ def _compute_streaks(
                 return True
         return False
 
-    all_weeks = list(_iso_weeks_between(earliest_date, latest_date))
+    # O8 fix: extend the walk to today so gaps after the last log are visible.
+    walk_end = max(latest_date, today)
+    all_weeks = list(_iso_weeks_between(earliest_date, walk_end))
+
+    # Determine the current ISO week — it only counts if already completed.
+    today_iso_year, today_iso_week, _ = today.isocalendar()
+    current_week_key = (today_iso_year, today_iso_week)
+    current_week_done = week_counts.get(current_week_key, 0) >= frequency
 
     streak = 0
     longest = 0
@@ -195,7 +214,12 @@ def _compute_streaks(
         monday = date.fromisocalendar(iso_year, iso_week, 1)
         if _is_vacation_week(monday):
             continue
-        if week_counts.get((iso_year, iso_week), 0) >= frequency:
+        wk_key = (iso_year, iso_week)
+        # Don't credit the in-progress current week for longest unless done.
+        if wk_key == current_week_key and not current_week_done:
+            streak = 0
+            continue
+        if week_counts.get(wk_key, 0) >= frequency:
             streak += 1
             longest = max(longest, streak)
         else:
@@ -206,7 +230,11 @@ def _compute_streaks(
         monday = date.fromisocalendar(iso_year, iso_week, 1)
         if _is_vacation_week(monday):
             continue
-        if week_counts.get((iso_year, iso_week), 0) >= frequency:
+        wk_key = (iso_year, iso_week)
+        # In-progress current week: skip it (don't start or break the streak here).
+        if wk_key == current_week_key and not current_week_done:
+            continue
+        if week_counts.get(wk_key, 0) >= frequency:
             current += 1
         else:
             break
@@ -325,7 +353,6 @@ def get_tracker(
         "total_sessions": total_sessions,
         "completed": completed,
         "skipped": skipped,
-        "missed": 0,
         "adherence_pct": adherence_pct,
         "current_streak": current_streak,
         "longest_streak": longest_streak,
@@ -803,7 +830,6 @@ def get_adherence(
         "total_prescribed": total_prescribed,
         "total_completed": total_completed,
         "total_skipped": total_skipped,
-        "total_missed": 0,
         "current_streak": current_streak,
         "longest_streak": longest_streak,
         "sessions_per_week_avg": sessions_per_week_avg,

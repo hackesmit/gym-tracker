@@ -21,6 +21,7 @@ from ..models import (
     User,
     WorkoutLog,
 )
+from .tracker import _compute_streaks, _session_logs_map, _vacation_periods
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -112,6 +113,16 @@ def get_dashboard(
     while cursor in dates_set:
         streak_days += 1
         cursor = cursor - timedelta(days=1)
+
+    # Week-based streak: uses the same _compute_streaks logic as the tracker
+    # endpoint so "Week Streak" in the UI reflects actual completed weeks.
+    current_streak = 0
+    if active:
+        active_logs_map = _session_logs_map(db, active.id)
+        active_vacations = _vacation_periods(db, uid)
+        current_streak, _ = _compute_streaks(
+            active_logs_map, active.frequency, active_vacations
+        )
 
     # Recent PRs: last 5 e1rm PR achievements
     prs = (
@@ -223,6 +234,7 @@ def get_dashboard(
             "sessions": int(week_sessions),
             "volume_kg": round(float(week_volume), 1),
             "streak_days": streak_days,
+            "current_streak": current_streak,
         },
         "recent_prs": recent_prs,
         "medal_summary": medal_summary,

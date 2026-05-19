@@ -162,7 +162,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-3">
           <Kpi label={t('common.sessions')} value={week.sessions ?? 0} />
           <Kpi label={t('common.volume')} value={week.volume_kg != null ? Math.round(convert(week.volume_kg)).toLocaleString() : '0'} suffix={unitLabel} />
-          <Kpi label={t('common.streak')} value={week.streak_days ?? week.streak ?? 0} icon={lotr ? <Torch size={14} className="text-accent" /> : <Flame size={14} className="text-accent" />} />
+          <Kpi label={t('common.streak')} value={week.current_streak ?? week.streak_days ?? 0} icon={lotr ? <Torch size={14} className="text-accent" /> : <Flame size={14} className="text-accent" />} />
         </div>
       </section>
 

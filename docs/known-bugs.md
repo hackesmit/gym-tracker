@@ -39,6 +39,9 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 29. ~~Program status PATCH mismatch: frontend sends query string, backend expects JSON body~~ — fixed 2026-05-18. `frontend/src/api/client.js::updateProgramStatus()` was hitting `PATCH /api/programs/{id}/status?status=X` with status as a query parameter, but the backend's `StatusUpdate` pydantic model expected a JSON body `{"status": "X"}`, causing all Pause/Complete/Abandon/Resume buttons to return 422. Changed frontend to send JSON body matching backend schema. All 54 frontend tests pass.
 30. ~~No guard against overlapping open vacation periods~~ — fixed 2026-05-18. `POST /api/vacation` now rejects a new period with 409 if an open one (`end_date IS NULL`) already exists for the user, with detail "An open vacation period already exists. End it first." Prevents stale open rows from accumulating. Regression test added in `backend/tests/test_vacation.py`.
 31. ~~Render backend decommissioned~~ — fixed 2026-05-18. The free-tier Render deploy at `gym-tracker-09w0.onrender.com` has been dead for months. Fly.io at `gym-tracker-api-bold-violet-7582.fly.dev` is the authoritative backend. CLAUDE.md Live URLs section no longer references Render.
+32. ~~Dashboard "Week Streak" label shows a day count (O7)~~ — fixed 2026-05-18. `dashboard.py` now calls `_compute_streaks` on the active program to produce a week-based `current_streak` field in the `week_stats` payload. `Dashboard.jsx` reads `week.current_streak ?? week.streak_days ?? 0` so week-based counts take priority over the old day-count fallback. `streak_days` kept in payload for back-compat.
+33. ~~`_compute_streaks` current-streak freezes instead of breaking (O8)~~ — fixed 2026-05-18. `all_weeks` now extends to `max(latest_log_date, today)` so the walk reaches the present. The in-progress current week is skipped (not credited, not penalised) until `frequency` sessions are completed, preventing mid-week flicker. `_compute_streaks` accepts an optional `today` parameter for deterministic testing. Two new regression tests added to `backend/tests/test_tracker_progression.py`.
+34. ~~Dead `missed: 0` / `total_missed: 0` fields in tracker responses (O9)~~ — fixed 2026-05-18. Both fields removed from `get_tracker` and `get_adherence` in `tracker.py`. Confirmed no frontend consumer reads either field.
 
 ## Still Open
 
@@ -71,45 +74,7 @@ work lived in an isolated environment and never reached `origin/master`. Current
 wanted, the design needs to be re-implemented here.
 **Priority:** Feature, not bug.
 
-### O5. Dashboard "Week Streak" label shows a day count
-**Files:** `frontend/src/pages/Dashboard.jsx:161`, `backend/app/routers/dashboard.py:94-110`, `frontend/src/i18n.js` (`common.streak`).
-Label was renamed to "Week Streak" as part of the 2026-04-22 completion-based
-progression work, but Dashboard still reads `week.streak_days` — a count of
-consecutive calendar **days** with a completed session, not weeks. A user with one
-session/day for 5 days displays "5 Week Streak."
-**Fix options:**
-1. Replace `streak_days` in `dashboard.py` with the new week-based
-   `current_streak` from `tracker._compute_streaks` (requires fetching the active
-   program + vacations in the dashboard payload).
-2. Keep day semantics and undo the label rename (revert `common.streak` to
-   "Streak" and keep the day count honest).
-**Priority:** Medium — user-visible inconsistency, not a crash.
-
-### O7. `_compute_streaks` current-streak freezes instead of breaking
-**File:** `backend/app/routers/tracker.py:190` (and the trailing `reversed(all_weeks)` walk at 204-212).
-`all_weeks` is built from the earliest to the **latest logged** date. If a user
-stops training, the trailing walk never considers weeks between their last log and
-today — so `current_streak` reports whatever it was at the last log, forever. A user
-who completed week 10 and then logged nothing for a month still shows their
-pre-gap streak instead of 0.
-**Fix sketch:** use `latest_date = max(latest_logged_date, today)` (or `today`
-outright) so the walk includes the present. Also decide whether the in-progress
-current week should count before `frequency` sessions are hit — probably not, or
-the streak flickers mid-week.
-**Missing test:** "user takes 2 unlogged weeks without a vacation period →
-current_streak == 0" — would have caught this.
-**Priority:** Medium — the streak is a core gamification signal; a frozen streak
-is misleading.
-
-### O8. `missed: 0` is dead weight in tracker responses
-**Files:** `backend/app/routers/tracker.py:328, 805`.
-The `missed` / `total_missed` fields are kept "for backward compat" in
-`get_tracker` and `get_adherence`, but the frontend already dropped the `missed`
-status icon from `Tracker.jsx` and nothing else reads the field. Remove it and
-any client that still references it.
-**Priority:** Low — cosmetic.
-
-### O9. Friend profile UI renders `undefined` labels and hides medals/PRs
+### O5. Friend profile UI renders `undefined` labels and hides medals/PRs
 **File:** `frontend/src/pages/UserProfile.jsx` (route `/users/:id`).
 `UserProfile.jsx` expects the shape returned by a full `/ranks/compare/:id`-style
 endpoint — fields `muscle_group`, `sub_index`, `sub_label`, `elo`, `thresholds`,

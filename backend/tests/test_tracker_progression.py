@@ -88,7 +88,8 @@ class TestComputeStreaks:
             (1, "S3", "2026-04-01", "completed"),
             (1, "S4", "2026-04-02", "completed"),
         ])
-        current, longest = _compute_streaks(logs, 4, [])
+        # Pass today = last log date so the walk doesn't extend past the logged week.
+        current, longest = _compute_streaks(logs, 4, [], today=date(2026, 4, 2))
         assert current == 1
         assert longest == 1
 
@@ -103,7 +104,7 @@ class TestComputeStreaks:
             (2, "S3", "2026-04-08", "completed"),
             (2, "S4", "2026-04-09", "completed"),
         ])
-        current, longest = _compute_streaks(logs, 4, [])
+        current, longest = _compute_streaks(logs, 4, [], today=date(2026, 4, 9))
         assert current == 2
         assert longest == 2
 
@@ -117,7 +118,9 @@ class TestComputeStreaks:
             (2, "S2", "2026-04-07", "completed"),
             (2, "S3", "2026-04-08", "completed"),
         ])
-        current, longest = _compute_streaks(logs, 4, [])
+        # Pass a today one week ahead so the incomplete week is a past week (not
+        # the in-progress current week) and correctly breaks the streak.
+        current, longest = _compute_streaks(logs, 4, [], today=date(2026, 4, 14))
         assert current == 0
         assert longest == 1
 
@@ -128,9 +131,57 @@ class TestComputeStreaks:
             (1, "S3", "2026-04-01", "completed"),
             (1, "S4", "2026-04-02", "partial"),
         ])
-        current, longest = _compute_streaks(logs, 4, [])
+        current, longest = _compute_streaks(logs, 4, [], today=date(2026, 4, 6))
         assert current == 0
         assert longest == 0
+
+    def test_current_streak_breaks_after_unlogged_weeks(self):
+        """O8 regression: current_streak must drop to 0 when weeks pass with no logs.
+
+        Setup: user completes one full week (4 sessions) in the week of 2026-03-30,
+        then logs nothing for 4 more weeks.  When _compute_streaks is called with
+        a *today* that is 4 weeks later, the streak should be 0, not 1.
+        """
+        logs = self._make_logs_map_with_dates([
+            (1, "S1", "2026-03-30", "completed"),
+            (1, "S2", "2026-03-31", "completed"),
+            (1, "S3", "2026-04-01", "completed"),
+            (1, "S4", "2026-04-02", "completed"),
+        ])
+        # Simulate calling the function 4 weeks later (2026-04-27 is a Monday,
+        # i.e. the start of the 5th week after the last logged session).
+        simulated_today = date.fromisoformat("2026-04-27")
+        current, longest = _compute_streaks(logs, 4, [], today=simulated_today)
+        assert current == 0, f"Expected 0 but got {current}: streak should break after gap"
+        # Longest is still 1 (the one good week did happen historically).
+        assert longest == 1
+
+    def test_in_progress_week_does_not_count_before_frequency_met(self):
+        """O8 / O7: the current in-progress week should not inflate the streak.
+
+        The user has a perfect streak through last week. This week they have only
+        logged 2 out of 4 required sessions so far. current_streak should equal
+        the number of fully-completed prior weeks, not include the partial week.
+        """
+        # Week of 2026-03-30: fully completed (4 sessions)
+        # Week of 2026-04-06: fully completed (4 sessions)
+        # Week of 2026-04-13 (today = 2026-04-15, mid-week): only 2 sessions logged
+        logs = self._make_logs_map_with_dates([
+            (1, "S1", "2026-03-30", "completed"),
+            (1, "S2", "2026-03-31", "completed"),
+            (1, "S3", "2026-04-01", "completed"),
+            (1, "S4", "2026-04-02", "completed"),
+            (2, "S1", "2026-04-06", "completed"),
+            (2, "S2", "2026-04-07", "completed"),
+            (2, "S3", "2026-04-08", "completed"),
+            (2, "S4", "2026-04-09", "completed"),
+            (3, "S1", "2026-04-13", "completed"),
+            (3, "S2", "2026-04-14", "completed"),
+        ])
+        simulated_today = date.fromisoformat("2026-04-15")  # mid-week, 2 of 4 done
+        current, longest = _compute_streaks(logs, 4, [], today=simulated_today)
+        assert current == 2, f"Expected 2 (completed weeks only) but got {current}"
+        assert longest == 2
 
     def test_vacation_week_is_transparent(self):
         class FakeVacation:
@@ -150,6 +201,7 @@ class TestComputeStreaks:
             (3, "S3", "2026-04-15", "completed"),
             (3, "S4", "2026-04-16", "completed"),
         ])
-        current, longest = _compute_streaks(logs, 4, vacations)
+        # today = last log date so the walk ends at the fully-completed week.
+        current, longest = _compute_streaks(logs, 4, vacations, today=date(2026, 4, 16))
         assert current == 2
         assert longest == 2
