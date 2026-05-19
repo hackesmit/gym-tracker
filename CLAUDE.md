@@ -6,7 +6,6 @@ Full-stack multi-user gym workout tracker. Upload training programs from Excel, 
 ## Live URLs
 - **Frontend:** https://gym-tracker-six-virid.vercel.app/
 - **Backend API:** https://gym-tracker-api-bold-violet-7582.fly.dev/ (Fly.io — authoritative)
-- **Legacy backend (dead):** https://gym-tracker-09w0.onrender.com/ — Render free tier, returns 404, no longer used
 - **Database:** Supabase project `cjokzjmmypoxawnftilz` (Postgres)
 - **Repo:** https://github.com/hackesmit/gym-tracker
 
