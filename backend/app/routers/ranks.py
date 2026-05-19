@@ -173,11 +173,14 @@ def my_ranks(
     }
 
 
-@router.post("/recompute")
+@router.post("/recompute", tags=["admin"])
 def recompute(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Ops-only — no UI caller. GET /api/ranks already auto-recomputes
+    on read; this endpoint exists for ops to force a recompute via curl.
+    """
     result = recompute_for_user(db, current_user.id)
     return {"updated": True, "groups": result, "elo": aggregate_elo(result)}
 

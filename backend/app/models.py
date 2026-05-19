@@ -1,11 +1,13 @@
 """SQLAlchemy ORM models for the Gym Tracker application."""
 
+import enum
 from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Enum as SAEnum,
     Float,
     ForeignKey,
     Integer,
@@ -18,6 +20,18 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from .database import Base
+
+
+class SessionStatus(str, enum.Enum):
+    """Valid values for SessionLog.status.
+
+    Using str mixin so values serialize as plain strings in JSON responses
+    and compare equal to string literals (e.g. ``log.status == "completed"``).
+    """
+
+    completed = "completed"
+    partial = "partial"
+    skipped = "skipped"
 
 
 class User(Base):
@@ -180,7 +194,13 @@ class SessionLog(Base):
     session_name: Mapped[str] = mapped_column(String, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(
-        String, nullable=False
+        SAEnum(
+            SessionStatus,
+            name="session_status",
+            native_enum=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
     )  # completed/partial/skipped
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     session_rpe: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -393,6 +413,7 @@ class ChatMessage(Base):
     )
     kind: Mapped[str] = mapped_column(String, nullable=False, default="user")
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    room: Mapped[str] = mapped_column(String, nullable=False, default="general", index=True)
     payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), index=True

@@ -71,6 +71,8 @@ class BulkSetItem(BaseModel):
     dropset_load_kg: Optional[float] = Field(None, ge=0)
     added_load_kg: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
+    is_true_1rm_attempt: bool = False
+    completed_successfully: bool = False
 
 
 class BulkLogRequest(BaseModel):
@@ -287,6 +289,8 @@ def log_bulk_session(
             dropset_load_kg=s.dropset_load_kg,
             added_load_kg=s.added_load_kg,
             session_log_id=session_log.id,
+            is_true_1rm_attempt=s.is_true_1rm_attempt,
+            completed_successfully=s.completed_successfully,
         )
         db.add(log)
 

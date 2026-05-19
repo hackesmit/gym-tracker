@@ -71,7 +71,6 @@ gym-tracker/
 │   │   │   ├── ErrorBoundary.jsx      # Catch render crashes with reload option
 │   │   │   ├── ErrorMessage.jsx
 │   │   │   ├── Toast.jsx              # Replaces alert()
-│   │   │   ├── AchievementToast.jsx   # Achievement notifications
 │   │   │   ├── RestTimer.jsx          # Countdown + compact bar variant
 │   │   │   ├── WarmUpPyramid.jsx      # Auto-generated warm-up pyramid widget
 │   │   │   ├── ProgramUpload.jsx      # Excel (.xlsx) uploader

@@ -19,7 +19,10 @@ function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }
       </div>
       <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
       <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
-      <DsButton set={set} onUpdate={onUpdate} />
+      <div className="flex flex-col gap-1">
+        <DsButton set={set} onUpdate={onUpdate} />
+        <OneRMButton set={set} onUpdate={onUpdate} />
+      </div>
     </div>
   );
 }
@@ -39,7 +42,7 @@ function BwChip({ userBodyweightKg, unitLabel, units, onSetBw, onBwValueChange }
 
 function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw, onBwValueChange }) {
   return (
-    <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] sm:grid-cols-[2rem_1fr_1fr_5rem] gap-1.5 sm:gap-2 items-end">
+    <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end">
       <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
       <div className="relative">
         <span className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
@@ -49,6 +52,7 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
       </div>
       <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
       <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
+      <OneRMButton set={set} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -86,7 +90,10 @@ function WeightedCapableLayout({
         </div>
         <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
         <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
-        <DsButton set={set} onUpdate={onUpdate} />
+        <div className="flex flex-col gap-1">
+          <DsButton set={set} onUpdate={onUpdate} />
+          <OneRMButton set={set} onUpdate={onUpdate} />
+        </div>
       </div>
       {userBodyweightKg && (
         <p className="text-[10px] text-text-muted text-right pr-12">
@@ -141,6 +148,25 @@ function DsButton({ set, onUpdate }) {
       }`}
     >
       DS
+    </button>
+  );
+}
+
+function OneRMButton({ set, onUpdate }) {
+  if (+set.reps_completed !== 1) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onUpdate('is_true_1rm_attempt', !set.is_true_1rm_attempt)}
+      title="Mark as true 1RM attempt (awards strength medal)"
+      aria-label="1RM"
+      className={`pb-1.5 pt-1 text-[10px] font-bold rounded-lg border transition-colors touch-manipulation ${
+        set.is_true_1rm_attempt
+          ? 'border-amber-400 bg-amber-400/15 text-amber-400'
+          : 'border-surface-lighter bg-surface-light text-text-muted hover:text-text'
+      }`}
+    >
+      1RM
     </button>
   );
 }

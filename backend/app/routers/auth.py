@@ -459,13 +459,15 @@ def admin_bw_migration_rerun_for_user(
     return summary
 
 
-@router.get("/admin/user-rank-trace/{user_id_or_name}")
+@router.get("/admin/user-rank-trace/{user_id_or_name}", tags=["admin"])
 def admin_user_rank_trace(
     user_id_or_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Comprehensive back-rank diagnostic for one user. Returns:
+    """Ops-only — no UI caller, kept as a diagnostic tool.
+
+    Comprehensive back-rank diagnostic for one user. Returns:
       - User's resolved BW (live + latest BodyMetric)
       - The recompute_for_user output (rank + source per group)
       - All back-class WorkoutLogs in the last 90 days (canonical name,

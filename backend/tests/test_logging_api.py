@@ -249,3 +249,61 @@ def test_body_metric_post_does_not_regress_user_bw_with_older_date(client, db):
     user = db.query(User).first()
     db.refresh(user)
     assert user.bodyweight_kg == 80.0
+
+
+def test_bulk_log_persists_is_true_1rm_attempt(db, client):
+    """Bulk log with is_true_1rm_attempt=True and completed_successfully=True
+    persists both fields so the medal engine can fire on in-workout 1RM sets."""
+    user = db.query(User).first()
+    p = Program(user_id=user.id, name="P_1RM", frequency=3, start_date=date.today())
+    db.add(p); db.flush()
+    pe = ProgramExercise(
+        program_id=p.id, week=1, session_name="S1RM", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="BENCH PRESS",
+        exercise_name_canonical="BENCH PRESS",
+        prescribed_reps="1", working_sets=1,
+    )
+    db.add(pe); db.commit()
+    payload = {
+        "program_id": p.id, "week": 1, "session_name": "S1RM",
+        "date": str(date.today()),
+        "sets": [{
+            "program_exercise_id": pe.id, "set_number": 1,
+            "load_kg": 120.0, "reps_completed": 1,
+            "is_true_1rm_attempt": True,
+            "completed_successfully": True,
+        }],
+    }
+    r = client.post("/api/log/bulk", json=payload)
+    assert r.status_code == 201, r.text
+    log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
+    assert log.is_true_1rm_attempt is True
+    assert log.completed_successfully is True
+
+
+def test_bulk_log_1rm_attempt_defaults_false(db, client):
+    """Omitting is_true_1rm_attempt from the payload must default to False
+    so existing clients remain backwards-compatible."""
+    user = db.query(User).first()
+    p = Program(user_id=user.id, name="P_1RM_DEF", frequency=3, start_date=date.today())
+    db.add(p); db.flush()
+    pe = ProgramExercise(
+        program_id=p.id, week=1, session_name="S_DEF", session_order_in_week=1,
+        exercise_order=1, exercise_name_raw="SQUAT",
+        exercise_name_canonical="SQUAT",
+        prescribed_reps="5", working_sets=1,
+    )
+    db.add(pe); db.commit()
+    payload = {
+        "program_id": p.id, "week": 1, "session_name": "S_DEF",
+        "date": str(date.today()),
+        "sets": [{
+            "program_exercise_id": pe.id, "set_number": 1,
+            "load_kg": 100.0, "reps_completed": 5,
+        }],
+    }
+    r = client.post("/api/log/bulk", json=payload)
+    assert r.status_code == 201, r.text
+    log = db.query(WorkoutLog).filter_by(program_exercise_id=pe.id).first()
+    assert not log.is_true_1rm_attempt
+    assert not log.completed_successfully

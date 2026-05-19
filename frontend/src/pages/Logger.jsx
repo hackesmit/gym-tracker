@@ -215,6 +215,7 @@ export default function Logger() {
           is_dropset: false,
           dropset_load_kg: '',
           dropset_reps: '',
+          is_true_1rm_attempt: false,
           is_superset: ex.is_superset || false,
           superset_group: ex.superset_group || null,
         });
@@ -345,6 +346,8 @@ export default function Logger() {
               dropset_load_kg: s.is_dropset && s.dropset_load_kg
                 ? displayToKg(s.dropset_load_kg, units)
                 : null,
+              is_true_1rm_attempt: !!s.is_true_1rm_attempt,
+              ...(s.is_true_1rm_attempt ? { completed_successfully: true } : {}),
             };
           }),
       };

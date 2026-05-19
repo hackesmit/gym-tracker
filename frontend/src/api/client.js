@@ -126,10 +126,14 @@ export const getRankStandards = () => request('/ranks/standards');
 export const getCompare = (userId) => request(`/social/compare/${userId}`);
 
 // Chat
-export const getChatMessages = (afterId) =>
-  request(`/chat${afterId != null ? `?after_id=${afterId}` : ''}`);
-export const sendChatMessage = (content) =>
-  request('/chat', { method: 'POST', body: JSON.stringify({ content }) });
+export const getChatMessages = (afterId, room = 'general') => {
+  const params = new URLSearchParams({ room });
+  if (afterId != null) params.set('after_id', afterId);
+  return request(`/chat?${params}`);
+};
+export const sendChatMessage = (content, room = 'general') =>
+  request('/chat', { method: 'POST', body: JSON.stringify({ content, room }) });
+export const getChatRooms = () => request('/chat/rooms');
 
 // Programs
 export const getPrograms = () => request('/programs');

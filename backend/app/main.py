@@ -101,6 +101,9 @@ def _run_migrations(db):
     # Sessions All-Time, Perfect Week, and the Performance trio).
     _ensure_column("medals", "category", "VARCHAR")
 
+    # chat_messages: room column added 2026-05-18 for multi-room chat
+    _ensure_column("chat_messages", "room", "VARCHAR", default="'general'")
+
     # Compound indexes for dashboard / analytics performance
     index_stmts = [
         "CREATE INDEX IF NOT EXISTS idx_workout_logs_user_date ON workout_logs (user_id, date)",
@@ -109,6 +112,7 @@ def _run_migrations(db):
         "CREATE INDEX IF NOT EXISTS idx_cardio_logs_user_date ON cardio_logs (user_id, date)",
         "CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements (user_id)",
         "CREATE INDEX IF NOT EXISTS idx_feed_events_user_created ON feed_events (user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_messages_room ON chat_messages (room)",
     ]
     if not is_sqlite:
         index_stmts += [
@@ -463,6 +467,70 @@ def _drop_is_bodyweight_column_once(db):
     print("drop_is_bodyweight: column removed.", flush=True)
 
 
+def _normalize_session_status_once(db):
+    """One-shot: set SessionLog.status to 'completed' for any row whose
+    value is outside the valid set {completed, partial, skipped}.
+
+    Belt-and-suspenders companion to the SAEnum constraint added to the
+    column definition — handles data that slipped in before the constraint
+    existed (e.g. via direct DB inserts or future schema drift).
+
+    Uses raw SQL so the ORM's enum validation layer cannot raise on the
+    bad values that this migration exists to fix.
+
+    Gated by migration_log row 'normalize_session_status_2026_05'.
+    """
+    from .models import MigrationLog
+
+    name = "normalize_session_status_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    # Raw SQL to bypass the ORM enum processor, which raises LookupError
+    # when fetching rows that contain values outside the enum.
+    result = db.execute(
+        text(
+            "UPDATE session_logs SET status = 'completed' "
+            "WHERE status NOT IN ('completed', 'partial', 'skipped')"
+        )
+    )
+    touched = result.rowcount
+
+    db.add(MigrationLog(name=name))
+    db.commit()
+
+    if touched:
+        print(
+            f"normalize_session_status: fixed {touched} row(s) "
+            "with invalid status → 'completed'.",
+            flush=True,
+        )
+
+
+def _backfill_chat_room_once(db):
+    """One-shot: set room = 'general' on any chat_messages row where room IS NULL.
+
+    The room column was added with DEFAULT 'general', so all new rows are fine.
+    Rows written before the column existed will have NULL; this fixes them.
+    Gated by migration_log row 'backfill_chat_room_2026_05'.
+    """
+    from .models import ChatMessage, MigrationLog
+
+    name = "backfill_chat_room_2026_05"
+    if db.query(MigrationLog).filter_by(name=name).first() is not None:
+        return
+
+    updated = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.room.is_(None))
+        .update({"room": "general"}, synchronize_session=False)
+    )
+    db.add(MigrationLog(name=name))
+    db.commit()
+    if updated:
+        print(f"backfill_chat_room: set room='general' on {updated} rows.", flush=True)
+
+
 def _backfill_default_user(db):
     """Ensure a user named 'hackesmit' exists with a password set.
 
@@ -508,6 +576,8 @@ async def lifespan(app: FastAPI):
         _backfill_user_bodyweight_once(db)   # 2026-05-03 BW sync fix
         _untag_bw_data_fix_once(db)          # 2026-05-18 retag PLATE-WEIGHTED CRUNCH / WALKING LUNGES / LEG RAISES
         _drop_is_bodyweight_column_once(db)   # 2026-05-18 dead column removal
+        _normalize_session_status_once(db)   # 2026-05-18 sweep invalid SessionLog.status values
+        _backfill_chat_room_once(db)          # 2026-05-18 backfill room='general' for pre-room rows
         seed_preset_programs(db)
         backfill_consistency_medals(db)
         _rebuild_cardio_medals_once(db)
