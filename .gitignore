@@ -30,3 +30,15 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Scratch / mockup assets (kept locally, never tracked)
+.playwright-mcp/
+LOTR Badges/
+LOTR Sidebar/
+Medals.html
+Rank Badges.html
+lotr-gym-icons.html
+lotr_svg_icons.zip
+image-removebg-preview.png
+one-ring-and-also-my-locker-screen-v0-*.webp
+redesign-*.png
