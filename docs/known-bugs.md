@@ -44,27 +44,10 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 35. ~~`test_log_bulk_relog_replaces` was asserting nonexistent behavior~~ — fixed 2026-05-18 (commit `22b0217`). `log_bulk_session` deliberately reuses the SessionLog row via the `UniqueConstraint("program_id", "week", "session_name")` and replaces its workout_log children. The test was checking that `session_log_id` differed between calls — which happens to be true on Postgres (auto-increment) but not on SQLite (id recycling). Rewrote the assertion to verify the actual replace semantic: exactly one WorkoutLog row tied to the returned id, carrying the second payload's values.
 36. ~~Friend profile UI renders `undefined` labels and hides medals/PRs~~ — fixed 2026-05-18 (commit `537a0db`). `_build_profile` in `backend/app/routers/social.py` now returns `elo: {total, mean, max, dominant_tier}` (via `aggregate_elo`), `medals: [...]` (mirroring `/api/medals/my`), and `recent_prs: [...]` (last 5 `Achievement` rows of `type == "e1rm_pr"`). `UserProfile.jsx` already reads these keys — no frontend change needed. Test: `backend/tests/test_social_compare_shape.py`.
 37. ~~Theme flash-of-unthemed-content (FOUC) on first paint~~ — fixed 2026-05-18 (commit `a6fda64`). Blocking inline `<script>` in `frontend/index.html` reads `gym-tracker-theme`, `gym-theme-mode`, and `gym-realm` from localStorage and writes the four `--color-accent*` vars (minimal mode) or `data-realm` (LOTR mode) onto `<html>` before the React bundle loads. The 13-preset palette is duplicated from `src/theme/presets.js`; a comment in `AppContext.jsx` flags both copies as needing to stay in sync.
+38. ~~No session status enum validation~~ — fixed 2026-05-18 (in `7dc42e1`). `SessionLog.status` is now `SAEnum(SessionStatus, native_enum=False)` so the column constraint is enforced at the ORM boundary. One-shot lifespan migration `normalize_session_status_2026_05` sweeps any pre-existing rows with a status outside `{completed, partial, skipped}` to `completed` (uses raw SQL to bypass the ORM enum lookup that would refuse the row). Tests: `backend/tests/test_session_status_enum.py`.
+39. ~~Logger UI never set `is_true_1rm_attempt`~~ — fixed 2026-05-18 (in `7dc42e1` + `7e45592`). New `OneRMButton` in `SetRow.jsx` renders only when `reps_completed === 1`, mirroring the existing DS (drop-set) toggle. Saving forwards `is_true_1rm_attempt: true` + `completed_successfully: true` in the bulk payload so `check_strength_medals` fires for in-workout 1RMs. Tests: 4 new Vitest cases + 2 new pytest cases.
+40. ~~Chat has no rooms~~ — fixed 2026-05-18 (in `7dc42e1` + `6f01b6c`). `ChatMessage.room` column added (default `general`, indexed). `GET /api/chat?room=X` filters; `POST /api/chat` accepts `room` body field; `GET /api/chat/rooms` lists distinct rooms with last-activity. `Chat.jsx` adds a left sidebar listing rooms (general always first), a "+" affordance to create a new room (auto-created on first message), and routes the 5s message poll to the selected room with a 30s rooms-list refresh. No WebSockets. Tests: `backend/tests/test_chat_rooms.py` (8 cases).
 
 ## Still Open
 
-### O1. No session status enum validation
-**File:** `backend/app/routers/tracker.py` (~line 391)
-Status is checked against `{"completed","partial","skipped"}` at the endpoint but the
-model accepts any string. A direct DB insert could bypass validation.
-**Fix:** SQLAlchemy `Enum` column + DB migration.
-**Priority:** Low — endpoint-level validation is sufficient for API access.
-
-### O2. Logger UI never sets `is_true_1rm_attempt`
-**Files:** `frontend/src/pages/Logger.jsx`, `backend/app/models.py` (`WorkoutLog.is_true_1rm_attempt`).
-The column exists and the backend's `check_strength_medals()` keys off it, but no
-frontend control ever sets it. In practice strength medals can only be awarded via
-Settings → Manual 1RM (workaround shipped 2026-04-21). Add a "True 1RM attempt"
-checkbox in the Logger to close the loop for in-workout 1RM tests.
-**Priority:** Low — Manual 1RM path covers the use case.
-
-### O3. Chat has no rooms
-An external session implemented room-aware chat with a WebSocket endpoint, but that
-work lived in an isolated environment and never reached `origin/master`. Current
-`backend/app/routers/chat.py` is global-only, polling-based (no WS). If rooms are
-wanted, the design needs to be re-implemented here.
-**Priority:** Feature, not bug.
+(All bugs resolved as of 2026-05-18.)
