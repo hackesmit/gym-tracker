@@ -74,6 +74,18 @@ def create_vacation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Check if an open vacation period already exists
+    existing_open = (
+        db.query(VacationPeriod)
+        .filter(VacationPeriod.user_id == current_user.id, VacationPeriod.end_date.is_(None))
+        .first()
+    )
+    if existing_open is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="An open vacation period already exists. End it first.",
+        )
+
     vp = VacationPeriod(
         user_id=current_user.id,
         start_date=body.start_date,

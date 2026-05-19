@@ -57,3 +57,11 @@ class TestVacationCRUD:
         res = client.get("/api/vacation/active")
         assert res.status_code == 200
         assert res.json()["end_date"] is None
+
+    def test_create_vacation_rejects_overlap_when_open_exists(self, client, db):
+        """Cannot create a second vacation while one is still open."""
+        r1 = client.post("/api/vacation", json={"start_date": "2026-05-01", "reason": "trip"})
+        assert r1.status_code == 201, r1.text
+        r2 = client.post("/api/vacation", json={"start_date": "2026-05-10", "reason": "second"})
+        assert r2.status_code == 409, r2.text
+        assert "already exists" in r2.json().get("detail", "").lower()

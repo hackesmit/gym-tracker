@@ -35,10 +35,11 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 26. ~~`PATCH /api/manual-1rm` only fired `_update_holder` for the four `strength_1rm:*` medals, never the derivative chain (`_recompute_strength_derivatives`).~~ Fixed 2026-04-26. Saves now invoke the derivative chain so Powerlifting Total, Best Relative Strength, and Most Improved fire from Settings without requiring a logged 1RM attempt. Also calls `recompute_for_user` so muscle ranks reflect the new manual value immediately. CLAUDE.md "Medal awarding" section updated to reflect the actual behavior.
 27. ~~`POST /api/auth/absorb` raised IntegrityError and rolled back the entire transaction whenever the source user had any Achievement or ChatMessage rows~~ — both have FKs to `users.id` without `ON DELETE CASCADE`. Fixed 2026-04-26. Both models added to the migration list before `db.delete(src)`. Documented "claim my hackesmit data" flow now works for users who have ever earned a PR or sent a chat message. Regression test in `backend/tests/test_absorb.py`.
 28. ~~Logging hamstring curls / leg extensions / chest flies / ab work didn't move the corresponding rank~~ — fixed 2026-05-02. Spec at `docs/superpowers/specs/2026-05-02-muscle-rank-coverage-audit-design.md`. New isolation pathways added for every previously-uncovered group; arms split into biceps + triceps; abs added as a ranked group. Pure-isolation cap (`MAX_ISOLATION_ONLY_ELO = 2500`) prevents leg-curl-only Champion claims.
+29. ~~No guard against overlapping open vacation periods~~ — fixed 2026-05-18. `POST /api/vacation` now rejects a new period with 409 if an open one (`end_date IS NULL`) already exists for the user, with detail "An open vacation period already exists. End it first." Prevents stale open rows from accumulating. Regression test added in `backend/tests/test_vacation.py`.
 
 ## Still Open
 
-### O1. No session status enum validation
+### O1. No session status enum validation (was O11)
 **File:** `backend/app/routers/tracker.py` (~line 391)
 Status is checked against `{"completed","partial","skipped"}` at the endpoint but the
 model accepts any string. A direct DB insert could bypass validation.
@@ -122,15 +123,7 @@ status icon from `Tracker.jsx` and nothing else reads the field. Remove it and
 any client that still references it.
 **Priority:** Low — cosmetic.
 
-### O10. No guard against overlapping open vacation periods
-**File:** `backend/app/routers/vacation.py` (`create_vacation`).
-Nothing prevents a user from creating a second vacation while one is still
-open (`end_date is None`). `get_active_vacation` hides the problem by returning
-the most recent, but stale open rows accumulate. Either reject a new POST
-while an open one exists, or auto-close the prior one on the new request.
-**Priority:** Low — no user-visible effect today.
-
-### O11. Friend profile UI renders `undefined` labels and hides medals/PRs
+### O10. Friend profile UI renders `undefined` labels and hides medals/PRs
 **File:** `frontend/src/pages/UserProfile.jsx` (route `/users/:id`).
 `UserProfile.jsx` expects the shape returned by a full `/ranks/compare/:id`-style
 endpoint — fields `muscle_group`, `sub_index`, `sub_label`, `elo`, `thresholds`,
@@ -144,7 +137,7 @@ the old combined `Profile.jsx` friend-view branch. Fix options: extend
 alongside, or mount a dedicated endpoint.
 **Priority:** Medium — friend profile is visually broken for any user who visits it.
 
-### O12. Theme flash-of-unthemed-content (FOUC) on first paint
+### O11. Theme flash-of-unthemed-content (FOUC) on first paint
 
 **Affects:** Users whose stored `gym-tracker-theme` preset is not `lime` (the
 default), especially visually distinct ones like `magenta`, `indigo`, `crimson`.
