@@ -50,7 +50,7 @@ gym-tracker/
 │   │   │   ├── medals.py      # Medal catalog + current holders + my medals
 │   │   │   ├── ranks.py       # Muscle ranks (+ friend compare)
 │   │   │   ├── social.py      # Feed + leaderboard + compare
-│   │   │   ├── chat.py        # Global chat messages (system + user)
+│   │   │   ├── chat.py        # Chat messages with free-form rooms (system + user)
 │   │   │   ├── cardio.py      # Cardio log CRUD + summary
 │   │   │   └── vacation.py    # Vacation period CRUD (streak grace)
 │   │   └── analytics/         # Per-metric calculation modules
@@ -99,7 +99,7 @@ gym-tracker/
 │   │   │   ├── Profile.jsx      # Self profile: BodyMap, medals, PRs (hub sub-tab /profile/me)
 │   │   │   ├── UserProfile.jsx  # Friend profile view at /users/:id
 │   │   │   ├── Compare.jsx      # Side-by-side compare with a friend
-│   │   │   ├── Chat.jsx         # Global chat (system + user messages)
+│   │   │   ├── Chat.jsx         # Rooms sidebar + per-room polling chat
 │   │   │   ├── Settings.jsx     # Theme, units, rest timer, manual 1RM, export, language
 │   │   │   └── hubs/
 │   │   │       ├── StatsHub.jsx    # /stats hub → Progress · Analytics · History
@@ -201,11 +201,15 @@ Admin-only endpoints gated by `ADMIN_USERNAMES = {"hackesmit"}` in
   + username + password so the target can still log in. Refuses admin and preset
   targets. Covered by `tests/test_admin_wipe.py` (4 tests).
 
-## Medal awarding (2026-04-21 fix, derivatives wired 2026-04-26)
+## Medal awarding (2026-04-21 fix, derivatives wired 2026-04-26, in-workout 1RM UI 2026-05-18)
 Strength medals (`strength_1rm:bench|squat|deadlift|ohp`) are awarded by
 `check_strength_medals()` in `backend/app/medal_engine.py` when a `WorkoutLog` has
 `is_true_1rm_attempt=True` + `completed_successfully=True` + `reps_completed=1`. The
-Logger UI does not currently expose the `is_true_1rm_attempt` flag.
+Logger surfaces this via a small **1RM** toggle on each set row (next to the **DS**
+drop-set toggle), rendered only when `reps_completed === 1`. Tapping the toggle
+sets `is_true_1rm_attempt: true` AND `completed_successfully: true` in the saved
+bulk payload, so the medal engine fires for in-workout 1RM attempts without
+needing the Settings → Manual 1RM workaround.
 
 **Settings → Manual 1RM fires the full medal chain (2026-04-26).** `PATCH /api/manual-1rm`
 routes each category through `_update_holder()` with `source_type="manual_1rm"` AND

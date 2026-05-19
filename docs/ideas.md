@@ -64,7 +64,7 @@ Share a training program with another user via 8-char code. Owner clicks Share �
 Dedicated page showing all-time PRs per exercise with dates, badges for milestones (1 plate bench, 2 plate squat, etc.). **Shipped — Achievements / Hall of Heroes page.**
 
 ### Streak Badges & Achievements ✅
-Unlock badges: "Iron Week" (4 sessions), "Month of Iron" (16 sessions), "Century Club" (100 sessions), "PR Machine" (5 PRs in a week). **Shipped — Achievements page + `AchievementToast` component; achievements table in DB with tiered badges.**
+Unlock badges: "Iron Week" (4 sessions), "Month of Iron" (16 sessions), "Century Club" (100 sessions), "PR Machine" (5 PRs in a week). **Shipped — Achievements page; achievements table in DB with tiered badges. (The originally-planned `AchievementToast` component was never wired in and was removed 2026-05-18 — the toast system uses `Toast.jsx` + `ToastContext` instead.)**
 
 ### Friends & Compare ✅ (new since original brainstorm)
 Friend requests, accept/decline, friend profiles, side-by-side compare with muscle-rank + medal overlay.
@@ -75,8 +75,8 @@ Automatic medal awarding for strongest lift, longest streak, longest cardio, etc
 ### Muscle Ranks ✅ (new, rewritten 2026-04-21 → 7-tier 2026-04-22)
 7-tier rank per muscle group (Copper→Champion; Emerald dropped 2026-04-22 to match the badge system) with fixed global thresholds so ranks are comparable across users. Each non-Champion tier subdivides into 5 slots V→I. Continuous ELO 0–3100 per muscle. `GET /api/ranks/standards` + expandable Profile card document the ladder (2026-04-23).
 
-### Global Chat ✅ (polling)
-Simple global chat room with system messages for medal events. Rooms/WebSocket upgrade is still open (see `docs/known-bugs.md` O5).
+### Chat with Rooms ✅ (polling)
+Free-form rooms with a sidebar switcher. `general` always pinned first, any other room is auto-created on first message. System messages for medal events post to `general`. **Shipped 2026-05-18 — `ChatMessage.room` column + `/api/chat?room=…` + `/api/chat/rooms` + Chat.jsx sidebar.** WebSocket upgrade still open as a future improvement (the current 5s/30s polling is fine at single-digit-users scale).
 
 ---
 
