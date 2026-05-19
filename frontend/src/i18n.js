@@ -255,6 +255,10 @@ const STRINGS = {
     'chat.empty': 'No messages yet. Start the conversation.',
     'chat.placeholder': 'Type a message…',
     'chat.send': 'Send',
+    'chat.rooms': 'Rooms',
+    'chat.newRoom': 'New room',
+    'chat.general': 'general',
+    'chat.noMessages': 'No messages in this room yet.',
 
     // ─── Cardio ───
     'cardio.title': 'Cardio',
@@ -669,6 +673,10 @@ const STRINGS = {
     'chat.empty': 'Aún no hay mensajes. Comienza la conversación.',
     'chat.placeholder': 'Escribe un mensaje…',
     'chat.send': 'Enviar',
+    'chat.rooms': 'Salas',
+    'chat.newRoom': 'Nueva sala',
+    'chat.general': 'general',
+    'chat.noMessages': 'Aún no hay mensajes en esta sala.',
 
     // ─── Cardio ───
     'cardio.title': 'Cardio',

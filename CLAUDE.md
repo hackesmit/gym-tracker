@@ -530,6 +530,7 @@ All managed by SQLAlchemy ORM. Foreign keys enforce referential integrity.
 - `User.manual_1rm` — JSON column storing known 1RMs per lift category. New format:
   `{"bench": {"value_kg": 102.1, "tested_at": "2026-03-20"}}`. Backend also accepts old bare-float format.
 - `Program.share_code` — unique, nullable, indexed. Non-null ⇒ sharing is enabled.
+- `ChatMessage.room` — VARCHAR, default `"general"`, indexed. Filters messages by room. `GET /api/chat?room=<name>` and `POST /api/chat` body field `room` (default `"general"`). `GET /api/chat/rooms` returns distinct rooms with `{name, message_count, last_message_at, last_message_preview}` ordered by last-activity, `general` always first. Rows written before the column existed are backfilled to `"general"` by a one-shot migration `backfill_chat_room_2026_05`.
 - `SessionLog` has `UniqueConstraint("program_id", "week", "session_name")`
 - `ProgramExercise` has `UniqueConstraint("program_id", "week", "session_name", "exercise_order")`
 - `Friendship` has `UniqueConstraint("requester_id", "addressee_id")`
