@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import CardioLog, FeedEvent, MedalCurrentHolder, MuscleScore, SessionLog, User, WorkoutLog
+from ..medal_engine import ICON_KEY_BY_METRIC
+from ..models import Achievement, CardioLog, FeedEvent, Medal, MedalCurrentHolder, MuscleScore, SessionLog, User, WorkoutLog
+from ..rank_engine import aggregate_elo
 from .friends import get_friend_ids, _aggregate
 
 
@@ -17,14 +19,53 @@ def _build_profile(db: Session, user: User) -> dict:
     # same shape as /api/ranks — including sub_index, sub_label, elo. The
     # old shape (`{group, rank, score}` only) silently defaulted every
     # sub-tier label to "V" on the frontend.
-    from .ranks import _serialize as _serialize_ranks
+    from .ranks import _serialize as _serialize_ranks, _compact_for_aggregate
     agg = _aggregate(db, user.id)
     ranks = _serialize_ranks(user.id, db)
+    compact = _compact_for_aggregate(ranks)
+    elo = aggregate_elo(compact)
     medals_owned = (
         db.query(func.count(MedalCurrentHolder.medal_id))
         .filter(MedalCurrentHolder.user_id == user.id)
         .scalar()
     ) or 0
+    # Held medals as full list (mirrors /api/medals/my shape)
+    held = (
+        db.query(MedalCurrentHolder, Medal)
+        .join(Medal, Medal.id == MedalCurrentHolder.medal_id)
+        .filter(MedalCurrentHolder.user_id == user.id)
+        .all()
+    )
+    medals_list = [
+        {
+            "medal_id": m.id,
+            "name": m.name,
+            "metric_type": m.metric_type,
+            "icon": ICON_KEY_BY_METRIC.get(m.metric_type),
+            "category": m.category,
+            "value": h.value,
+            "unit": m.unit,
+            "updated_at": h.updated_at.isoformat() if h.updated_at else None,
+        }
+        for (h, m) in held
+    ]
+    # Recent PRs: last 5 e1rm_pr achievements
+    prs = (
+        db.query(Achievement)
+        .filter(Achievement.user_id == user.id, Achievement.type == "e1rm_pr")
+        .order_by(Achievement.achieved_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_prs = [
+        {
+            "exercise": a.exercise_name,
+            "e1rm": a.value,
+            "previous": a.previous_value,
+            "at": a.achieved_at.isoformat() if a.achieved_at else None,
+        }
+        for a in prs
+    ]
     return {
         "user_id": user.id,
         "username": user.username,
@@ -34,7 +75,10 @@ def _build_profile(db: Session, user: User) -> dict:
         "cardio_km_30d": agg["cardio_km_30d"],
         "medals_owned": int(medals_owned),
         "muscle_ranks": ranks,
-        "elo_total": sum(int(r.get("elo") or 0) for r in ranks),
+        "elo": elo,
+        "elo_total": int(elo.get("total") or 0),  # back-compat
+        "medals": medals_list,
+        "recent_prs": recent_prs,
     }
 
 router = APIRouter(prefix="/api/social", tags=["social"])
