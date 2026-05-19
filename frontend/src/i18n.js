@@ -378,9 +378,6 @@ const STRINGS = {
     'settings.knownOneRM': 'Known 1RM',
     'settings.knownOneRM.desc': 'Enter your known one-rep maxes with the date tested. Used for strength standards when no qualifying barbell lift has been logged.',
     'settings.knownOneRM.save': 'Save 1RMs',
-    'settings.knownOneRM.bicepsCurl': 'Standing barbell curl 1RM',
-    'settings.knownOneRM.dip': 'Weighted dip 1RM (added load)',
-    'settings.knownOneRM.cableCrunch': 'Cable crunch 1RM',
 
     // ─── Muscle group labels ───
     'muscle.chest': 'Chest',
@@ -795,9 +792,6 @@ const STRINGS = {
     'settings.knownOneRM': '1RM conocido',
     'settings.knownOneRM.desc': 'Introduce tus 1RM conocidos con la fecha del test. Se usan para los estándares de fuerza cuando no hay un levantamiento de barra que califique.',
     'settings.knownOneRM.save': 'Guardar 1RMs',
-    'settings.knownOneRM.bicepsCurl': 'Curl con barra de pie 1RM',
-    'settings.knownOneRM.dip': 'Fondos lastrados 1RM (carga añadida)',
-    'settings.knownOneRM.cableCrunch': 'Crunch en polea 1RM',
 
     // ─── Muscle group labels ───
     'muscle.chest': 'Pecho',

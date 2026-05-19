@@ -82,7 +82,7 @@ gym-tracker/
 │   │   │   ├── TrainingHeatmap.jsx    # GitHub-style adherence heatmap
 │   │   │   ├── JourneyProgress.jsx    # Dashboard/achievements journey rank widget
 │   │   │   ├── BodyMap.jsx            # SVG body with per-muscle rank coloring
-│   │   │   ├── LotrIcons.jsx          # 11 heraldic SVG icons
+│   │   │   ├── LotrIcons.jsx          # 8 heraldic SVG icons
 │   │   │   └── RealmBorder.jsx        # Decorative dividers + PageHeader
 │   │   ├── pages/
 │   │   │   ├── Login.jsx | Register.jsx
@@ -433,7 +433,7 @@ see `docs/known-bugs.md`.
 
 ## LOTR Theme System
 Subtle Tolkien atmosphere over a modern fitness UI. 5 switchable realms with 6 panel variants
-and an 11-icon heraldic set. Theme persists in `localStorage`.
+and an 8-icon heraldic set. Theme persists in `localStorage`.
 
 ### Realms
 | Realm | Accent | Surfaces | Vibe |
@@ -451,9 +451,8 @@ Applied via `data-realm` attribute on `<html>`. `gym-theme-mode` in localStorage
 `stone-panel`, `parchment-panel`, `forged-panel`, `heraldic-card`, `rivendell-card`, `chronicle-card`
 
 ### Heraldic Icons (LotrIcons.jsx)
-Ring (e1RM PR), Sword (weight PR), Shield (consistency), Torch (streak), Mountain (volume),
-Crown (elite), WhiteTree (special), MapScroll (journey), Chronicle (history), Hammer (forging),
-GondorShield (realm crest).
+Ring (e1RM PR), Sword (weight PR), Torch (streak), MapScroll (journey), Chronicle (history),
+TodaysQuest (dashboard nav), EyeOfSauron (tracker nav), SettingsGear (settings nav).
 
 ### Microcopy
 - PR → "A new record is forged."

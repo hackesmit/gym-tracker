@@ -17,57 +17,6 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export function RestTimerBar({ restPeriod, triggerKey, autoStart }) {
-  const totalSeconds = parseRestPeriod(restPeriod);
-  const [remaining, setRemaining] = useState(totalSeconds);
-  const [running, setRunning] = useState(false);
-  const intervalRef = useRef(null);
-
-  useEffect(() => {
-    const newTotal = parseRestPeriod(restPeriod);
-    setRemaining(newTotal);
-    if (autoStart && newTotal > 0) setRunning(true);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [restPeriod, triggerKey, autoStart]);
-
-  useEffect(() => {
-    if (running && remaining > 0) {
-      intervalRef.current = setInterval(() => {
-        setRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-            setRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
-
-  if (totalSeconds === 0 || remaining === totalSeconds) return null;
-
-  const progress = remaining / totalSeconds;
-  const m = Math.floor(remaining / 60);
-  const s = remaining % 60;
-
-  return (
-    <div className="flex items-center gap-2 px-2 py-1">
-      <div className="flex-1 h-[3px] bg-surface-lighter rounded-full overflow-hidden">
-        <div
-          className="h-full bg-accent rounded-full transition-all duration-1000 ease-linear"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
-      <span className="text-[10px] font-mono tabular-nums text-text-muted">
-        {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-      </span>
-    </div>
-  );
-}
-
 export default function RestTimer({ restPeriod, defaultSeconds = 0, autoStart = false, onComplete }) {
   const parsed = parseRestPeriod(restPeriod);
   const totalSeconds = parsed > 0 ? parsed : (defaultSeconds || 0);

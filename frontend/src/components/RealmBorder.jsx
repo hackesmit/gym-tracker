@@ -3,7 +3,7 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 // GondorDivider -- Noble symmetrical divider with a diamond center
 // ---------------------------------------------------------------------------
-export function GondorDivider({ className = '' }) {
+function GondorDivider({ className = '' }) {
   return (
     <div className={`flex items-center gap-3 my-4 ${className}`}>
       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent" />
@@ -24,7 +24,7 @@ export function GondorDivider({ className = '' }) {
 // ---------------------------------------------------------------------------
 // ElvenDivider -- Flowing leaf motif, teal-green tinted (Rivendell)
 // ---------------------------------------------------------------------------
-export function ElvenDivider({ className = '' }) {
+function ElvenDivider({ className = '' }) {
   return (
     <div className={`flex items-center gap-3 my-4 ${className}`}>
       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--color-rivendell)]/30 to-[var(--color-rivendell)]/40" />
@@ -52,7 +52,7 @@ export function ElvenDivider({ className = '' }) {
 // ---------------------------------------------------------------------------
 // DwarvenDivider -- Heavy angular geometric, bronze/copper (strength / PRs)
 // ---------------------------------------------------------------------------
-export function DwarvenDivider({ className = '' }) {
+function DwarvenDivider({ className = '' }) {
   return (
     <div className={`flex items-center gap-3 my-4 ${className}`}>
       <div className="flex-1 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-dwarven)]/50 to-[var(--color-dwarven)]/60" />
