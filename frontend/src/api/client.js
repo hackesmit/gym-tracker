@@ -142,6 +142,8 @@ export const createCustomProgram = (data) =>
 export const getSchedule = (id) => request(`/program/${id}/schedule`);
 export const updateProgramStatus = (id, status) =>
   request(`/program/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+export const activateProgram = (id) =>
+  request(`/program/${id}/activate`, { method: 'POST' });
 export const swapExercise = (programId, peId, newName) =>
   request(`/program/${programId}/exercise/${peId}/swap`, {
     method: 'PATCH',

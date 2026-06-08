@@ -13,7 +13,7 @@ import ProgramShareModal from '../components/ProgramShareModal';
 import ImportSharedProgram from '../components/ImportSharedProgram';
 import NippardPresetPicker from '../components/NippardPresetPicker';
 import { useApp } from '../context/AppContext';
-import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus } from '../api/client';
+import { getSchedule, getTracker, getTrackerWeek, updateProgramStatus, activateProgram } from '../api/client';
 import { useT } from '../i18n';
 
 const STATUS_STYLES = {
@@ -24,7 +24,7 @@ const STATUS_STYLES = {
 };
 
 export default function Program() {
-  const { activeProgram, refreshPrograms } = useApp();
+  const { activeProgram, programs, refreshPrograms } = useApp();
   const t = useT();
   const [schedule, setSchedule] = useState(null);
   const [tracker, setTracker] = useState(null);
@@ -113,6 +113,15 @@ export default function Program() {
     }
   };
 
+  const handleActivate = async (id) => {
+    try {
+      await activateProgram(id);
+      await refreshPrograms();
+    } catch (err) {
+      setError(err.message || 'Failed to switch program');
+    }
+  };
+
   const weekNumbers = useMemo(() => {
     if (!schedule?.schedule) return [];
     return Object.keys(schedule.schedule)
@@ -121,6 +130,34 @@ export default function Program() {
   }, [schedule]);
 
   const currentStatus = schedule?.status || activeProgram?.status || 'active';
+
+  const myProgramsPanel = programs && programs.length > 0 ? (
+    <Card title="My Programs" className="mb-4">
+      <div className="space-y-2">
+        {programs.map((p) => (
+          <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-surface-lighter px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{p.name}</p>
+              <p className="text-[11px] text-text-muted">{p.frequency}x / week</p>
+            </div>
+            {p.status === 'active' ? (
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES.active}`}>
+                Active
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleActivate(p.id)}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter touch-manipulation"
+              >
+                Activate
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  ) : null;
 
   if (loading) return <LoadingSpinner text="Loading program..." />;
 
@@ -149,6 +186,8 @@ export default function Program() {
             <ImportSharedProgram onImported={() => refreshPrograms()} />
           </div>
         </Card>
+
+        {myProgramsPanel}
 
         {showBuilder && (
           <ProgramBuilder
@@ -188,6 +227,7 @@ export default function Program() {
           onChange={() => refreshPrograms()}
         />
       )}
+      {myProgramsPanel}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
