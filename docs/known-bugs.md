@@ -1,7 +1,7 @@
 # Known Bugs & Issues
 
 Original audit: 2026-03-24
-Last updated: 2026-05-18
+Last updated: 2026-06-08
 
 ## Resolved
 
@@ -48,6 +48,8 @@ Bugs 1–11 (pre-multi-user phase) — see git history around commits `aba8816` 
 39. ~~Logger UI never set `is_true_1rm_attempt`~~ — fixed 2026-05-18 (in `7dc42e1` + `7e45592`). New `OneRMButton` in `SetRow.jsx` renders only when `reps_completed === 1`, mirroring the existing DS (drop-set) toggle. Saving forwards `is_true_1rm_attempt: true` + `completed_successfully: true` in the bulk payload so `check_strength_medals` fires for in-workout 1RMs. Tests: 4 new Vitest cases + 2 new pytest cases.
 40. ~~Chat has no rooms~~ — fixed 2026-05-18 (in `7dc42e1` + `6f01b6c`). `ChatMessage.room` column added (default `general`, indexed). `GET /api/chat?room=X` filters; `POST /api/chat` accepts `room` body field; `GET /api/chat/rooms` lists distinct rooms with last-activity. `Chat.jsx` adds a left sidebar listing rooms (general always first), a "+" affordance to create a new room (auto-created on first message), and routes the 5s message poll to the selected room with a 30s rooms-list refresh. No WebSockets. Tests: `backend/tests/test_chat_rooms.py` (8 cases).
 
+41. ~~Swapping one of two same-named exercises in a day swapped both~~ — fixed 2026-06-08 (deployed). The swap endpoint matched `ProgramExercise` rows by `exercise_name_canonical` across all weeks, so two slots that resolved to the same name (e.g. two "T BAR ROW") moved together. Replaced with `PATCH /api/program/{id}/exercise/{pe_id}/swap`, which targets exactly one row by primary key — de-linking siblings and making swaps **this-week-only** (was all-weeks). Frontend Logger passes `group.pe_id`; the swap button is hidden for legacy sets without a `pe_id`. Canonical name normalized to uppercase on swap. Tests: `backend/tests/test_program_swap_by_id.py` (4 cases) + updated `frontend/src/hooks/__tests__/useExerciseSwap.test.js`. Shipped alongside the program switcher, add-exercise button, and Logger unit-display cleanup — see CLAUDE.md "Program switcher, add-exercise, swap-by-id, Logger unit cleanup (2026-06-08)".
+
 ## Still Open
 
-(All bugs resolved as of 2026-05-18.)
+(All bugs resolved as of 2026-06-08.)
