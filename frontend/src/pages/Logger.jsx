@@ -624,13 +624,15 @@ export default function Logger() {
                               {intensityMarker === 'HEAVY' ? t('logger.intensity.heavy') : t('logger.intensity.backoff')}
                             </span>
                           )}
-                          <button
-                            onClick={() => openSwapModal(group.name, group.pe_id)}
-                            title={t('logger.swap')}
-                            className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
-                          >
-                            <ArrowLeftRight size={13} />
-                          </button>
+                          {group.pe_id != null && (
+                            <button
+                              onClick={() => openSwapModal(group.name, group.pe_id)}
+                              title={t('logger.swap')}
+                              className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
+                            >
+                              <ArrowLeftRight size={13} />
+                            </button>
+                          )}
                           {group.warm_up_sets && group.warm_up_sets !== '0' && (
                             <span className="text-[10px] text-text-muted shrink-0">
                               {group.warm_up_sets} warm-up
