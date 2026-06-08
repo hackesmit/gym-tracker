@@ -436,41 +436,42 @@ def update_program_status(
     return {"status": "updated", "program_id": program_id, "new_status": status}
 
 
-@router.patch("/program/{program_id}/exercise/{old_name}")
+@router.patch("/program/{program_id}/exercise/{pe_id}/swap")
 def swap_exercise(
     program_id: int,
-    old_name: str,
+    pe_id: int,
     body: ExerciseSwap,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Swap an exercise name across all weeks of a program."""
+    """Swap a single ProgramExercise slot (this-week-only scope).
+
+    Targets one row by id so two same-named slots in a day are independent.
+    """
     program = db.query(Program).filter(
         Program.id == program_id, Program.user_id == current_user.id
     ).first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
-    exercises = (
+    pe = (
         db.query(ProgramExercise)
         .filter(
+            ProgramExercise.id == pe_id,
             ProgramExercise.program_id == program_id,
-            ProgramExercise.exercise_name_canonical == old_name,
         )
-        .all()
+        .first()
     )
-    if not exercises:
-        raise HTTPException(status_code=404, detail=f"Exercise '{old_name}' not found in program")
+    if not pe:
+        raise HTTPException(status_code=404, detail="Exercise slot not found")
 
-    for ex in exercises:
-        ex.exercise_name_canonical = body.new_exercise_name
-        ex.exercise_name_raw = body.new_exercise_name
+    pe.exercise_name_canonical = body.new_exercise_name
+    pe.exercise_name_raw = body.new_exercise_name
     db.commit()
 
     return {
         "status": "swapped",
-        "old_name": old_name,
+        "pe_id": pe.id,
         "new_name": body.new_exercise_name,
-        "rows_updated": len(exercises),
     }
 
 
