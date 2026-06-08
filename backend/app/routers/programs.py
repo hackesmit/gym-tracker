@@ -445,6 +445,36 @@ def update_program_status(
     return {"status": "updated", "program_id": program_id, "new_status": status}
 
 
+@router.post("/program/{program_id}/activate")
+def activate_program(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Make this program the active one; pause any other active program."""
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    others = (
+        db.query(Program)
+        .filter(
+            Program.user_id == current_user.id,
+            Program.id != program_id,
+            Program.status == "active",
+        )
+        .all()
+    )
+    for other in others:
+        other.status = "paused"
+    program.status = "active"
+    db.commit()
+
+    return {"status": "activated", "program_id": program_id}
+
+
 @router.patch("/program/{program_id}/exercise/{pe_id}/swap")
 def swap_exercise(
     program_id: int,
