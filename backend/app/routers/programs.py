@@ -547,6 +547,13 @@ def add_exercise(
         )
         db.add(pe)
         created.append(pe)
+
+    if not created:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{body.session_name}' not found in program",
+        )
+
     db.commit()
     for pe in created:
         db.refresh(pe)

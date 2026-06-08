@@ -79,3 +79,14 @@ def test_add_exercise_other_users_program_404(client, db):
               "exercise_name": "CABLE FLY", "scope": "week"},
     )
     assert r.status_code == 404
+
+
+def test_add_exercise_week_scope_unknown_session_404(client, db):
+    user = db.query(User).first()
+    program = _make_program(db, user.id)
+    r = client.post(
+        f"/api/program/{program.id}/exercise",
+        json={"week": 1, "session_name": "NONEXISTENT",
+              "exercise_name": "CABLE FLY", "scope": "week"},
+    )
+    assert r.status_code == 404
