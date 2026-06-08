@@ -464,8 +464,8 @@ def swap_exercise(
     if not pe:
         raise HTTPException(status_code=404, detail="Exercise slot not found")
 
-    pe.exercise_name_canonical = body.new_exercise_name
-    pe.exercise_name_raw = body.new_exercise_name
+    pe.exercise_name_canonical = body.new_exercise_name.strip().upper()
+    pe.exercise_name_raw = body.new_exercise_name.strip()
     db.commit()
 
     return {

@@ -72,6 +72,23 @@ def test_swap_bad_pe_id_404(client, db):
     assert r.status_code == 404
 
 
+def test_swap_pe_id_from_another_program_404(client, db):
+    user = db.query(User).first()
+    prog_a = _make_program(db, user.id)
+    prog_b = _make_program(db, user.id)
+    pe_in_b = (
+        db.query(ProgramExercise)
+        .filter(ProgramExercise.program_id == prog_b.id)
+        .first()
+    )
+    # Use prog_a in the path but a pe_id that belongs to prog_b -> 404.
+    r = client.patch(
+        f"/api/program/{prog_a.id}/exercise/{pe_in_b.id}/swap",
+        json={"new_exercise_name": "X"},
+    )
+    assert r.status_code == 404
+
+
 def test_swap_other_users_program_404(client, db):
     user = db.query(User).first()
     program = _make_program(db, user.id)
