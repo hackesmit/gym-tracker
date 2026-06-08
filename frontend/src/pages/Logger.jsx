@@ -625,7 +625,7 @@ export default function Logger() {
                             </span>
                           )}
                           <button
-                            onClick={() => openSwapModal(group.name)}
+                            onClick={() => openSwapModal(group.name, group.pe_id)}
                             title={t('logger.swap')}
                             className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
                           >
