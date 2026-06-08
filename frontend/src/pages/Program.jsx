@@ -166,6 +166,17 @@ export default function Program() {
     </Card>
   ) : null;
 
+  const presetPanel = (
+    <Card title={t('program.presetsTitle')} className="mb-4">
+      <p className="text-xs text-text-muted mb-3">{t('program.presetsDesc')}</p>
+      <NippardPresetPicker
+        activate={false}
+        doneMessage={t('program.presetImported')}
+        onImported={() => refreshPrograms()}
+      />
+    </Card>
+  );
+
   if (loading) return <LoadingSpinner text="Loading program..." />;
 
   if (!activeProgram) {
@@ -235,6 +246,7 @@ export default function Program() {
         />
       )}
       {myProgramsPanel}
+      {presetPanel}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

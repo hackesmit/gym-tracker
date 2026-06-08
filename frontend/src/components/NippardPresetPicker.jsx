@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 import { importSharedProgram } from '../api/client';
 
 const VARIANTS = [
@@ -9,15 +9,18 @@ const VARIANTS = [
   { freq: 5, code: 'NIPPARD5', label: '5x / week', blurb: 'Push / pull / legs split' },
 ];
 
-export default function NippardPresetPicker({ onImported }) {
+export default function NippardPresetPicker({ onImported, activate = true, doneMessage }) {
   const [busyFreq, setBusyFreq] = useState(null);
   const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
 
   const onPick = async (variant) => {
     setBusyFreq(variant.freq);
     setError(null);
+    setDone(false);
     try {
-      await importSharedProgram(variant.code, { activate: true });
+      await importSharedProgram(variant.code, { activate });
+      setDone(true);
       onImported?.();
     } catch (err) {
       setError(err.message || 'Import failed');
@@ -52,6 +55,11 @@ export default function NippardPresetPicker({ onImported }) {
       </div>
       {error && (
         <p className="mt-2 text-xs text-danger">{error}</p>
+      )}
+      {done && doneMessage && (
+        <p className="mt-2 text-xs text-success flex items-center gap-1.5">
+          <Check size={12} className="shrink-0" /> {doneMessage}
+        </p>
       )}
     </div>
   );
