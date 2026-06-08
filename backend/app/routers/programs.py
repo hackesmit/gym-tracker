@@ -9,6 +9,8 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -35,7 +37,7 @@ class AddExercisePayload(BaseModel):
     week: int
     session_name: str
     exercise_name: str
-    scope: str = "week"  # "week" or "all_weeks"
+    scope: Literal["week", "all_weeks"] = "week"
 
 
 class CustomExercise(BaseModel):
@@ -549,9 +551,12 @@ def add_exercise(
         created.append(pe)
 
     if not created:
+        # Reachable for scope="week" when the session exists in other weeks but
+        # not the requested one; unreachable for all_weeks (target_weeks is built
+        # from existing rows).
         raise HTTPException(
             status_code=404,
-            detail=f"Session '{body.session_name}' not found in program",
+            detail=f"Session '{body.session_name}' not found in week {body.week}",
         )
 
     db.commit()

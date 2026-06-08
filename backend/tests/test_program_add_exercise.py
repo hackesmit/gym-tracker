@@ -90,3 +90,26 @@ def test_add_exercise_week_scope_unknown_session_404(client, db):
               "exercise_name": "CABLE FLY", "scope": "week"},
     )
     assert r.status_code == 404
+
+
+def test_add_exercise_week_scope_session_missing_in_that_week_404(client, db):
+    user = db.query(User).first()
+    program = _make_program(db, user.id)
+    # "PUSH" exists in weeks 1-3 but not week 99 -> 404 for week scope.
+    r = client.post(
+        f"/api/program/{program.id}/exercise",
+        json={"week": 99, "session_name": "PUSH",
+              "exercise_name": "CABLE FLY", "scope": "week"},
+    )
+    assert r.status_code == 404
+
+
+def test_add_exercise_rejects_invalid_scope_422(client, db):
+    user = db.query(User).first()
+    program = _make_program(db, user.id)
+    r = client.post(
+        f"/api/program/{program.id}/exercise",
+        json={"week": 1, "session_name": "PUSH",
+              "exercise_name": "CABLE FLY", "scope": "ALL"},
+    )
+    assert r.status_code == 422
