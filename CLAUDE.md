@@ -409,6 +409,40 @@ its own Card with stable `key`, isolating state. Pure helper:
 `groupSetsByProgramExercise` in `frontend/src/pages/Logger.jsx`,
 covered by `frontend/src/pages/__tests__/Logger.test.jsx`.
 
+## Program switcher, add-exercise, swap-by-id, Logger unit cleanup (2026-06-08)
+
+**Exercise swap by `program_exercise_id` (this-week-only).** The swap
+endpoint is now `PATCH /api/program/{id}/exercise/{pe_id}/swap` with
+body `{new_exercise_name}`. It updates exactly one `ProgramExercise`
+row (the canonical name is uppercased on write), so a swap only affects
+the current week — it never modifies other weeks. The old name-based
+route `PATCH /program/{id}/exercise/{old_name}` was removed. The Logger
+swap button passes `group.pe_id`; it is hidden for legacy set groups
+that carry no `pe_id`.
+
+**Add-exercise endpoint.** `POST /api/program/{id}/exercise` accepts
+`{week, session_name, exercise_name, scope}` where `scope` is a
+`Literal["week", "all_weeks"]` (invalid values → 422). `"week"` inserts
+the exercise into the named session of the given week only; `"all_weeks"`
+inserts it into every week that already contains a session with that
+name. Returns 404 if the target session does not exist in the specified
+week(s). The Logger exposes this as a "+ Add exercise" button that opens
+a catalog picker, then asks "Today only" (`scope=week`) vs "Add to
+program" (`scope=all_weeks`).
+
+**Program activate endpoint (one-active invariant).** `POST /api/program/{id}/activate`
+makes the target program active, bulk-pauses every other active program
+for that user, and clears any stale `end_date` on the target. This
+enforces the invariant that exactly one program is active at a time. The
+Program page now renders a "My Programs" panel listing all of the user's
+programs with a status badge and an Activate button for non-active programs.
+
+**Logger unit display.** The weight unit is now shown once as a banner
+at the top of the session ("Weights in kg" / "Weights in lbs") rather
+than repeated on every input field. Per-field unit labels were removed;
+bodyweight-class field labels are now "Weight" / "Added" / "BW" (the
+previous "auto" wording was dropped). No data or API changes.
+
 ## Editorial Theme System (2026-04-23)
 The frontend ships two coexisting modes, defaulting to minimal.
 
@@ -573,7 +607,7 @@ Manual 1RM is first-class; only loses to logged data if logged is both newer AND
 - Backend: `pytest -q` from `backend/`. Shared fixtures in `tests/conftest.py` spin up an
   in-memory SQLite DB + TestClient with `get_db`/`get_current_user` overrides.
 - Frontend: `npm test -- --run` from `frontend/`. Vitest covers `utils/units.js` and core API/analytics behavior.
-- Current state (2026-05-11): 194 pass, 47 frontend pass, 1 pre-existing unrelated failure (`test_log_bulk_relog_replaces`).
+- Current state (2026-06-08): 237 backend pass, 61 frontend pass (all green).
 
 ## Known issues / watch-outs
 See `docs/known-bugs.md`.

@@ -63,16 +63,16 @@ describe('useExerciseSwap.handleSwapSelect', () => {
 
   it('does NOT set skipSetsInit after swap (sets re-init from new overload)', async () => {
     const { hook } = setupHook();
-    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW', 99); });
     await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
 
-    expect(swapExercise).toHaveBeenCalledWith(7, 'BARBELL ROW', 'BENT-OVER BARBELL ROW');
+    expect(swapExercise).toHaveBeenCalledWith(7, 99, 'BENT-OVER BARBELL ROW');
     expect(skipSetsInit.current).toBe(false);
   });
 
   it('drops the swapped-out exercise rows from sets', async () => {
     const { hook } = setupHook();
-    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW', 99); });
     await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
 
     // setSets is called with a functional updater. Run it against a mock
@@ -92,7 +92,7 @@ describe('useExerciseSwap.handleSwapSelect', () => {
 
   it('refreshes the schedule and re-selects the same session', async () => {
     const { hook, scheduleRes } = setupHook();
-    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW'); });
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW', 99); });
     await act(async () => { await hook.result.current.handleSwapSelect('BENT-OVER BARBELL ROW'); });
 
     expect(setScheduleData).toHaveBeenCalledWith(scheduleRes);
@@ -102,5 +102,14 @@ describe('useExerciseSwap.handleSwapSelect', () => {
     expect(setSelectedSession).toHaveBeenCalledWith(
       expect.objectContaining({ session_name: 'Pull A' }),
     );
+  });
+
+  it('swaps by the pe_id passed to openSwapModal, not by exercise name', async () => {
+    const { hook } = setupHook();
+    // Two same-named slots: tapping the one whose pe_id is 99 must send 99.
+    await act(async () => { await hook.result.current.openSwapModal('BARBELL ROW', 99); });
+    await act(async () => { await hook.result.current.handleSwapSelect('SEATED CABLE ROW'); });
+    expect(swapExercise).toHaveBeenCalledWith(7, 99, 'SEATED CABLE ROW');
+    expect(swapExercise).not.toHaveBeenCalledWith(7, expect.anything(), 'BARBELL ROW');
   });
 });

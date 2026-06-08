@@ -15,14 +15,16 @@ export default function useExerciseSwap(activeProgram, _swapInProgress, {
   skipSetsInit: _skipSetsInit,
 }) {
   const { addToast } = useToast();
-  const [swapTarget, setSwapTarget] = useState(null);
+  const [swapTarget, setSwapTarget] = useState(null); // display name (for modal copy + filter)
+  const [swapPeId, setSwapPeId] = useState(null);     // the exact slot to swap
   const [swapSearch, setSwapSearch] = useState('');
   const [swapLoading, setSwapLoading] = useState(false);
   const [swapMuscleGroup, setSwapMuscleGroup] = useState(null);
   const [showAllMuscleGroups, setShowAllMuscleGroups] = useState(false);
 
-  const openSwapModal = async (exerciseName) => {
+  const openSwapModal = async (exerciseName, peId) => {
     setSwapTarget(exerciseName);
+    setSwapPeId(peId ?? null);
     setSwapSearch('');
     setShowAllMuscleGroups(false);
 
@@ -49,9 +51,9 @@ export default function useExerciseSwap(activeProgram, _swapInProgress, {
   };
 
   const handleSwapSelect = async (newName) => {
-    if (!activeProgram || !swapTarget || newName === swapTarget) return;
+    if (!activeProgram || swapPeId == null || newName === swapTarget) return;
     try {
-      await swapExercise(activeProgram.id, swapTarget, newName);
+      await swapExercise(activeProgram.id, swapPeId, newName);
       const scheduleRes = await getSchedule(activeProgram.id);
       setScheduleData(scheduleRes);
       const flatSessions = flattenScheduleForWeek(scheduleRes, currentWeek);
@@ -69,12 +71,14 @@ export default function useExerciseSwap(activeProgram, _swapInProgress, {
       addToast(err.message, 'error');
     } finally {
       setSwapTarget(null);
+      setSwapPeId(null);
       setSwapSearch('');
     }
   };
 
   const closeSwapModal = () => {
     setSwapTarget(null);
+    setSwapPeId(null);
     setSwapSearch('');
   };
 

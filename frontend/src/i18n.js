@@ -109,6 +109,7 @@ const STRINGS = {
     'program.createCustom': 'Create Custom Program',
     'program.createAnother': '+ Create another program',
     'program.activate': 'Activate',
+    'program.myPrograms': 'My Programs',
     'program.archive': 'Archive',
     'program.importTitle': 'Or import an .xlsx template:',
     'program.importDesc': 'Start by creating your own split — Leg Day, Arm Day, whatever you like — or import a spreadsheet-based program.',
@@ -147,8 +148,13 @@ const STRINGS = {
     'logger.intensity.heavy': 'Heavy',
     'logger.intensity.backoff': 'Back-off',
     'logger.addSet': 'Add set',
+    'logger.weightsInUnit': 'Weights in {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Log another session',
+    'logger.addExercise': 'Add exercise',
+    'logger.addForTodayOnly': 'Today only',
+    'logger.addPermanently': 'Add to program',
+    'logger.addScopePrompt': 'Add this exercise just for today, or permanently to the program?',
 
     // ─── Tracker ───
     'tracker.title': 'Tracker',
@@ -527,6 +533,7 @@ const STRINGS = {
     'program.createCustom': 'Crear programa personalizado',
     'program.createAnother': '+ Crear otro programa',
     'program.activate': 'Activar',
+    'program.myPrograms': 'Mis programas',
     'program.archive': 'Archivar',
     'program.importTitle': 'O importa una plantilla .xlsx:',
     'program.importDesc': 'Empieza creando tu propia rutina — día de pierna, día de brazo, lo que prefieras — o importa un programa desde hoja de cálculo.',
@@ -565,8 +572,13 @@ const STRINGS = {
     'logger.intensity.heavy': 'Pesado',
     'logger.intensity.backoff': 'Bajada',
     'logger.addSet': 'Añadir serie',
+    'logger.weightsInUnit': 'Pesos en {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Registrar otra sesión',
+    'logger.addExercise': 'Añadir ejercicio',
+    'logger.addForTodayOnly': 'Solo hoy',
+    'logger.addPermanently': 'Añadir al programa',
+    'logger.addScopePrompt': '¿Añadir este ejercicio solo por hoy o de forma permanente al programa?',
 
     // ─── Tracker ───
     'tracker.title': 'Calendario',

@@ -9,6 +9,8 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -29,6 +31,13 @@ class StatusUpdate(BaseModel):
 
 class ExerciseSwap(BaseModel):
     new_exercise_name: str
+
+
+class AddExercisePayload(BaseModel):
+    week: int
+    session_name: str
+    exercise_name: str
+    scope: Literal["week", "all_weeks"] = "week"
 
 
 class CustomExercise(BaseModel):
@@ -436,41 +445,153 @@ def update_program_status(
     return {"status": "updated", "program_id": program_id, "new_status": status}
 
 
-@router.patch("/program/{program_id}/exercise/{old_name}")
-def swap_exercise(
+@router.post("/program/{program_id}/activate")
+def activate_program(
     program_id: int,
-    old_name: str,
-    body: ExerciseSwap,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Swap an exercise name across all weeks of a program."""
+    """Make this program the active one; pause any other active program."""
     program = db.query(Program).filter(
         Program.id == program_id, Program.user_id == current_user.id
     ).first()
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
-    exercises = (
+
+    db.query(Program).filter(
+        Program.user_id == current_user.id,
+        Program.id != program_id,
+        Program.status == "active",
+    ).update({"status": "paused"}, synchronize_session=False)
+    program.status = "active"
+    program.end_date = None  # re-activating a completed program clears its end stamp
+    db.commit()
+
+    return {"status": "activated", "program_id": program_id}
+
+
+@router.patch("/program/{program_id}/exercise/{pe_id}/swap")
+def swap_exercise(
+    program_id: int,
+    pe_id: int,
+    body: ExerciseSwap,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Swap a single ProgramExercise slot (this-week-only scope).
+
+    Targets one row by id so two same-named slots in a day are independent.
+    """
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    pe = (
         db.query(ProgramExercise)
         .filter(
+            ProgramExercise.id == pe_id,
             ProgramExercise.program_id == program_id,
-            ProgramExercise.exercise_name_canonical == old_name,
         )
-        .all()
+        .first()
     )
-    if not exercises:
-        raise HTTPException(status_code=404, detail=f"Exercise '{old_name}' not found in program")
+    if not pe:
+        raise HTTPException(status_code=404, detail="Exercise slot not found")
 
-    for ex in exercises:
-        ex.exercise_name_canonical = body.new_exercise_name
-        ex.exercise_name_raw = body.new_exercise_name
+    pe.exercise_name_canonical = body.new_exercise_name.strip().upper()
+    pe.exercise_name_raw = body.new_exercise_name.strip()
     db.commit()
 
     return {
         "status": "swapped",
-        "old_name": old_name,
+        "pe_id": pe.id,
         "new_name": body.new_exercise_name,
-        "rows_updated": len(exercises),
+    }
+
+
+@router.post("/program/{program_id}/exercise", status_code=201)
+def add_exercise(
+    program_id: int,
+    body: AddExercisePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Append an exercise to a session, for the current week or all weeks.
+
+    Both scopes create real ProgramExercise rows because WorkoutLog requires a
+    non-null program_exercise_id. "week" adds the exercise to one week only;
+    "all_weeks" adds it to every week that already contains the session.
+    """
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    if body.scope == "all_weeks":
+        target_weeks = [
+            w for (w,) in db.query(ProgramExercise.week)
+            .filter(ProgramExercise.program_id == program_id,
+                    ProgramExercise.session_name == body.session_name)
+            .distinct()
+            .all()
+        ]
+    else:
+        target_weeks = [body.week]
+
+    if not target_weeks:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{body.session_name}' not found in program",
+        )
+
+    created = []
+    for week in target_weeks:
+        existing = (
+            db.query(ProgramExercise)
+            .filter(ProgramExercise.program_id == program_id,
+                    ProgramExercise.week == week,
+                    ProgramExercise.session_name == body.session_name)
+            .all()
+        )
+        if not existing:
+            continue
+        next_order = max(e.exercise_order for e in existing) + 1
+        session_order = existing[0].session_order_in_week
+        pe = ProgramExercise(
+            program_id=program_id,
+            week=week,
+            session_name=body.session_name,
+            session_order_in_week=session_order,
+            exercise_order=next_order,
+            exercise_name_canonical=body.exercise_name.strip().upper(),
+            exercise_name_raw=body.exercise_name.strip(),
+            warm_up_sets="0",
+            working_sets=3,
+            prescribed_reps="8-12",
+            prescribed_rpe=None,
+            rest_period=None,
+        )
+        db.add(pe)
+        created.append(pe)
+
+    if not created:
+        # Reachable for scope="week" when the session exists in other weeks but
+        # not the requested one; unreachable for all_weeks (target_weeks is built
+        # from existing rows).
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{body.session_name}' not found in week {body.week}",
+        )
+
+    db.commit()
+    for pe in created:
+        db.refresh(pe)
+
+    return {
+        "status": "added",
+        "scope": body.scope,
+        "created_ids": [pe.id for pe in created],
     }
 
 

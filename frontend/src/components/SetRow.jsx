@@ -7,7 +7,7 @@ function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }
       <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
       <div className="relative">
         <label htmlFor={`load-${set.set_number}`} className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
-          {unitLabel}{weightHint ? ` ${weightHint}` : ''}
+          Weight{weightHint ? ` ${weightHint}` : ''}
         </label>
         <input
           id={`load-${set.set_number}`}
@@ -46,7 +46,7 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
       <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
       <div className="relative">
         <span className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
-          BW (auto, {unitLabel})
+          BW
         </span>
         <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} onBwValueChange={onBwValueChange} />
       </div>
@@ -72,13 +72,13 @@ function WeightedCapableLayout({
         <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
         <div className="relative">
           <span className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
-            BW (auto, {unitLabel})
+            BW
           </span>
           <BwChip userBodyweightKg={userBodyweightKg} unitLabel={unitLabel} units={units} onSetBw={onSetBw} onBwValueChange={onBwValueChange} />
         </div>
         <div className="relative">
           <label htmlFor={`added-${set.set_number}`} className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-text-muted pointer-events-none">
-            Added {unitLabel}
+            Added
           </label>
           <input
             id={`added-${set.set_number}`}

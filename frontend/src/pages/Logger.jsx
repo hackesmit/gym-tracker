@@ -15,9 +15,9 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
 import {
-  logBulkSession, logBodyMetric, undoSession,
+  logBulkSession, logBodyMetric, undoSession, getSchedule, addProgramExercise, getExerciseCatalog,
 } from '../api/client';
-import useLoggerSession from '../hooks/useLoggerSession';
+import useLoggerSession, { flattenScheduleForWeek } from '../hooks/useLoggerSession';
 import useExerciseSwap from '../hooks/useExerciseSwap';
 import useWorkoutDraft from '../hooks/useWorkoutDraft';
 
@@ -128,6 +128,12 @@ export default function Logger() {
   const [restTimerTriggers, setRestTimerTriggers] = useState({});
   const [undoInfo, setUndoInfo] = useState(null); // { sessionLogId, savedSets, timer }
   const undoTimerRef = useRef(null);
+
+  // Add-exercise picker state
+  const [addExerciseOpen, setAddExerciseOpen] = useState(false);
+  const [addExerciseSearch, setAddExerciseSearch] = useState('');
+  const [pendingAddName, setPendingAddName] = useState(null); // chosen name, awaiting scope choice
+  const [addingExercise, setAddingExercise] = useState(false);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -402,6 +408,46 @@ export default function Logger() {
     }
   };
 
+  const openAddExercise = async () => {
+    setAddExerciseOpen(true);
+    setAddExerciseSearch('');
+    if (catalogData.length === 0) {
+      try {
+        const res = await getExerciseCatalog();
+        setCatalogData(Array.isArray(res) ? res : res.exercises || []);
+      } catch {
+        setCatalogData([]);
+      }
+    }
+  };
+
+  const confirmAddExercise = async (scope) => {
+    if (!activeProgram || !selectedSession || !pendingAddName || addingExercise) return;
+    setAddingExercise(true);
+    try {
+      await addProgramExercise(activeProgram.id, {
+        week: currentWeek,
+        session_name: selectedSession.session_name,
+        exercise_name: pendingAddName,
+        scope,
+      });
+      const scheduleRes = await getSchedule(activeProgram.id);
+      setScheduleData(scheduleRes);
+      const flatSessions = flattenScheduleForWeek(scheduleRes, currentWeek);
+      setSessions(flatSessions);
+      const match = flatSessions.find((s) => s.session_name === selectedSession.session_name);
+      if (match) setSelectedSession(match);
+      else if (flatSessions.length) setSelectedSession(flatSessions[0]);
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setAddingExercise(false);
+      setPendingAddName(null);
+      setAddExerciseOpen(false);
+      setAddExerciseSearch('');
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   if (!activeProgram) return (
@@ -588,6 +634,9 @@ export default function Logger() {
             />
           ) : (
             <>
+              <p className="text-[11px] uppercase tracking-wider text-text-muted mb-2">
+                {t('logger.weightsInUnit').replace('{unit}', unitLabel)}
+              </p>
               {displayGroups.map((dg, dgIdx) => (
                 <div key={dgIdx}>
                   {dg.type === 'superset' && (
@@ -624,13 +673,15 @@ export default function Logger() {
                               {intensityMarker === 'HEAVY' ? t('logger.intensity.heavy') : t('logger.intensity.backoff')}
                             </span>
                           )}
-                          <button
-                            onClick={() => openSwapModal(group.name)}
-                            title={t('logger.swap')}
-                            className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
-                          >
-                            <ArrowLeftRight size={13} />
-                          </button>
+                          {group.pe_id != null && (
+                            <button
+                              onClick={() => openSwapModal(group.name, group.pe_id)}
+                              title={t('logger.swap')}
+                              className="p-1 rounded text-text-muted hover:text-accent-light hover:bg-surface-light transition-colors shrink-0 touch-manipulation"
+                            >
+                              <ArrowLeftRight size={13} />
+                            </button>
+                          )}
                           {group.warm_up_sets && group.warm_up_sets !== '0' && (
                             <span className="text-[10px] text-text-muted shrink-0">
                               {group.warm_up_sets} warm-up
@@ -682,7 +733,7 @@ export default function Logger() {
                                 <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
                                   <span className="text-[9px] text-warning text-center pb-2">&#8627;</span>
                                   <div className="relative">
-                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop {unitLabel}</label>
+                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop</label>
                                     <input
                                       type="number"
                                       inputMode="decimal"
@@ -735,6 +786,15 @@ export default function Logger() {
                   </div>
                 </div>
               ))}
+
+              {/* Add exercise button */}
+              <button
+                type="button"
+                onClick={openAddExercise}
+                className="w-full mb-3 flex items-center justify-center gap-1.5 text-xs text-text-muted hover:text-accent-light border border-dashed border-surface-lighter hover:border-accent/40 rounded-lg py-3 transition-colors touch-manipulation"
+              >
+                <Plus size={14} /> {t('logger.addExercise')}
+              </button>
 
               {/* Save button - sticky on mobile for easy access */}
               <div className="sticky bottom-4 z-10">
@@ -834,6 +894,83 @@ export default function Logger() {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add-exercise picker */}
+      {addExerciseOpen && pendingAddName == null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => { setAddExerciseOpen(false); setAddExerciseSearch(''); }}>
+          <div className="bg-surface border border-surface-lighter rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-text">{t('logger.addExercise')}</h3>
+              <button onClick={() => { setAddExerciseOpen(false); setAddExerciseSearch(''); }}
+                className="text-text-muted hover:text-text p-1 touch-manipulation">
+                <X size={18} />
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Search exercises..."
+              value={addExerciseSearch}
+              onChange={(e) => setAddExerciseSearch(e.target.value)}
+              autoFocus
+              className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-accent outline-none mb-3"
+            />
+            <div
+              className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5"
+              onTouchStart={() => {
+                const el = document.activeElement;
+                if (el instanceof HTMLElement && el.tagName === 'INPUT') el.blur();
+              }}
+            >
+              {catalogData
+                .map((ex) => (typeof ex === 'string' ? ex : ex.name || ex.exercise_name || ''))
+                .filter((name) => name && name.toLowerCase().includes(addExerciseSearch.toLowerCase()))
+                .slice(0, 60)
+                .map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setPendingAddName(name)}
+                    className="w-full text-left px-3 py-2.5 min-h-[44px] rounded-lg text-sm text-text hover:bg-surface-light active:bg-surface-light cursor-pointer transition-colors touch-manipulation"
+                  >
+                    {name}
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add-exercise scope prompt */}
+      {pendingAddName != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setPendingAddName(null)}>
+          <div className="bg-surface border border-surface-lighter rounded-2xl p-5 max-w-xs w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm text-text mb-1 font-semibold">{pendingAddName}</p>
+            <p className="text-xs text-text-muted mb-4">{t('logger.addScopePrompt')}</p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => confirmAddExercise('week')}
+                disabled={addingExercise}
+                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation disabled:opacity-50"
+              >
+                {t('logger.addForTodayOnly')}
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmAddExercise('all_weeks')}
+                disabled={addingExercise}
+                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation disabled:opacity-50"
+              >
+                {t('logger.addPermanently')}
+              </button>
             </div>
           </div>
         </div>
