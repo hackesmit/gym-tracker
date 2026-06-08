@@ -133,6 +133,7 @@ export default function Logger() {
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [addExerciseSearch, setAddExerciseSearch] = useState('');
   const [pendingAddName, setPendingAddName] = useState(null); // chosen name, awaiting scope choice
+  const [addingExercise, setAddingExercise] = useState(false);
 
   // Body metrics state
   const [metrics, setMetrics] = useState({
@@ -421,7 +422,8 @@ export default function Logger() {
   };
 
   const confirmAddExercise = async (scope) => {
-    if (!activeProgram || !selectedSession || !pendingAddName) return;
+    if (!activeProgram || !selectedSession || !pendingAddName || addingExercise) return;
+    setAddingExercise(true);
     try {
       await addProgramExercise(activeProgram.id, {
         week: currentWeek,
@@ -435,9 +437,11 @@ export default function Logger() {
       setSessions(flatSessions);
       const match = flatSessions.find((s) => s.session_name === selectedSession.session_name);
       if (match) setSelectedSession(match);
+      else if (flatSessions.length) setSelectedSession(flatSessions[0]);
     } catch (err) {
       addToast(err.message, 'error');
     } finally {
+      setAddingExercise(false);
       setPendingAddName(null);
       setAddExerciseOpen(false);
       setAddExerciseSearch('');
@@ -916,7 +920,13 @@ export default function Logger() {
               autoFocus
               className="w-full bg-surface-light border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:ring-1 focus:ring-accent outline-none mb-3"
             />
-            <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5">
+            <div
+              className="overflow-y-auto flex-1 -mx-1 px-1 space-y-0.5"
+              onTouchStart={() => {
+                const el = document.activeElement;
+                if (el instanceof HTMLElement && el.tagName === 'INPUT') el.blur();
+              }}
+            >
               {catalogData
                 .map((ex) => (typeof ex === 'string' ? ex : ex.name || ex.exercise_name || ''))
                 .filter((name) => name && name.toLowerCase().includes(addExerciseSearch.toLowerCase()))
@@ -926,7 +936,7 @@ export default function Logger() {
                     key={name}
                     type="button"
                     onClick={() => setPendingAddName(name)}
-                    className="w-full text-left px-3 py-2.5 min-h-[44px] rounded-lg text-sm text-text hover:bg-surface-light transition-colors touch-manipulation"
+                    className="w-full text-left px-3 py-2.5 min-h-[44px] rounded-lg text-sm text-text hover:bg-surface-light active:bg-surface-light cursor-pointer transition-colors touch-manipulation"
                   >
                     {name}
                   </button>
@@ -948,14 +958,16 @@ export default function Logger() {
               <button
                 type="button"
                 onClick={() => confirmAddExercise('week')}
-                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation"
+                disabled={addingExercise}
+                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation disabled:opacity-50"
               >
                 {t('logger.addForTodayOnly')}
               </button>
               <button
                 type="button"
                 onClick={() => confirmAddExercise('all_weeks')}
-                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation"
+                disabled={addingExercise}
+                className="w-full rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter px-3 py-2.5 text-sm font-medium touch-manipulation disabled:opacity-50"
               >
                 {t('logger.addPermanently')}
               </button>
