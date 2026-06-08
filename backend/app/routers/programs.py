@@ -31,6 +31,13 @@ class ExerciseSwap(BaseModel):
     new_exercise_name: str
 
 
+class AddExercisePayload(BaseModel):
+    week: int
+    session_name: str
+    exercise_name: str
+    scope: str = "week"  # "week" or "all_weeks"
+
+
 class CustomExercise(BaseModel):
     name: str
     working_sets: int = 3
@@ -472,6 +479,82 @@ def swap_exercise(
         "status": "swapped",
         "pe_id": pe.id,
         "new_name": body.new_exercise_name,
+    }
+
+
+@router.post("/program/{program_id}/exercise", status_code=201)
+def add_exercise(
+    program_id: int,
+    body: AddExercisePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Append an exercise to a session, for the current week or all weeks.
+
+    Both scopes create real ProgramExercise rows because WorkoutLog requires a
+    non-null program_exercise_id. "week" adds the exercise to one week only;
+    "all_weeks" adds it to every week that already contains the session.
+    """
+    program = db.query(Program).filter(
+        Program.id == program_id, Program.user_id == current_user.id
+    ).first()
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    if body.scope == "all_weeks":
+        target_weeks = [
+            w for (w,) in db.query(ProgramExercise.week)
+            .filter(ProgramExercise.program_id == program_id,
+                    ProgramExercise.session_name == body.session_name)
+            .distinct()
+            .all()
+        ]
+    else:
+        target_weeks = [body.week]
+
+    if not target_weeks:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{body.session_name}' not found in program",
+        )
+
+    created = []
+    for week in target_weeks:
+        existing = (
+            db.query(ProgramExercise)
+            .filter(ProgramExercise.program_id == program_id,
+                    ProgramExercise.week == week,
+                    ProgramExercise.session_name == body.session_name)
+            .all()
+        )
+        if not existing:
+            continue
+        next_order = max(e.exercise_order for e in existing) + 1
+        session_order = existing[0].session_order_in_week
+        pe = ProgramExercise(
+            program_id=program_id,
+            week=week,
+            session_name=body.session_name,
+            session_order_in_week=session_order,
+            exercise_order=next_order,
+            exercise_name_canonical=body.exercise_name.strip().upper(),
+            exercise_name_raw=body.exercise_name.strip(),
+            warm_up_sets="0",
+            working_sets=3,
+            prescribed_reps="8-12",
+            prescribed_rpe=None,
+            rest_period=None,
+        )
+        db.add(pe)
+        created.append(pe)
+    db.commit()
+    for pe in created:
+        db.refresh(pe)
+
+    return {
+        "status": "added",
+        "scope": body.scope,
+        "created_ids": [pe.id for pe in created],
     }
 
 
