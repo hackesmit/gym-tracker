@@ -114,11 +114,15 @@ export default function Program() {
   };
 
   const handleActivate = async (id) => {
+    if (updating) return;
+    setUpdating(true);
     try {
       await activateProgram(id);
       await refreshPrograms();
     } catch (err) {
       setError(err.message || 'Failed to switch program');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -132,7 +136,8 @@ export default function Program() {
   const currentStatus = schedule?.status || activeProgram?.status || 'active';
 
   const myProgramsPanel = programs && programs.length > 0 ? (
-    <Card title="My Programs" className="mb-4">
+    <Card title={t('program.myPrograms')} className="mb-4">
+      {error && <p className="text-xs text-danger mb-2">{error}</p>}
       <div className="space-y-2">
         {programs.map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-surface-lighter px-3 py-2">
@@ -140,19 +145,21 @@ export default function Program() {
               <p className="text-sm font-medium truncate">{p.name}</p>
               <p className="text-[11px] text-text-muted">{p.frequency}x / week</p>
             </div>
-            {p.status === 'active' ? (
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES.active}`}>
-                Active
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[p.status] || STATUS_STYLES.active}`}>
+                {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleActivate(p.id)}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter touch-manipulation"
-              >
-                Activate
-              </button>
-            )}
+              {p.status !== 'active' && (
+                <button
+                  type="button"
+                  onClick={() => handleActivate(p.id)}
+                  disabled={updating}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-accent/40 bg-surface-light hover:bg-surface-lighter disabled:opacity-50 touch-manipulation"
+                >
+                  {t('program.activate')}
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
