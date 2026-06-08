@@ -147,6 +147,11 @@ export const swapExercise = (programId, peId, newName) =>
     method: 'PATCH',
     body: JSON.stringify({ new_exercise_name: newName }),
   });
+export const addProgramExercise = (programId, { week, session_name, exercise_name, scope }) =>
+  request(`/program/${programId}/exercise`, {
+    method: 'POST',
+    body: JSON.stringify({ week, session_name, exercise_name, scope }),
+  });
 export const importProgram = (file, frequency) => {
   const form = new FormData();
   form.append('file', file);

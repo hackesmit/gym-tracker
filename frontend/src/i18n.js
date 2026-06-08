@@ -150,6 +150,10 @@ const STRINGS = {
     'logger.weightsInUnit': 'Weights in {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Log another session',
+    'logger.addExercise': 'Add exercise',
+    'logger.addForTodayOnly': 'Today only',
+    'logger.addPermanently': 'Add to program',
+    'logger.addScopePrompt': 'Add this exercise just for today, or permanently to the program?',
 
     // ─── Tracker ───
     'tracker.title': 'Tracker',
@@ -569,6 +573,10 @@ const STRINGS = {
     'logger.weightsInUnit': 'Pesos en {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Registrar otra sesión',
+    'logger.addExercise': 'Añadir ejercicio',
+    'logger.addForTodayOnly': 'Solo hoy',
+    'logger.addPermanently': 'Añadir al programa',
+    'logger.addScopePrompt': '¿Añadir este ejercicio solo por hoy o de forma permanente al programa?',
 
     // ─── Tracker ───
     'tracker.title': 'Calendario',
