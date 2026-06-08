@@ -458,18 +458,13 @@ def activate_program(
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
 
-    others = (
-        db.query(Program)
-        .filter(
-            Program.user_id == current_user.id,
-            Program.id != program_id,
-            Program.status == "active",
-        )
-        .all()
-    )
-    for other in others:
-        other.status = "paused"
+    db.query(Program).filter(
+        Program.user_id == current_user.id,
+        Program.id != program_id,
+        Program.status == "active",
+    ).update({"status": "paused"}, synchronize_session=False)
     program.status = "active"
+    program.end_date = None  # re-activating a completed program clears its end stamp
     db.commit()
 
     return {"status": "activated", "program_id": program_id}

@@ -47,3 +47,16 @@ def test_activate_other_users_program_404(client, db):
     db.commit()
     r = client.post(f"/api/program/{p.id}/activate")
     assert r.status_code == 404
+
+
+def test_activate_completed_clears_end_date(client, db):
+    user = db.query(User).first()
+    done = _prog(db, user.id, "Done", "completed")
+    done.end_date = date.today()
+    db.commit()
+
+    r = client.post(f"/api/program/{done.id}/activate")
+    assert r.status_code == 200
+    db.refresh(done)
+    assert done.status == "active"
+    assert done.end_date is None
