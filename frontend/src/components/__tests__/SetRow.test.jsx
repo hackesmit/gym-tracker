@@ -27,7 +27,7 @@ function renderRow(props) {
 describe('SetRow', () => {
   it('renders external-load layout when bodyweightKind is null', () => {
     renderRow({ bodyweightKind: null });
-    expect(screen.getByLabelText(/kg/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/weight/i)).toBeInTheDocument();
     expect(screen.queryByText(/^BW$/i)).not.toBeInTheDocument();
   });
 
@@ -109,5 +109,17 @@ describe('SetRow', () => {
     expect(screen.getByText(/total/i)).toBeInTheDocument();
     // Allow either 196 or 196.5 in case of rounding nuance
     expect(screen.getByText(/196/)).toBeInTheDocument();
+  });
+
+  it('external layout label has no unit text', () => {
+    renderRow({ bodyweightKind: null, unitLabel: 'lbs', units: 'lbs' });
+    expect(screen.getByLabelText(/^weight$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/lbs/i)).not.toBeInTheDocument();
+  });
+
+  it('pure-BW chip shows "BW" with no "auto" wording', () => {
+    renderRow({ bodyweightKind: 'pure', userBodyweightKg: 80, unitLabel: 'lbs', units: 'lbs' });
+    expect(screen.getByText(/^BW$/)).toBeInTheDocument();
+    expect(screen.queryByText(/auto/i)).not.toBeInTheDocument();
   });
 });

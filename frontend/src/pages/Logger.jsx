@@ -588,6 +588,9 @@ export default function Logger() {
             />
           ) : (
             <>
+              <p className="text-[11px] uppercase tracking-wider text-text-muted mb-2">
+                {t('logger.weightsInUnit').replace('{unit}', unitLabel)}
+              </p>
               {displayGroups.map((dg, dgIdx) => (
                 <div key={dgIdx}>
                   {dg.type === 'superset' && (
@@ -684,7 +687,7 @@ export default function Logger() {
                                 <div className="grid grid-cols-[1.5rem_1fr_1fr] sm:grid-cols-[2rem_1fr_1fr] gap-1.5 sm:gap-2 items-end ml-0">
                                   <span className="text-[9px] text-warning text-center pb-2">&#8627;</span>
                                   <div className="relative">
-                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop {unitLabel}</label>
+                                    <label className="absolute top-1 left-2.5 text-[9px] uppercase tracking-wider text-warning/70 pointer-events-none">Drop</label>
                                     <input
                                       type="number"
                                       inputMode="decimal"

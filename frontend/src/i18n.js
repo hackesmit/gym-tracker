@@ -147,6 +147,7 @@ const STRINGS = {
     'logger.intensity.heavy': 'Heavy',
     'logger.intensity.backoff': 'Back-off',
     'logger.addSet': 'Add set',
+    'logger.weightsInUnit': 'Weights in {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Log another session',
 
@@ -565,6 +566,7 @@ const STRINGS = {
     'logger.intensity.heavy': 'Pesado',
     'logger.intensity.backoff': 'Bajada',
     'logger.addSet': 'Añadir serie',
+    'logger.weightsInUnit': 'Pesos en {unit}',
     'logger.rpe': 'RPE',
     'logger.logAnother': 'Registrar otra sesión',
 
