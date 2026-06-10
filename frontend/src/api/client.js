@@ -119,7 +119,8 @@ export const getMyMedals = () => request('/medals/my');
 export const getMedalLeaderboard = (medalId) => request(`/medals/${medalId}/leaderboard`);
 
 // Ranks
-export const getRanks = (userId) => request(`/ranks${userId ? `?user_id=${userId}` : ''}`);
+export const getRanks = (userId) =>
+  userId ? request(`/ranks/compare/${userId}`) : request('/ranks');
 export const getRankStandards = () => request('/ranks/standards');
 
 // Social

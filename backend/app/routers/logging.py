@@ -17,6 +17,7 @@ from ..database import get_db
 from ..models import (
     Achievement,
     BodyMetric,
+    Program,
     ProgramExercise,
     ProgramProgress,
     SessionLog,
@@ -171,8 +172,18 @@ def log_single_set(
     """Log a single set for an exercise."""
     user = current_user
 
-    # Validate program_exercise_id exists
-    pe = db.get(ProgramExercise, payload.program_exercise_id)
+    # Validate program_exercise_id exists AND belongs to one of the caller's
+    # programs — without the ownership join any authenticated user could log
+    # sets into another user's program.
+    pe = (
+        db.query(ProgramExercise)
+        .join(Program, Program.id == ProgramExercise.program_id)
+        .filter(
+            ProgramExercise.id == payload.program_exercise_id,
+            Program.user_id == user.id,
+        )
+        .first()
+    )
     if not pe:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -222,12 +233,27 @@ def log_bulk_session(
     """Log an entire workout session at once."""
     user = current_user
 
-    # Validate all program_exercise_ids up-front
+    # The target program must belong to the caller — the relog-replace path
+    # below deletes the matching SessionLog and its WorkoutLogs/Achievements,
+    # so an unscoped program_id would let any user wipe another user's session.
+    program = (
+        db.query(Program)
+        .filter(Program.id == payload.program_id, Program.user_id == user.id)
+        .first()
+    )
+    if not program:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Program {payload.program_id} not found.",
+        )
+
+    # Validate all program_exercise_ids up-front (and ownership, same reason)
     pe_ids = {s.program_exercise_id for s in payload.sets}
     existing = {
         row.id
         for row in db.query(ProgramExercise.id)
-        .filter(ProgramExercise.id.in_(pe_ids))
+        .join(Program, Program.id == ProgramExercise.program_id)
+        .filter(ProgramExercise.id.in_(pe_ids), Program.user_id == user.id)
         .all()
     }
     missing = pe_ids - existing
@@ -241,6 +267,7 @@ def log_bulk_session(
     existing_session = (
         db.query(SessionLog)
         .filter(
+            SessionLog.user_id == user.id,
             SessionLog.program_id == payload.program_id,
             SessionLog.week == payload.week,
             SessionLog.session_name == payload.session_name,
@@ -360,10 +387,14 @@ def log_bulk_session(
             .filter(ProgramExercise.exercise_name_canonical == exercise_name)
             .all()
         ]
-        # Query all previous workout logs for these pe_ids (excluding today's session date)
+        # Query all previous workout logs for these pe_ids (excluding today's
+        # session date). The canonical-name pe_id pool spans every user's
+        # programs, so the user_id filter is what keeps PR comparison from
+        # silently mixing in other users' lifts.
         prev_logs = (
             db.query(WorkoutLog.load_kg, WorkoutLog.added_load_kg, WorkoutLog.reps_completed)
             .filter(
+                WorkoutLog.user_id == user.id,
                 WorkoutLog.program_exercise_id.in_(all_pe_ids),
                 WorkoutLog.date < payload.date,
                 WorkoutLog.reps_completed > 0,

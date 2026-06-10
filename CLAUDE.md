@@ -607,7 +607,22 @@ Manual 1RM is first-class; only loses to logged data if logged is both newer AND
 - Backend: `pytest -q` from `backend/`. Shared fixtures in `tests/conftest.py` spin up an
   in-memory SQLite DB + TestClient with `get_db`/`get_current_user` overrides.
 - Frontend: `npm test -- --run` from `frontend/`. Vitest covers `utils/units.js` and core API/analytics behavior.
-- Current state (2026-06-08): 237 backend pass, 61 frontend pass (all green).
+- Current state (2026-06-10): 242 backend pass, 61 frontend pass (all green).
+
+## Logging ownership hardening (2026-06-10)
+`POST /api/log` and `POST /api/log/bulk` now verify that the `program_id` and
+every `program_exercise_id` belong to the calling user (404 otherwise). Before
+this, any authenticated user could log sets into another user's program and —
+via the bulk relog-replace path — delete another user's SessionLog, WorkoutLogs,
+and Achievements just by posting that user's `program_id`. Bulk PR detection
+also scopes its historical-best query to `WorkoutLog.user_id` (it previously
+compared against every user's logs sharing the canonical exercise name).
+Covered by `tests/test_logging_security.py`. Same sweep fixed: custom-program
+canonical names now uppercased (were lowercase, invisible to catalog/rank
+engine), Excel uploads parse from a unique temp file that is deleted after
+parsing (was a shared user-controlled filename), `/api/auth/absorb` no longer
+rolls back when source and absorber share a mutual friend, and the
+import-program response reports the real `total_weeks`.
 
 ## Known issues / watch-outs
 See `docs/known-bugs.md`.

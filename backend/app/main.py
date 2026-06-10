@@ -588,9 +588,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Gym Tracker API", lifespan=lifespan)
 
+_allowed_origins = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+    if o.strip()
+] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

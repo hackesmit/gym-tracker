@@ -328,8 +328,6 @@ def absorb(
     Use case: you registered a fresh account but want your older hackesmit data.
     Verifies source credentials, moves all user_id references, deletes the source user.
     """
-    from sqlalchemy import update
-
     from ..models import (
         Achievement,
         BodyMetric,
@@ -377,7 +375,17 @@ def absorb(
             q.update({model.user_id: current_user.id}, synchronize_session=False)
             moved[label] = count
 
-    # Friendships: clean up duplicates with current user, otherwise reassign
+    # Friendships: clean up duplicates with current user, otherwise reassign.
+    # If src and current user are both friends with the same third user,
+    # reassigning would collide with the (requester_id, addressee_id) unique
+    # constraint and roll back the whole absorb — drop those rows instead.
+    current_pairs = {
+        frozenset((f.requester_id, f.addressee_id))
+        for f in db.query(Friendship).filter(
+            (Friendship.requester_id == current_user.id)
+            | (Friendship.addressee_id == current_user.id)
+        ).all()
+    }
     friendships = db.query(Friendship).filter(
         (Friendship.requester_id == src.id) | (Friendship.addressee_id == src.id)
     ).all()
@@ -385,10 +393,15 @@ def absorb(
         if f.requester_id == current_user.id or f.addressee_id == current_user.id:
             db.delete(f)
             continue
+        other_id = f.addressee_id if f.requester_id == src.id else f.requester_id
+        if frozenset((current_user.id, other_id)) in current_pairs:
+            db.delete(f)
+            continue
         if f.requester_id == src.id:
             f.requester_id = current_user.id
         if f.addressee_id == src.id:
             f.addressee_id = current_user.id
+        current_pairs.add(frozenset((current_user.id, other_id)))
 
     db.delete(src)
     db.commit()
