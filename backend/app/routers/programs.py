@@ -117,15 +117,19 @@ def import_program(
     if not safe_name.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="File must be an .xlsx spreadsheet")
 
-    # Save uploaded file under a sanitized name (strip path separators, collapse spaces)
+    # Keep a sanitized display name (strip path separators, collapse spaces)
+    # for Program.source_file, but parse from a unique temp file so two users
+    # uploading "program.xlsx" at the same time can't overwrite each other.
     stored_name = re.sub(r"[\\/]+", "_", safe_name)
     stored_name = re.sub(r"\s+", " ", stored_name)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    file_path = UPLOAD_DIR / stored_name
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    with tempfile.NamedTemporaryFile(
+        suffix=".xlsx", dir=UPLOAD_DIR, delete=False
+    ) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        file_path = Path(tmp.name)
 
-    # Parse the spreadsheet
+    # Parse the spreadsheet — the upload is ephemeral, remove it either way.
     sheet_name = FREQUENCY_SHEETS[frequency]
     try:
         exercises = parse_program(str(file_path), sheet_name)
@@ -134,6 +138,8 @@ def import_program(
             status_code=422,
             detail=f"Failed to parse spreadsheet: {e}",
         )
+    finally:
+        file_path.unlink(missing_ok=True)
 
     if not exercises:
         raise HTTPException(
@@ -218,7 +224,7 @@ def import_program(
         "frequency": frequency,
         "sheet_parsed": sheet_name,
         "total_exercises": len(exercises),
-        "total_weeks": 12,
+        "total_weeks": total_weeks,
         "total_sessions": total_sessions,
         "sessions_per_week": {
             k: list(v) for k, v in sorted(sessions_per_week.items())
@@ -273,9 +279,13 @@ def create_custom_program(
                     session_name=session.name.strip() or f"Session {s_idx}",
                     session_order_in_week=s_idx,
                     exercise_order=e_idx,
-                    exercise_name_canonical=ex.name.strip().lower(),
+                    # Canonical names are UPPERCASE everywhere else (parser,
+                    # swap, add-exercise, catalog, rank engine) — lowercase
+                    # here broke catalog lookups and rank qualification for
+                    # custom-built programs.
+                    exercise_name_canonical=ex.name.strip().upper(),
                     exercise_name_raw=ex.name.strip(),
-                    warm_up_sets=0,
+                    warm_up_sets="0",
                     working_sets=ex.working_sets,
                     prescribed_reps=ex.prescribed_reps,
                     prescribed_rpe=ex.prescribed_rpe,
