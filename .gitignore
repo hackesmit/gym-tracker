@@ -47,3 +47,6 @@ redesign-*.png
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Graphify local graph output (rebuilt by git hooks)
+graphify-out/
