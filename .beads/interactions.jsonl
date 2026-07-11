@@ -1,0 +1,1 @@
+{"id":"int-69b260fc8b0848c4a223d5f8a05b6901","kind":"field_change","created_at":"2026-07-11T02:51:01.165413521Z","actor":"hackesmit","issue_id":"gt-h5n","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Setup smoke test passed: claim, hook comment, close, list all verified"}}
