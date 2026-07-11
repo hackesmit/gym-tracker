@@ -158,6 +158,7 @@ const STRINGS = {
     'logger.addForTodayOnly': 'Today only',
     'logger.addPermanently': 'Add to program',
     'logger.addScopePrompt': 'Add this exercise just for today, or permanently to the program?',
+    'logger.invalidWeight': 'Enter a valid weight (0 or more, numbers only)',
 
     // ─── Tracker ───
     'tracker.title': 'Tracker',
@@ -585,6 +586,7 @@ const STRINGS = {
     'logger.addForTodayOnly': 'Solo hoy',
     'logger.addPermanently': 'Añadir al programa',
     'logger.addScopePrompt': '¿Añadir este ejercicio solo por hoy o de forma permanente al programa?',
+    'logger.invalidWeight': 'Introduce un peso válido (0 o más, solo números)',
 
     // ─── Tracker ───
     'tracker.title': 'Calendario',

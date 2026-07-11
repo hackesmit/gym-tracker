@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import SetRow from '../SetRow';
 
 const baseSet = {
@@ -121,5 +121,119 @@ describe('SetRow', () => {
     renderRow({ bodyweightKind: 'pure', userBodyweightKg: 80, unitLabel: 'lbs', units: 'lbs' });
     expect(screen.getByText(/^BW$/)).toBeInTheDocument();
     expect(screen.queryByText(/auto/i)).not.toBeInTheDocument();
+  });
+
+  describe('weight input validation — external layout (load_kg)', () => {
+    it('rejects a negative value with a visible inline error and does not call onUpdate', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: '-5' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-numeric value with a visible inline error and does not call onUpdate', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: 'abc' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects pasted garbage containing e/E/+ with a visible inline error and does not call onUpdate', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: '1e5' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+
+      fireEvent.change(input, { target: { value: '+5' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('clears the error once the value is corrected to something valid', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: '-5' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: '62.5' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(onUpdate).toHaveBeenCalledWith('load_kg', '62.5');
+    });
+
+    it('propagates a valid decimal value via onUpdate unchanged, with no error', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: '62.5' } });
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+      expect(onUpdate).toHaveBeenCalledWith('load_kg', '62.5');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('allows clearing the field to empty with no error, and propagates the empty value', () => {
+      const onUpdate = vi.fn();
+      renderRow({ bodyweightKind: null, set: { ...baseSet, load_kg: '50' }, onUpdate });
+      const input = screen.getByLabelText(/^weight$/i);
+      fireEvent.change(input, { target: { value: '' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(onUpdate).toHaveBeenCalledWith('load_kg', '');
+    });
+  });
+
+  describe('weight input validation — weighted-capable layout (added_load_kg)', () => {
+    it('rejects a negative added-load value with a visible inline error and does not call onUpdate', () => {
+      const onUpdate = vi.fn();
+      renderRow({
+        bodyweightKind: 'weighted_capable', userBodyweightKg: 80, onUpdate,
+        set: { ...baseSet, added_load_kg: 25 },
+      });
+      const input = screen.getByLabelText(/added/i);
+      fireEvent.change(input, { target: { value: '-10' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-numeric added-load value with a visible inline error and does not call onUpdate', () => {
+      const onUpdate = vi.fn();
+      renderRow({
+        bodyweightKind: 'weighted_capable', userBodyweightKg: 80, onUpdate,
+        set: { ...baseSet, added_load_kg: 25 },
+      });
+      const input = screen.getByLabelText(/added/i);
+      fireEvent.change(input, { target: { value: 'nope' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('propagates a valid decimal added-load value via onUpdate unchanged, with no error', () => {
+      const onUpdate = vi.fn();
+      renderRow({
+        bodyweightKind: 'weighted_capable', userBodyweightKg: 80, onUpdate,
+        set: { ...baseSet, added_load_kg: 25 },
+      });
+      const input = screen.getByLabelText(/added/i);
+      fireEvent.change(input, { target: { value: '22.5' } });
+      expect(onUpdate).toHaveBeenCalledWith('added_load_kg', '22.5');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('allows clearing the added-load field to empty with no error', () => {
+      const onUpdate = vi.fn();
+      renderRow({
+        bodyweightKind: 'weighted_capable', userBodyweightKg: 80, onUpdate,
+        set: { ...baseSet, added_load_kg: 25 },
+      });
+      const input = screen.getByLabelText(/added/i);
+      fireEvent.change(input, { target: { value: '' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(onUpdate).toHaveBeenCalledWith('added_load_kg', '');
+    });
   });
 });

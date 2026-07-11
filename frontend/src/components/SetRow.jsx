@@ -1,7 +1,49 @@
+import { useState } from 'react';
 import { kgToDisplay, displayToKg } from '../utils/units';
 import SetBwPrompt from './SetBwPrompt';
+import { useT } from '../i18n';
+
+// Non-negative integer or decimal, digits only (allows in-progress states like
+// "", "5.", ".5" while typing). Anything else — a leading "-", "+", letters
+// ('e'/'E' scientific notation included), or pasted garbage — is rejected.
+const WEIGHT_INPUT_RE = /^\d*\.?\d*$/;
+
+function isValidWeightInput(raw) {
+  return WEIGHT_INPUT_RE.test(raw);
+}
+
+/**
+ * Shared onChange handler for a validated weight input. Rejected values are
+ * never forwarded to onUpdate and instead surface an inline error that
+ * clears as soon as the value becomes valid again.
+ */
+function useWeightInputHandler({ field, onUpdate, t }) {
+  const [error, setError] = useState(null);
+  const handleChange = (e) => {
+    const raw = e.target.value;
+    if (isValidWeightInput(raw)) {
+      setError(null);
+      onUpdate(field, raw);
+    } else {
+      setError(t('logger.invalidWeight', 'Enter a valid weight'));
+    }
+  };
+  return { error, handleChange };
+}
+
+function WeightInputError({ error, id }) {
+  if (!error) return null;
+  return (
+    <p id={id} role="alert" className="text-[10px] text-danger mt-0.5">
+      {error}
+    </p>
+  );
+}
 
 function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }) {
+  const t = useT();
+  const { error, handleChange } = useWeightInputHandler({ field: 'load_kg', onUpdate, t });
+  const errorId = `load-${set.set_number}-error`;
   return (
     <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem_2rem] sm:grid-cols-[2rem_1fr_1fr_5rem_2.5rem] gap-1.5 sm:gap-2 items-end relative">
       <span className="text-xs text-text-muted text-center pb-2">{set.set_number}</span>
@@ -11,11 +53,16 @@ function ExternalLayout({ set, unitLabel, weightHint, onUpdate, onTriggerTimer }
         </label>
         <input
           id={`load-${set.set_number}`}
-          type="number" inputMode="decimal" value={set.load_kg}
-          onChange={(e) => onUpdate('load_kg', e.target.value)}
-          className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
+          type="text" inputMode="decimal" value={set.load_kg}
+          onChange={handleChange}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className={`bg-surface-light border rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0 ${
+            error ? 'border-danger' : 'border-surface-lighter'
+          }`}
           placeholder="0"
         />
+        <WeightInputError error={error} id={errorId} />
       </div>
       <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
       <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
@@ -60,6 +107,9 @@ function PureBwLayout({ set, userBodyweightKg, unitLabel, units, onUpdate, onTri
 function WeightedCapableLayout({
   set, userBodyweightKg, unitLabel, units, onUpdate, onTriggerTimer, onSetBw, onBwValueChange,
 }) {
+  const t = useT();
+  const { error, handleChange } = useWeightInputHandler({ field: 'added_load_kg', onUpdate, t });
+  const errorId = `added-${set.set_number}-error`;
   // set.added_load_kg is in display units (what the user typed).
   // Convert to kg before summing with userBodyweightKg (already kg).
   const addedKg = displayToKg(parseFloat(set.added_load_kg) || 0, units);
@@ -82,11 +132,16 @@ function WeightedCapableLayout({
           </label>
           <input
             id={`added-${set.set_number}`}
-            type="number" inputMode="decimal" value={set.added_load_kg ?? ''}
-            onChange={(e) => onUpdate('added_load_kg', e.target.value)}
-            className="bg-surface-light border border-surface-lighter rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0"
+            type="text" inputMode="decimal" value={set.added_load_kg ?? ''}
+            onChange={handleChange}
+            aria-invalid={error ? 'true' : undefined}
+            aria-describedby={error ? errorId : undefined}
+            className={`bg-surface-light border rounded-lg px-2 sm:px-3 pt-4 pb-1.5 text-sm text-text w-full focus:ring-1 focus:ring-accent outline-none min-w-0 ${
+              error ? 'border-danger' : 'border-surface-lighter'
+            }`}
             placeholder="0"
           />
+          <WeightInputError error={error} id={errorId} />
         </div>
         <RepsInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
         <RpeInput set={set} onUpdate={onUpdate} onTriggerTimer={onTriggerTimer} />
