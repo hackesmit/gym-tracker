@@ -50,3 +50,6 @@ redesign-*.png
 
 # Graphify local graph output (rebuilt by git hooks)
 graphify-out/
+
+# Local per-machine Claude permissions — never track (cage is the auth layer now)
+.claude/settings.local.json
