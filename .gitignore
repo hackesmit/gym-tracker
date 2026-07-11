@@ -42,3 +42,8 @@ lotr_svg_icons.zip
 image-removebg-preview.png
 one-ring-and-also-my-locker-screen-v0-*.webp
 redesign-*.png
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
