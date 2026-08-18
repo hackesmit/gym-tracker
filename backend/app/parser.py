@@ -261,34 +261,58 @@ def _disambiguate_sessions(exercises: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Min-Max format
 # ---------------------------------------------------------------------------
-_MINMAX_MARKERS = ("REP RANGE", "TRACKING LOAD", "FAILURE?", "INTENSITY TECHNIQUE")
+_MINMAX_MARKERS = ("REP RANGE", "TRACKING LOAD", "FAILURE?", "INTENSITY TECHNIQUE", "RIR (")
 _MINMAX_SKIP_LABELS = ("BLOCK", "INTRO WEEK", "DELOAD WEEK", "REST DAY")
 _NA_VALUES = {"", "N/A", "NA", "-", "--"}
 
 
-def _is_na(value: str | None) -> bool:
-    return value is None or value.strip().upper() in _NA_VALUES
+def _is_na(value: Any) -> bool:
+    return value is None or str(value).strip().upper() in _NA_VALUES
 
 
-def _find_header_row(ws, max_scan: int = 60) -> tuple[int, list[Any]] | None:
-    """Return (row_index, cells) of the first row containing an EXERCISE header."""
-    for idx, row in enumerate(ws.iter_rows(min_row=1, max_row=min(ws.max_row, max_scan), values_only=True), start=1):
-        for cell in row:
-            if isinstance(cell, str) and cell.strip().upper() == "EXERCISE":
-                return idx, list(row)
+def _is_header_row(cells: list[Any]) -> bool:
+    return any(isinstance(c, str) and c.strip().upper() == "EXERCISE" for c in cells)
+
+
+def _find_header_row(ws) -> tuple[int, list[Any]] | None:
+    """Return (row_index, cells) of the first row containing an EXERCISE header.
+
+    Scans the whole sheet: cover / instruction material above the program can
+    be arbitrarily long, and a missed header would silently fall back to the
+    fixed-column parser.
+    """
+    for idx, row in enumerate(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True), start=1):
+        if _is_header_row(row):
+            return idx, list(row)
     return None
 
 
+def _header_format(cells: list[Any]) -> str | None:
+    """Classify one EXERCISE header row as "essentials" / "minmax" / None."""
+    labels = [c.strip().upper() for c in cells if isinstance(c, str)]
+    if "EXERCISE" not in labels:
+        return None
+    # The Essentials header set is recognised first and exactly: it carries a
+    # bare LOAD column and an RPE column, neither of which Min-Max has.
+    if "LOAD" in labels and any(l == "RPE" or l.startswith("RPE ") for l in labels):
+        return "essentials"
+    hits = sum(1 for m in _MINMAX_MARKERS if any(m in l for l in labels))
+    if hits >= 2:
+        return "minmax"
+    return "essentials"
+
+
 def detect_sheet_format(ws) -> str | None:
-    """Return "minmax", "essentials", or None if the sheet has no exercise header."""
+    """Return "minmax", "essentials", or None if the sheet has no exercise header.
+
+    Min-Max needs a conjunction of its structural headers (at least two of
+    REP RANGE / TRACKING LOAD / FAILURE? / INTENSITY TECHNIQUE / RIR) so an
+    incidental word in an Essentials header cannot flip the parser.
+    """
     found = _find_header_row(ws)
     if not found:
         return None
-    _, cells = found
-    joined = " | ".join(str(c).strip().upper() for c in cells if isinstance(c, str))
-    if any(m in joined for m in _MINMAX_MARKERS):
-        return "minmax"
-    return "essentials"
+    return _header_format(found[1])
 
 
 def _minmax_columns(header: list[Any]) -> dict[str, int]:
@@ -323,25 +347,31 @@ def _minmax_columns(header: list[Any]) -> dict[str, int]:
     return idx
 
 
+_NUM_RE = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _fmt_num(x: float) -> str:
+    return str(int(x)) if float(x).is_integer() else f"{x:g}"
+
+
 def _rir_to_rpe(rir_values: list[str | None]) -> str:
     """Convert per-set RIR cells to the app's prescribed RPE string.
 
-    RPE = 10 - RIR. Two distinct values become a range ("8-9"); one value is
-    printed alone ("10"); all-N/A yields "".
+    RPE = 10 - RIR, per number found in each cell, so "1", "1.5", "1-2" and
+    "2 RIR" all contribute. Distinct results become a range ("8-9", "8.5-9");
+    a single value is printed alone ("10"); all-N/A yields "".
     """
-    rpes: list[int] = []
+    rpes: list[float] = []
     for v in rir_values:
         if _is_na(v):
             continue
-        try:
-            rir = int(float(v))
-        except (TypeError, ValueError):
-            continue
-        rpes.append(max(0, min(10, 10 - rir)))
+        for m in _NUM_RE.findall(str(v)):
+            rir = float(m)
+            rpes.append(max(0.0, min(10.0, 10.0 - rir)))
     if not rpes:
         return ""
     lo, hi = min(rpes), max(rpes)
-    return f"{lo}" if lo == hi else f"{lo}-{hi}"
+    return _fmt_num(lo) if lo == hi else f"{_fmt_num(lo)}-{_fmt_num(hi)}"
 
 
 def _parse_minmax_sheet(ws) -> list[dict]:
@@ -349,15 +379,30 @@ def _parse_minmax_sheet(ws) -> list[dict]:
     found = _find_header_row(ws)
     if not found:
         return []
-    header_row_idx, header = found
-    cols = _minmax_columns(header)
-    if "exercise" not in cols:
+    _, header = found
+
+    cols: dict[str, int] = {}
+    ex_col = 0
+    label_col = 0
+    rir_start: int | None = None
+    rir_end: int | None = None
+
+    def apply_header(header_cells: list[Any]) -> bool:
+        """(Re)build the column map from a header row. False if unusable."""
+        nonlocal cols, ex_col, label_col, rir_start, rir_end
+        new_cols = _minmax_columns(header_cells)
+        if "exercise" not in new_cols:
+            return False
+        cols = new_cols
+        ex_col = cols["exercise"]
+        label_col = max(ex_col - 1, 0)  # "Week N" / session labels sit left of Exercise
+        rir_start = cols.get("rir")
+        # RIR cells run from the "Failure?" header up to (not including) "Rest".
+        rir_end = cols.get("rest", (rir_start + 2) if rir_start is not None else None)
+        return True
+
+    if not apply_header(header):
         return []
-    ex_col = cols["exercise"]
-    label_col = max(ex_col - 1, 0)  # "Week N" / session labels sit left of Exercise
-    rir_start = cols.get("rir")
-    # RIR cells run from the "Failure?" header up to (not including) "Rest".
-    rir_end = cols.get("rest", (rir_start + 2) if rir_start is not None else None)
 
     exercises: list[dict] = []
     current_week = 0
@@ -379,6 +424,8 @@ def _parse_minmax_sheet(ws) -> list[dict]:
         ex_raw = _safe_str(cells[ex_col])
 
         # Week header row: "Week N" in the label column, "Exercise" in ex col.
+        # Each week re-maps the columns: a later block may add tracking / RIR
+        # set columns, shifting Rest / substitutions / notes to the right.
         if label:
             wm = _WEEK_RE.match(label)
             if wm:
@@ -387,14 +434,16 @@ def _parse_minmax_sheet(ws) -> list[dict]:
                     current_week = new_week
                     session_order = 0
                     current_session = None
+                if _is_header_row(cells):
+                    apply_header(cells)
                 continue  # header row itself carries no exercise
             upper_label = label.upper()
-            if ex_raw is None:
-                # Title / banner / Block / Intro Week / Deload Week / Rest Day
-                continue
             if any(upper_label.startswith(k) for k in _MINMAX_SKIP_LABELS):
-                continue
-            # Session label with an exercise on the same row: new session.
+                continue  # Block N / Intro Week / Deload Week / Rest Day
+            if current_week == 0:
+                continue  # title / banner text above the first week header
+            # Session label: normally on the first exercise row of the session,
+            # tolerated on its own row (exercises follow beneath).
             current_session = re.sub(r"\s+", " ", upper_label)
             session_order += 1
             exercise_order = 0
@@ -483,23 +532,39 @@ def _parse_sheet(ws) -> list[dict]:
     return _parse_essentials_sheet(ws)
 
 
-def resolve_sheet_name(sheet_names: list[str], frequency: int) -> str | None:
-    """Pick the sheet for a training frequency.
+def candidate_sheet_names(sheet_names: list[str], frequency: int) -> list[str]:
+    """Rank sheets for a training frequency, best first.
 
-    Order: exact "<f>x Week" match, then any sheet whose title contains
-    "<f>x" as a word (e.g. "5x Per Week"), then the only sheet if the
-    workbook has just one. None if nothing fits.
+    Order: exact "<f>x Week", then "<f>x Per Week", then any sheet whose title
+    contains "<f>x" as a word, then the only sheet if the workbook has just one.
     """
-    exact = f"{frequency}x Week"
-    if exact in sheet_names:
-        return exact
+    ranked: list[str] = []
+    for known in (f"{frequency}x Week", f"{frequency}x Per Week"):
+        if known in sheet_names and known not in ranked:
+            ranked.append(known)
     pat = re.compile(rf"(?<!\d){frequency}\s*x(?![a-z0-9])", re.IGNORECASE)
     for name in sheet_names:
-        if pat.search(name):
+        if pat.search(name) and name not in ranked:
+            ranked.append(name)
+    if not ranked and len(sheet_names) == 1:
+        ranked.append(sheet_names[0])
+    return ranked
+
+
+def resolve_sheet_name(sheet_names: list[str], frequency: int) -> str | None:
+    """Best sheet name for a frequency by title alone (see candidate_sheet_names)."""
+    ranked = candidate_sheet_names(sheet_names, frequency)
+    return ranked[0] if ranked else None
+
+
+def resolve_sheet(wb, frequency: int) -> str | None:
+    """Pick the sheet for a frequency, preferring candidates that actually
+    carry a program header (an "Overview" tab named "5x ..." is skipped)."""
+    ranked = candidate_sheet_names(wb.sheetnames, frequency)
+    for name in ranked:
+        if detect_sheet_format(wb[name]) is not None:
             return name
-    if len(sheet_names) == 1:
-        return sheet_names[0]
-    return None
+    return ranked[0] if ranked else None
 
 
 def detect_program_title(ws, max_scan: int = 12) -> str | None:
@@ -529,7 +594,7 @@ def parse_workbook(file_path: str | Path, frequency: int) -> dict:
     """
     wb = openpyxl.load_workbook(str(file_path), data_only=True)
     try:
-        sheet_name = resolve_sheet_name(wb.sheetnames, frequency)
+        sheet_name = resolve_sheet(wb, frequency)
         if sheet_name is None:
             raise ValueError(
                 f"No sheet for {frequency}x/week in workbook (sheets: {', '.join(wb.sheetnames)})"

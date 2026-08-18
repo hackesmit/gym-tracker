@@ -114,3 +114,29 @@ def test_minmax_preset_importable_and_activates(client, db):
         assert len(mine) == 1 and mine[0].status == "active" and mine[0].share_code is None
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_seed_presets_survives_share_code_race(db, monkeypatch):
+    """Two instances starting together: the second loses the unique share_code
+    insert. Seeding must swallow that and still finish the remaining presets."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app import seed_presets as sp
+
+    real_insert = sp._insert_fixture
+    calls = {"n": 0}
+
+    def racing_insert(db_, owner_id, share_code, fixture):
+        calls["n"] += 1
+        if share_code == "NIPPARD2":
+            db_.add(Program(user_id=owner_id, name="x", frequency=2, start_date=__import__("datetime").date.today(), share_code="NIPPARD2"))
+            db_.flush()  # simulate the other instance winning first
+            # now our own insert of the same code collides
+            return real_insert(db_, owner_id, share_code, fixture)
+        return real_insert(db_, owner_id, share_code, fixture)
+
+    monkeypatch.setattr(sp, "_insert_fixture", racing_insert)
+    seed_preset_programs(db)  # must not raise
+    codes = {p.share_code for p in db.query(Program).all()}
+    assert {"NIPPARD3", "NIPPARD4", "NIPPARD5", "MINMAX5"} <= codes
+    assert calls["n"] == len(sp.PRESETS)

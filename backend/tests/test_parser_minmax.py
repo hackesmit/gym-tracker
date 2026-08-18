@@ -21,9 +21,12 @@ import pytest
 
 from app.models import Program, ProgramExercise
 from app.parser import (
+    _rir_to_rpe,
+    candidate_sheet_names,
     detect_sheet_format,
     parse_program,
     parse_workbook,
+    resolve_sheet,
     resolve_sheet_name,
 )
 
@@ -107,6 +110,105 @@ def test_resolve_sheet_name_variants():
     assert resolve_sheet_name(["3x Per Week", "5x Per Week"], 4) is None
     # "15x" must not match a 5x request
     assert resolve_sheet_name(["15x Per Week", "Notes"], 5) is None
+    # known names outrank fuzzy matches regardless of workbook order
+    assert candidate_sheet_names(["5x Overview", "5x Per Week", "5x Week"], 5) == [
+        "5x Week", "5x Per Week", "5x Overview",
+    ]
+
+
+def test_resolve_sheet_skips_frequency_named_sheet_without_program(tmp_path):
+    """An "Overview" tab that happens to be named 5x must not shadow the real
+    program sheet that comes after it in the workbook."""
+    wb = openpyxl.Workbook()
+    ov = wb.active
+    ov.title = "5x Overview"
+    ov.append(["Read the PDF first"])
+    real = wb.create_sheet("5x Per Week")
+    real.append([None, "The Min-Max Program"])
+    for r in _week_rows(1):
+        real.append(r)
+    assert resolve_sheet(wb, 5) == "5x Per Week"
+    p = tmp_path / "ov.xlsx"
+    wb.save(p)
+    parsed = parse_workbook(p, 5)
+    assert parsed["sheet_name"] == "5x Per Week" and len(parsed["exercises"]) == 8
+
+
+def test_detect_format_requires_minmax_header_conjunction():
+    """An Essentials header with an incidental Min-Max word stays Essentials."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["WEEK 1", "EXERCISE", "WARM-UP SETS", "WORKING SETS", "REPS", "LOAD", "RPE", "REST", "SUB 1", "SUB 2", "NOTES (RIR guidance / Failure?)"])
+    assert detect_sheet_format(ws) == "essentials"
+    wb2 = openpyxl.Workbook()
+    ws2 = wb2.active
+    ws2.append([None, "Week 1", "Exercise", "Warm-up Sets", "Working Sets", "Rep Range", "Failure?", "Rest"])
+    assert detect_sheet_format(ws2) == "minmax"
+    wb3 = openpyxl.Workbook()
+    ws3 = wb3.active
+    ws3.append(["nothing here"])
+    assert detect_sheet_format(ws3) is None
+
+
+def test_header_row_beyond_sixty_rows_is_found(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "5x Per Week"
+    ws.append([None, "The Min-Max Program"])
+    for _ in range(80):
+        ws.append([None, "cover material"])
+    for r in _week_rows(1):
+        ws.append(r)
+    p = tmp_path / "long.xlsx"
+    wb.save(p)
+    parsed = parse_workbook(p, 5)
+    assert parsed["format"] == "minmax" and len(parsed["exercises"]) == 8
+
+
+def test_rir_to_rpe_decimals_ranges_and_annotations():
+    assert _rir_to_rpe(["2", "1"]) == "8-9"
+    assert _rir_to_rpe(["1.5", "N/A"]) == "8.5"
+    assert _rir_to_rpe(["1-2", None]) == "8-9"
+    assert _rir_to_rpe(["2 RIR", "0"]) == "8-10"
+    assert _rir_to_rpe(["N/A", "", None]) == ""
+    assert _rir_to_rpe([0]) == "10"
+
+
+def test_week_with_extra_set_columns_remaps_headers(tmp_path):
+    """Week 2 adds a third tracking set (Load/Reps) plus a third RIR column, so
+    Failure? / Rest / substitutions / notes shift right by three. Rows must be
+    read with week 2's mapping, and no tracking value may leak into a field."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "5x Per Week"
+    ws.append([None, "The Min-Max Program"])
+    for r in _week_rows(1):
+        ws.append(r)
+    hdr2 = [
+        None, "Week 2", "Exercise", "Last-Set Intensity Technique", "Warm-up Sets", "Working Sets",
+        "Rep Range", "Tracking Load and Reps", None, None, None, None, None,
+        "Failure?", None, None, "Rest", "Substitution Option 1", "Substitution Option 2", "Notes",
+    ]
+    ws.append(hdr2)
+    ws.append([None] * 7 + ["Set 1", None, "Set 2", None, "Set 3", None])
+    ws.append([None] * 7 + ["Load", "Reps", "Load", "Reps", "Load", "Reps", "RIR (Set 1)", "RIR (Set 2)", "RIR (Set 3)"])
+    ws.append([None, "Upper 1", "Pec Deck", "Myo-reps", "0-1", 3, D(2025, 8, 10), 175, 9, 175, 8, 175, 7, 1, 1, 0, "1-2 min", "DB Flye", "Cable Flye", "Week two notes."])
+    p = tmp_path / "shift.xlsx"
+    wb.save(p)
+    ex = parse_workbook(p, 5)["exercises"]
+    w2 = [e for e in ex if e["week"] == 2]
+    assert len(w2) == 1
+    e = w2[0]
+    assert e["working_sets"] == 3
+    assert e["prescribed_reps"] == "8-10"
+    assert e["prescribed_rpe"] == "9-10"
+    assert e["rest_period"] == "1-2 min"
+    assert e["substitution_1"] == "DB Flye" and e["substitution_2"] == "Cable Flye"
+    assert e["notes"] == "Last set: Myo-reps. Week two notes."
+    for v in e.values():
+        assert v not in (175, 9, 8, 7)
+    # week 1 rows still parse with their own mapping
+    assert [x for x in ex if x["week"] == 1][0]["rest_period"] == "3-5 min"
 
 
 def test_parse_minmax_structure(minmax_path):
@@ -179,6 +281,29 @@ def test_parse_minmax_never_exports_personal_loads(minmax_path):
             assert v not in (185, 175, 140, 225, 200) and v != "max"
 
 
+def test_session_label_on_its_own_row_starts_a_session(tmp_path):
+    """Variant layout: session name on a row of its own, exercises beneath."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "3x Per Week"
+    ws.append([None, "The Min-Max Program"])
+    ws.append([h.format(n=1) if isinstance(h, str) else h for h in HEADER])
+    ws.append(SUB1)
+    ws.append(SUB2)
+    ws.append([None, "Full Body 1"])
+    ws.append(_ex(None, "Pec Deck", "N/A", "0-1", 2, D(2025, 6, 8), None, None, None, None, 1, 0, "1-2 min", "N/A", "N/A", None))
+    ws.append(_ex(None, "Leg Extension", "N/A", "0-1", 2, D(2025, 6, 8), None, None, None, None, 1, 0, "1-2 min", "N/A", "N/A", None))
+    ws.append([None, "Rest Day"])
+    ws.append([None, "Full Body 2"])
+    ws.append(_ex(None, "Leg Press", "N/A", "0-1", 2, D(2025, 6, 8), None, None, None, None, 1, 0, "1-2 min", "N/A", "N/A", None))
+    p = tmp_path / "v.xlsx"
+    wb.save(p)
+    ex = parse_workbook(p, 3)["exercises"]
+    assert [(e["session_name"], e["session_order_in_week"], e["exercise_order"]) for e in ex] == [
+        ("FULL BODY 1", 1, 1), ("FULL BODY 1", 1, 2), ("FULL BODY 2", 2, 1),
+    ]
+
+
 def test_parse_program_legacy_entry_point_autodetects(minmax_path):
     ex = parse_program(minmax_path, "5x Per Week")
     assert len(ex) == 16 and ex[0]["exercise_name_canonical"] == "BARBELL INCLINE PRESS"
@@ -220,6 +345,24 @@ def test_import_program_single_sheet_wrong_frequency_uses_detected(client, db):
     assert r.status_code == 200, r.text
     assert r.json()["frequency"] == 5
     assert r.json()["program_name"] == "My Min-Max"
+
+
+def test_import_program_unsupported_session_count_is_422(client):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Program"
+    ws.append([None, "Solo"])
+    ws.append([h.format(n=1) if isinstance(h, str) else h for h in HEADER])
+    ws.append(_ex("Only Day", "Pec Deck", "N/A", "0-1", 2, D(2025, 6, 8), None, None, None, None, 1, 0, "1-2 min", "N/A", "N/A", None))
+    buf = io.BytesIO()
+    wb.save(buf)
+    r = client.post(
+        "/api/import-program",
+        files={"file": ("solo.xlsx", buf.getvalue(), "application/octet-stream")},
+        data={"frequency": "2"},
+    )
+    assert r.status_code == 422
+    assert "1 training sessions per week" in r.json()["detail"]
 
 
 def test_import_program_no_matching_sheet_is_422(client):

@@ -17,6 +17,7 @@ import json
 from datetime import date
 from pathlib import Path
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .models import Program, ProgramExercise, ProgramProgress, User
@@ -95,8 +96,7 @@ def _insert_fixture(db: Session, owner_id: int, share_code: str, fixture: dict) 
         total_sessions_completed=0,
         total_sessions_skipped=0,
     ))
-    db.commit()
-    db.refresh(program)
+    db.flush()
     return program
 
 
@@ -110,5 +110,12 @@ def seed_preset_programs(db: Session) -> None:
         fixture_path = FIXTURES_DIR / spec["fixture"]
         if not fixture_path.exists():
             continue
-        fixture = json.loads(fixture_path.read_text())
-        _insert_fixture(db, preset_user.id, spec["share_code"], fixture)
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        try:
+            _insert_fixture(db, preset_user.id, spec["share_code"], fixture)
+            db.commit()
+        except IntegrityError:
+            # Query-then-insert is not atomic: a second instance starting at
+            # the same time may have won the unique share_code race. That is
+            # the desired end state, so swallow it and move on.
+            db.rollback()

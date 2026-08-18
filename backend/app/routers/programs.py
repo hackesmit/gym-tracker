@@ -157,13 +157,27 @@ def import_program(
         )
 
     # The sheet is the source of truth for sessions/week; the requested
-    # frequency only selected the sheet. Fall back to the request if the
-    # detected count is outside the supported range.
+    # frequency only selected the sheet. A session count the app cannot
+    # schedule is an error, not something to paper over with the request.
     detected = parsed["detected_frequency"]
-    if detected in FREQUENCY_SHEETS:
-        frequency = detected
+    if detected not in FREQUENCY_SHEETS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Sheet '{sheet_name}' has {detected} training sessions per week; "
+                f"supported: {sorted(FREQUENCY_SHEETS)}"
+            ),
+        )
+    frequency = detected
 
-    resolved_name = (program_name or "").strip() or parsed.get("title") or "The Essentials"
+    # Name: caller's choice, else the sheet title for Min-Max workbooks (their
+    # banner is a clean "The Min-Max Program"), else the historical default.
+    resolved_name = (program_name or "").strip()
+    if not resolved_name:
+        if parsed["format"] == "minmax":
+            resolved_name = parsed.get("title") or "The Min-Max Program"
+        else:
+            resolved_name = "The Essentials"
     resolved_name = resolved_name[:120]
 
     # Derive total_weeks from parsed data and validate
