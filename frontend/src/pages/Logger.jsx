@@ -180,6 +180,7 @@ export default function Logger() {
   // has typed anything, a late overload response must not wipe their entries.
   const dirtyRef = useRef(false);
   const builtForSessionRef = useRef(null);
+  const builtWithCatalogRef = useRef(null);
 
   // Initialize sets when session or overload changes
   useEffect(() => {
@@ -187,11 +188,14 @@ export default function Logger() {
     const sessionChanged = builtForSessionRef.current !== selectedSession;
     // A plan for another session (previous selection, or a request that was
     // in flight during navigation) never seeds this one.
-    const usableOverload = overload && (!overload.session_name || overload.session_name === selectedSession.session_name)
+    const usableOverload = overload
+      && (!overload.session_name || overload.session_name === selectedSession.session_name)
+      && (overload.week == null || overload.week === currentWeek)
       ? overload
       : null;
+    const catalogChanged = builtWithCatalogRef.current !== catalogData;
     if (!sessionChanged) {
-      if (!usableOverload) return; // nothing new for this session
+      if (!usableOverload && !catalogChanged) return; // nothing new for this session
       if (dirtyRef.current) return; // user already typing: keep their entries
     }
     const exercises = selectedSession.exercises || [];
@@ -260,6 +264,7 @@ export default function Logger() {
       }
     });
     builtForSessionRef.current = selectedSession;
+    builtWithCatalogRef.current = catalogData;
     dirtyRef.current = false;
     setSets(newSets);
   }, [selectedSession, overload, catalogData]);
