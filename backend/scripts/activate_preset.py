@@ -2,7 +2,8 @@
 
 Talks to the HTTP API (no DB access needed), so it works against prod or a
 local server. Idempotent: if the user already owns a copy of the preset (same
-name as the shared source), that copy is activated instead of importing again.
+name and source file as the shared source), that copy is activated instead
+of importing again.
 
 Usage:
     GYM_API=https://gym-tracker-api-bold-violet-7582.fly.dev/api \\
@@ -50,7 +51,12 @@ def main(argv: list[str]) -> int:
     source = _call(base, f"/programs/shared/{code}", token=token)
     mine = _call(base, "/programs", token=token)["programs"]
 
-    existing = next((p for p in mine if p["name"] == source["name"]), None)
+    # An imported copy keeps the source's name and source_file; a custom
+    # program that merely shares the name has source_file None.
+    existing = next(
+        (p for p in mine if p["name"] == source["name"] and p.get("source_file") == source.get("source_file")),
+        None,
+    )
     if existing:
         program_id = existing["id"]
         print(f"reusing existing copy #{program_id} of {source['name']!r}", file=sys.stderr)

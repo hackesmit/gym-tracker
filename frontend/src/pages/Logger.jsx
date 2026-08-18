@@ -174,23 +174,31 @@ export default function Logger() {
     knownProgramIds,
   });
 
-  // Sets are (re)built when the session changes and again when the overload
-  // plan for THAT session arrives. Once the user has typed anything, a late
-  // overload response must not wipe their entries.
+  // Sets are (re)built whenever a NEW session object arrives (navigation,
+  // week change, exercise swap: the schedule refresh hands us a fresh object)
+  // and again when the overload plan for THAT session arrives. Once the user
+  // has typed anything, a late overload response must not wipe their entries.
   const dirtyRef = useRef(false);
-  const sessionIdentity = selectedSession ? `${currentWeek}|${selectedSession.session_name}` : null;
-  useEffect(() => { dirtyRef.current = false; }, [sessionIdentity]);
+  const builtForSessionRef = useRef(null);
 
   // Initialize sets when session or overload changes
   useEffect(() => {
     if (!selectedSession) return;
-    if (overload && overload.session_name && overload.session_name !== selectedSession.session_name) return; // stale plan for another session
-    if (dirtyRef.current) return;
+    const sessionChanged = builtForSessionRef.current !== selectedSession;
+    // A plan for another session (previous selection, or a request that was
+    // in flight during navigation) never seeds this one.
+    const usableOverload = overload && (!overload.session_name || overload.session_name === selectedSession.session_name)
+      ? overload
+      : null;
+    if (!sessionChanged) {
+      if (!usableOverload) return; // nothing new for this session
+      if (dirtyRef.current) return; // user already typing: keep their entries
+    }
     const exercises = selectedSession.exercises || [];
     const newSets = [];
     exercises.forEach((ex) => {
       const exName = ex.exercise_name || ex.exercise_name_canonical;
-      const suggestion = overload?.exercises?.find(
+      const suggestion = usableOverload?.exercises?.find(
         (o) => o.exercise_name === exName
       );
       const suggestedLoad = suggestion?.suggested_load_kg;
@@ -251,6 +259,8 @@ export default function Logger() {
         });
       }
     });
+    builtForSessionRef.current = selectedSession;
+    dirtyRef.current = false;
     setSets(newSets);
   }, [selectedSession, overload, catalogData]);
 

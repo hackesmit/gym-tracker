@@ -91,6 +91,20 @@ def _run_migrations(db):
     _ensure_column("users", "password_hash", "VARCHAR")
     _ensure_column("users", "last_login_at", "TIMESTAMP")
     _ensure_column("users", "manual_1rm", "JSON" if not is_sqlite else "TEXT")
+    # 2026-08-17: usernames are unique case-insensitively (admin checks
+    # lowercase them). The register / change-username prechecks are raceable
+    # on their own; this index is the real guarantee. If a legacy DB already
+    # holds a case-collision the CREATE fails and is logged; the app-level
+    # check still applies for new names.
+    try:
+        db.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_users_username_lower "
+            "ON users (lower(username))"
+        ))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"migrations: ux_users_username_lower not created: {e}", flush=True)
 
     # muscle_scores: 2026-04-22 ladder rewrite — subdivision index + continuous
     # ELO score columns. Default 0 so existing rows are valid until the next

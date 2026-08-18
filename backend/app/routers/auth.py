@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -93,7 +94,13 @@ def register(payload: RegisterPayload, db: Session = Depends(get_db)):
         preferred_units="kg",
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost the race against a concurrent register of the same (case-
+        # insensitive) username: the unique index is the source of truth.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Username already taken")
     db.refresh(user)
     token = create_access_token(user.id, remember=False)
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))

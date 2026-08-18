@@ -792,6 +792,7 @@ def _summarize_program(program: Program, db: Session) -> dict:
         "total_weeks": program.total_weeks,
         "total_exercises": int(pe_count),
         "sessions_week1": [s[0] for s in session_names],
+        "source_file": program.source_file,
         "owner_username": owner.username if owner else None,
         "owner_name": owner.name if owner else None,
     }
