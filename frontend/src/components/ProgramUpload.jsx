@@ -32,6 +32,7 @@ export default function ProgramUpload() {
       <div className="text-center py-4">
         <Check className="text-success mx-auto mb-2" size={32} />
         <p className="text-sm font-medium">Program imported!</p>
+        {result.program_name && <p className="text-xs mt-1">{result.program_name}</p>}
         <p className="text-xs text-text-muted mt-1">
           {result.total_exercises} exercises across {result.frequency}x/week
         </p>
@@ -61,6 +62,7 @@ export default function ProgramUpload() {
           <div className="text-text-muted">
             <Upload size={24} className="mx-auto mb-2" />
             <p className="text-sm">Drop .xlsx file or click to browse</p>
+            <p className="text-[11px] mt-1">The Essentials or The Min-Max Program layouts (auto-detected)</p>
           </div>
         )}
       </div>

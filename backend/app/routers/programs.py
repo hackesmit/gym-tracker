@@ -20,7 +20,7 @@ from sqlalchemy import func
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Program, ProgramExercise, ProgramProgress, User, WorkoutLog
-from ..parser import parse_program
+from ..parser import parse_workbook
 
 router = APIRouter(prefix="/api", tags=["programs"])
 
@@ -94,16 +94,22 @@ FREQUENCY_SHEETS = {
 def import_program(
     file: UploadFile = File(...),
     frequency: int = Form(...),
-    program_name: str = Form("The Essentials"),
+    program_name: str = Form(""),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Upload an .xlsx file, parse it, and store the program + exercises.
 
+    Accepts both Jeff Nippard layouts (The Essentials, The Min-Max Program);
+    the sheet format is auto-detected.
+
     - **file**: The .xlsx spreadsheet file
-    - **frequency**: Training frequency (2, 3, 4, or 5 days per week)
-    - **program_name**: Name for the program (default: "The Essentials")
+    - **frequency**: Training frequency (2, 3, 4, or 5 days per week). Picks
+      the sheet ("5x Week", "5x Per Week", or the only sheet). The stored
+      frequency is the number of sessions actually found per week.
+    - **program_name**: Optional name; defaults to the title found in the
+      sheet ("The Essentials", "The Min-Max Program").
     """
     # Validate frequency
     if frequency not in FREQUENCY_SHEETS:
@@ -130,9 +136,10 @@ def import_program(
         file_path = Path(tmp.name)
 
     # Parse the spreadsheet — the upload is ephemeral, remove it either way.
-    sheet_name = FREQUENCY_SHEETS[frequency]
     try:
-        exercises = parse_program(str(file_path), sheet_name)
+        parsed = parse_workbook(str(file_path), frequency)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=422,
@@ -141,11 +148,23 @@ def import_program(
     finally:
         file_path.unlink(missing_ok=True)
 
+    sheet_name = parsed["sheet_name"]
+    exercises = parsed["exercises"]
     if not exercises:
         raise HTTPException(
             status_code=422,
             detail=f"No exercises found in sheet '{sheet_name}'",
         )
+
+    # The sheet is the source of truth for sessions/week; the requested
+    # frequency only selected the sheet. Fall back to the request if the
+    # detected count is outside the supported range.
+    detected = parsed["detected_frequency"]
+    if detected in FREQUENCY_SHEETS:
+        frequency = detected
+
+    resolved_name = (program_name or "").strip() or parsed.get("title") or "The Essentials"
+    resolved_name = resolved_name[:120]
 
     # Derive total_weeks from parsed data and validate
     max_week = max(ex["week"] for ex in exercises)
@@ -160,7 +179,7 @@ def import_program(
     # Create the program
     program = Program(
         user_id=current_user.id,
-        name=program_name,
+        name=resolved_name,
         frequency=frequency,
         start_date=date.today(),
         status="active",
@@ -223,6 +242,7 @@ def import_program(
         "program_name": program.name,
         "frequency": frequency,
         "sheet_parsed": sheet_name,
+        "format": parsed["format"],
         "total_exercises": len(exercises),
         "total_weeks": total_weeks,
         "total_sessions": total_sessions,

@@ -186,6 +186,7 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "CLOSE-GRIP BENCH PRESS":          0.95,
         "INCLINE BARBELL PRESS":           0.90,
         "INCLINE BARBELL BENCH PRESS":     0.90,
+        "BARBELL INCLINE PRESS":           0.90,   # Min-Max naming of the incline barbell press
         # Dumbbell variants (per-hand load × 2 × transferability)
         "FLAT DB PRESS":                   1.60,
         "INCLINE DB PRESS":                1.45,
@@ -213,6 +214,9 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         # Smith-machine squat (guided barbell)
         "SMITH MACHINE SQUAT":            0.85,
         "NARROW STANCE SMITH SQUAT":      0.80,
+        # Min-Max "Squat (Your Choice)": back / front / hack / belt / smith /
+        # pendulum. Unknown variant, so score between smith (0.85) and hack (0.70).
+        "SQUAT (YOUR CHOICE)":            0.80,
         # Hack / machine squat
         "HACK SQUAT":                     0.70,
         "CLOSE STANCE HACK SQUAT":        0.70,
@@ -224,6 +228,7 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "DB BULGARIAN SPLIT SQUAT":       0.60,
         "DB WALKING LUNGE":               0.55,
         "WALKING LUNGES":                 0.45,
+        "SMITH MACHINE LUNGE":            0.45,   # bar load, unilateral, guided
         "DB STEP UP":                     0.50,
         "GOBLET SQUAT":                   0.40,
         # Bodyweight lunge variants (pure BW; post-migration load_kg = BW)
@@ -236,6 +241,7 @@ EXERCISE_MAP: dict[str, dict[str, float]] = {
         "TRAP BAR DEADLIFT":      0.95,
         "PAUSED DEADLIFT":        1.00,
         "ROMANIAN DEADLIFT":      0.85,
+        "BARBELL RDL":            0.85,   # Min-Max naming
         # DB Romanian deadlift (per-hand × 2 × 0.85)
         "DB ROMANIAN DEADLIFT":   1.70,
     },
@@ -266,6 +272,9 @@ BACK_WEIGHTED_PULLUPS: set[str] = {
     "WEIGHTED CHIN-UP",
     "WEIGHTED CHINUP",
     "WEIGHTED CHIN UP",
+    # Min-Max wide-grip pull-up is catalogued weighted_capable: added_load_kg 0
+    # falls through to the bodyweight-rep branch, so one entry covers both.
+    "PULL-UP (WIDE GRIP)",
 }
 BACK_BODYWEIGHT_PULLUPS: set[str] = {
     "PULLUP",
@@ -312,6 +321,7 @@ BACK_ROWS_PULLDOWNS: dict[str, float] = {
     "PENDLAY ROW":                      0.50,
     # T-bar and machine rows
     "T-BAR ROW":                        0.45,
+    "CHEST-SUPPORTED T-BAR ROW":        0.45,
     "MEADOWS ROW":                      0.40,
     "SEATED CABLE ROW":                 0.40,
     # DB rows (per-hand convention)
@@ -323,6 +333,7 @@ BACK_ROWS_PULLDOWNS: dict[str, float] = {
     "LAT PULLDOWN":                     0.35,
     "NEUTRAL GRIP LAT PULLDOWN":        0.35,
     "2-GRIP LAT PULLDOWN":              0.35,
+    "CLOSE-GRIP LAT PULLDOWN":          0.35,
     "MACHINE PULLDOWN":                 0.30,
     "1-ARM HALF KNEELING LAT PULLDOWN": 0.50,
 }
@@ -365,11 +376,13 @@ ARMS_CURL_ISOLATION: dict[str, float] = {
     "EZ BAR CURL":            0.95,
     "REVERSE GRIP EZ BAR CURL": 0.85,
     "EZ BAR PREACHER CURL":   0.90,
+    "EZ-BAR PREACHER CURL":   0.90,
     "PREACHER CURL":          0.90,
     "SPIDER CURL":            0.90,     # assumed barbell/EZ
     # Dumbbell-class (per-hand × 2 × transferability)
     "DB BICEP CURL":          1.60,
     "DB CURL":                1.60,
+    "ALTERNATING DB CURL":    1.60,
     "DB INCLINE CURL":        1.40,
     "DB SPIDER CURL":         1.40,
     "DB PREACHER CURL":       1.40,
@@ -377,6 +390,7 @@ ARMS_CURL_ISOLATION: dict[str, float] = {
     "DB HAMMER CURL":         1.60,
     "ZOTTMAN CURL":           1.40,
     "INVERSE ZOTTMAN CURL":   1.40,
+    "MODIFIED ZOTTMAN CURL":  1.40,
     # Cable (stack calibration varies — heavy discount)
     "BAYESIAN CABLE CURL":    0.50,
     "CABLE EZ CURL":          0.50,
@@ -408,6 +422,7 @@ ARMS_TRICEP_ISOLATION: dict[str, float] = {
     "MACHINE TRICEPS EXTENSION":         1.0,
     "OVERHEAD CABLE TRICEPS EXTENSIONS": 1.0,
     "OVERHEAD CABLE TRICEP EXTENSION":   1.0,
+    "OVERHEAD CABLE TRICEPS EXTENSION":  1.0,
     "DB TRICEPS KICKBACK":               1.0,
     "CABLE TRICEPS KICKBACK":            1.0,
 }
@@ -434,6 +449,7 @@ SHOULDERS_LATERAL_ISOLATION: dict[str, float] = {
     "STANDING DB LATERAL RAISE": 1.60,
     "SEATED DB LATERAL RAISE":   1.50,
     "CABLE LATERAL RAISE":       0.50,
+    "HIGH-CABLE LATERAL RAISE":  0.50,
     "MACHINE LATERAL RAISE":     0.60,
 }
 
@@ -550,6 +566,7 @@ ABS_WEIGHTED_CRUNCHES: dict[str, float] = {
 ABS_BODYWEIGHT_FALLBACK: set[str] = {
     "HANGING LEG RAISE",
     "LEG RAISES",
+    "DRAGON FLAG",
     "TWO-ARMS TWO-LEGS DEAD BUG",
 }
 
@@ -864,5 +881,18 @@ CATALOG_AUDIT: dict[str, str] = {
     "ROPE FACEPULL": (
         "rear-delt / rotator-cuff isolation — targets posterior delt and external "
         "rotators; not part of the OHP or lateral-raise rank anchors"
+    ),
+    # ── Min-Max Program additions (2026-08-17) ───────────────────────────────
+    "1-ARM REVERSE PEC DECK": (
+        "rear-delt isolation — same posterior-delt category as REVERSE PEC DECK; "
+        "excluded from shoulder rank scoring"
+    ),
+    "INCLINE DB Y-RAISE": (
+        "lower-trap / rear-delt raise — posterior shoulder girdle, not the "
+        "medial-delt lateral-raise nor OHP press anchor; excluded"
+    ),
+    "KELSO SHRUG": (
+        "scapular-retraction shrug — mid-trap movement with no pull-up / row "
+        "transfer; tracked for volume, excluded from back rank scoring"
     ),
 }

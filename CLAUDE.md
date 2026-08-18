@@ -141,22 +141,40 @@ gym-tracker/
 | `/compare/:id` | Compare | Side-by-side friend comparison |
 | `/settings` | Settings | Theme, language, units, rest timer, manual 1RM, change username (captcha-gated), export, admin password reset |
 
-## Preset programs (2026-04-21)
+## Preset programs (2026-04-21, Min-Max added 2026-08-17)
 Jeff Nippard's "The Essentials" ships as 4 importable presets covering every training
-frequency. They're owned by a synthetic `preset` user whose password hash is `!disabled!`
-(can never be logged into) and are permanently shared — any user can import by code.
+frequency, plus "The Min-Max Program" (5x). They're owned by a synthetic `preset` user
+whose password hash is `!disabled!` (can never be logged into) and are permanently
+shared — any user can import by code.
 
-| Share code | Frequency | Style |
-|---|---|---|
-| `NIPPARD2` | 2× / week | Full-body minimalist |
-| `NIPPARD3` | 3× / week | Full-body classic |
-| `NIPPARD4` | 4× / week | Upper / lower split |
-| `NIPPARD5` | 5× / week | Push / pull / legs split |
+| Share code | Program | Frequency | Style |
+|---|---|---|---|
+| `NIPPARD2` | The Essentials | 2× / week | Full-body minimalist |
+| `NIPPARD3` | The Essentials | 3× / week | Full-body classic |
+| `NIPPARD4` | The Essentials | 4× / week | Upper / lower split |
+| `NIPPARD5` | The Essentials | 5× / week | Push / pull / legs split |
+| `MINMAX5` | The Min-Max Program | 5× / week | Upper 1 / Lower 1 / Upper 2 / Lower 2 / Arms+Delts, 12 weeks (intro wk 1, deload wk 7), 1-2 working sets to failure |
 
-Seeding is idempotent (skip if `share_code` already exists) and runs on lifespan startup
-via `seed_preset_programs()` in `backend/app/seed_presets.py`. Fixtures live in
-`backend/app/fixtures/nippard_{2,3,4,5}x.json`. UI surface: `NippardPresetPicker`
-component on the Dashboard welcome panel and the no-active branch of the Program page.
+Seeding is idempotent (skip if `share_code` already exists, so a deployed DB picks up
+new codes on the next startup) and runs on lifespan startup via `seed_preset_programs()`
+in `backend/app/seed_presets.py`. Fixtures live in `backend/app/fixtures/nippard_{2,3,4,5}x.json`
+and `backend/app/fixtures/minmax_5x.json`; rebuild one from its spreadsheet with
+`python -m scripts.build_preset_fixture <xlsx> <freq> <out.json>` (program structure only,
+never the sheet owner's logged loads). UI surface: `NippardPresetPicker` component on the
+Dashboard welcome panel and the no-active branch of the Program page.
+
+### Spreadsheet import formats (`backend/app/parser.py`)
+`POST /api/import-program` auto-detects the sheet layout per upload:
+- **Essentials**: fixed columns `WEEK | EXERCISE | WARM-UP | WORKING SETS | REPS | LOAD | RPE | REST | SUB1 | SUB2 | NOTES`, sheets `2x Week`..`5x Week`.
+- **Min-Max**: header-labelled columns offset by one (`Week N | Exercise | Last-Set Intensity
+  Technique | Warm-up Sets | Working Sets | Rep Range | Tracking Load and Reps (per-set load/reps,
+  skipped) | Failure? (RIR per set) | Rest | Substitution Option 1/2 | Notes`), sheet `5x Per Week`.
+  Rows labelled `Block N`, `Intro Week`, `Deload Week`, `Rest Day` are skipped. RIR is stored as
+  RPE (`10 - RIR`, e.g. RIR 2/1 -> `8-9`); the intensity technique is prefixed to notes
+  (`Last set: Myo-reps.`). Excel-mangled ranges (`6-8` stored as a date) are un-mangled.
+The `frequency` form field selects the sheet (`5x Week`, `5x Per Week`, or the workbook's only
+sheet); the stored frequency is the number of sessions actually found per week. Personal
+per-set loads in the sheet are never imported.
 Reserved usernames `{preset, system, admin}` are rejected at register time. Friend
 requests to `preset` are refused.
 

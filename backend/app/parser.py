@@ -1,8 +1,23 @@
 """
 Parser for Jeff Nippard program spreadsheets (.xlsx).
 
-Reads structured workout sheets and returns a flat list of exercise dicts
-suitable for database insertion.
+Two workbook layouts are supported and auto-detected per sheet:
+
+* "essentials" (The Essentials): fixed columns
+  WEEK | EXERCISE | WARM-UP SETS | WORKING SETS | REPS | LOAD | RPE | REST |
+  SUB 1 | SUB 2 | NOTES.  Sheets are named "2x Week" .. "5x Week".
+* "minmax" (The Min-Max Program): header-labelled columns, offset by one
+  (col A blank): Week N | Exercise | Last-Set Intensity Technique |
+  Warm-up Sets | Working Sets | Rep Range | Tracking Load and Reps (N cols,
+  skipped) | Failure? (RIR per set) | Rest | Substitution Option 1 |
+  Substitution Option 2 | Notes.  Extra label rows ("Block 1", "Intro Week",
+  "Deload Week", "Rest Day", the title / notes banner) are skipped.  RIR is
+  converted to the app's RPE field (RPE = 10 - RIR) and the intensity
+  technique is folded into the notes.
+
+Both return the same flat list of exercise dicts suitable for database
+insertion.  Per-set load / reps tracking values are never imported: they are
+the sheet owner's personal log, not part of the program.
 """
 
 from __future__ import annotations
@@ -97,20 +112,8 @@ def _normalize_exercise(raw_name: str) -> tuple[str, bool, str | None]:
     return name, is_superset, superset_group
 
 
-def parse_program(file_path: str | Path, sheet_name: str) -> list[dict]:
-    """
-    Parse a workout program from a single sheet of the xlsx file.
-
-    Args:
-        file_path: Path to the .xlsx file.
-        sheet_name: Name of the sheet to parse (e.g. "4x Week").
-
-    Returns:
-        List of exercise dicts with the schema described in the module docstring.
-    """
-    wb = openpyxl.load_workbook(str(file_path), data_only=True)
-    ws = wb[sheet_name]
-
+def _parse_essentials_sheet(ws) -> list[dict]:
+    """Parse one sheet laid out in The Essentials format (fixed columns)."""
     exercises: list[dict] = []
     current_week: int = 0
     current_session: str | None = None
@@ -198,8 +201,12 @@ def parse_program(file_path: str | Path, sheet_name: str) -> list[dict]:
                 }
             )
 
-    wb.close()
+    return _disambiguate_sessions(exercises)
 
+
+def _disambiguate_sessions(exercises: list[dict]) -> list[dict]:
+    """Rename duplicate session names within a week: "UPPER BODY" x2 becomes
+    "UPPER BODY A" / "UPPER BODY B". Mutates and returns the list."""
     # Disambiguate sessions with duplicate names within the same week.
     # E.g. two "UPPER BODY" sessions become "UPPER BODY A" and "UPPER BODY B".
     from collections import Counter
@@ -249,6 +256,303 @@ def parse_program(file_path: str | Path, sheet_name: str) -> list[dict]:
                 ex["session_name"] = rename_map[key]
 
     return exercises
+
+
+# ---------------------------------------------------------------------------
+# Min-Max format
+# ---------------------------------------------------------------------------
+_MINMAX_MARKERS = ("REP RANGE", "TRACKING LOAD", "FAILURE?", "INTENSITY TECHNIQUE")
+_MINMAX_SKIP_LABELS = ("BLOCK", "INTRO WEEK", "DELOAD WEEK", "REST DAY")
+_NA_VALUES = {"", "N/A", "NA", "-", "--"}
+
+
+def _is_na(value: str | None) -> bool:
+    return value is None or value.strip().upper() in _NA_VALUES
+
+
+def _find_header_row(ws, max_scan: int = 60) -> tuple[int, list[Any]] | None:
+    """Return (row_index, cells) of the first row containing an EXERCISE header."""
+    for idx, row in enumerate(ws.iter_rows(min_row=1, max_row=min(ws.max_row, max_scan), values_only=True), start=1):
+        for cell in row:
+            if isinstance(cell, str) and cell.strip().upper() == "EXERCISE":
+                return idx, list(row)
+    return None
+
+
+def detect_sheet_format(ws) -> str | None:
+    """Return "minmax", "essentials", or None if the sheet has no exercise header."""
+    found = _find_header_row(ws)
+    if not found:
+        return None
+    _, cells = found
+    joined = " | ".join(str(c).strip().upper() for c in cells if isinstance(c, str))
+    if any(m in joined for m in _MINMAX_MARKERS):
+        return "minmax"
+    return "essentials"
+
+
+def _minmax_columns(header: list[Any]) -> dict[str, int]:
+    """Map logical column names to indexes from the Min-Max header row."""
+    idx: dict[str, int] = {}
+    for i, cell in enumerate(header):
+        if not isinstance(cell, str):
+            continue
+        u = cell.strip().upper()
+        if u == "EXERCISE":
+            idx["exercise"] = i
+        elif "INTENSITY TECHNIQUE" in u:
+            idx["technique"] = i
+        elif u.startswith("WARM-UP") or u.startswith("WARM UP") or u.startswith("WARMUP"):
+            idx["warm_up"] = i
+        elif u.startswith("WORKING SETS"):
+            idx["working_sets"] = i
+        elif u.startswith("REP RANGE") or u == "REPS":
+            idx["reps"] = i
+        elif u.startswith("TRACKING LOAD"):
+            idx["tracking"] = i
+        elif u.startswith("FAILURE") or u.startswith("RIR"):
+            idx["rir"] = i
+        elif u == "REST" or u.startswith("REST "):
+            idx["rest"] = i
+        elif u.startswith("SUBSTITUTION OPTION 1") or u == "SUB 1" or u.startswith("SUBSTITUTION 1"):
+            idx["sub1"] = i
+        elif u.startswith("SUBSTITUTION OPTION 2") or u == "SUB 2" or u.startswith("SUBSTITUTION 2"):
+            idx["sub2"] = i
+        elif u == "NOTES":
+            idx["notes"] = i
+    return idx
+
+
+def _rir_to_rpe(rir_values: list[str | None]) -> str:
+    """Convert per-set RIR cells to the app's prescribed RPE string.
+
+    RPE = 10 - RIR. Two distinct values become a range ("8-9"); one value is
+    printed alone ("10"); all-N/A yields "".
+    """
+    rpes: list[int] = []
+    for v in rir_values:
+        if _is_na(v):
+            continue
+        try:
+            rir = int(float(v))
+        except (TypeError, ValueError):
+            continue
+        rpes.append(max(0, min(10, 10 - rir)))
+    if not rpes:
+        return ""
+    lo, hi = min(rpes), max(rpes)
+    return f"{lo}" if lo == hi else f"{lo}-{hi}"
+
+
+def _parse_minmax_sheet(ws) -> list[dict]:
+    """Parse one sheet laid out in The Min-Max Program format."""
+    found = _find_header_row(ws)
+    if not found:
+        return []
+    header_row_idx, header = found
+    cols = _minmax_columns(header)
+    if "exercise" not in cols:
+        return []
+    ex_col = cols["exercise"]
+    label_col = max(ex_col - 1, 0)  # "Week N" / session labels sit left of Exercise
+    rir_start = cols.get("rir")
+    # RIR cells run from the "Failure?" header up to (not including) "Rest".
+    rir_end = cols.get("rest", (rir_start + 2) if rir_start is not None else None)
+
+    exercises: list[dict] = []
+    current_week = 0
+    current_session: str | None = None
+    session_order = 0
+    exercise_order = 0
+
+    def cell(row: list[Any], key: str) -> str | None:
+        i = cols.get(key)
+        if i is None or i >= len(row):
+            return None
+        return _safe_str(row[i])
+
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True):
+        cells = list(row)
+        if len(cells) <= ex_col:
+            continue
+        label = _safe_str(cells[label_col]) if label_col < len(cells) else None
+        ex_raw = _safe_str(cells[ex_col])
+
+        # Week header row: "Week N" in the label column, "Exercise" in ex col.
+        if label:
+            wm = _WEEK_RE.match(label)
+            if wm:
+                new_week = int(wm.group(1))
+                if new_week != current_week:
+                    current_week = new_week
+                    session_order = 0
+                    current_session = None
+                continue  # header row itself carries no exercise
+            upper_label = label.upper()
+            if ex_raw is None:
+                # Title / banner / Block / Intro Week / Deload Week / Rest Day
+                continue
+            if any(upper_label.startswith(k) for k in _MINMAX_SKIP_LABELS):
+                continue
+            # Session label with an exercise on the same row: new session.
+            current_session = re.sub(r"\s+", " ", upper_label)
+            session_order += 1
+            exercise_order = 0
+
+        if ex_raw is None or ex_raw.upper() == "EXERCISE":
+            continue
+        if current_week == 0:
+            continue  # exercise-looking text above the first week header
+
+        exercise_order += 1
+        canonical, is_superset, superset_group = _normalize_exercise(ex_raw)
+
+        technique = cell(cells, "technique")
+        warm_up = cell(cells, "warm_up")
+        working_sets = _safe_int(cells[cols["working_sets"]]) if "working_sets" in cols else 0
+        reps = cell(cells, "reps")
+        rest = cell(cells, "rest")
+        sub1 = cell(cells, "sub1")
+        sub2 = cell(cells, "sub2")
+        notes = cell(cells, "notes")
+
+        rir_values: list[str | None] = []
+        if rir_start is not None and rir_end is not None:
+            rir_values = [_safe_str(v) for v in cells[rir_start:rir_end]]
+        rpe = _rir_to_rpe(rir_values)
+
+        note_parts: list[str] = []
+        if not _is_na(technique):
+            note_parts.append(f"Last set: {technique.strip()}.")
+        if notes:
+            note_parts.append(notes.strip())
+        merged_notes = " ".join(note_parts) if note_parts else None
+
+        exercises.append(
+            {
+                "week": current_week,
+                "session_name": current_session or "UNKNOWN",
+                "session_order_in_week": session_order,
+                "exercise_order": exercise_order,
+                "exercise_name_raw": ex_raw,
+                "exercise_name_canonical": canonical,
+                "warm_up_sets": warm_up if not _is_na(warm_up) else "0",
+                "working_sets": working_sets,
+                "prescribed_reps": "" if _is_na(reps) else reps,
+                "prescribed_rpe": rpe,
+                "rest_period": "" if _is_na(rest) else rest,
+                "substitution_1": None if _is_na(sub1) else sub1,
+                "substitution_2": None if _is_na(sub2) else sub2,
+                "notes": merged_notes,
+                "is_superset": is_superset,
+                "superset_group": superset_group,
+            }
+        )
+
+    return _disambiguate_sessions(exercises)
+
+
+# ---------------------------------------------------------------------------
+# Workbook-level entry points
+# ---------------------------------------------------------------------------
+def parse_program(file_path: str | Path, sheet_name: str) -> list[dict]:
+    """
+    Parse a workout program from a single sheet of the xlsx file.
+
+    The sheet layout (Essentials or Min-Max) is auto-detected.
+
+    Args:
+        file_path: Path to the .xlsx file.
+        sheet_name: Name of the sheet to parse (e.g. "4x Week").
+
+    Returns:
+        List of exercise dicts with the schema described in the module docstring.
+    """
+    wb = openpyxl.load_workbook(str(file_path), data_only=True, read_only=False)
+    try:
+        ws = wb[sheet_name]
+        return _parse_sheet(ws)
+    finally:
+        wb.close()
+
+
+def _parse_sheet(ws) -> list[dict]:
+    fmt = detect_sheet_format(ws)
+    if fmt == "minmax":
+        return _parse_minmax_sheet(ws)
+    return _parse_essentials_sheet(ws)
+
+
+def resolve_sheet_name(sheet_names: list[str], frequency: int) -> str | None:
+    """Pick the sheet for a training frequency.
+
+    Order: exact "<f>x Week" match, then any sheet whose title contains
+    "<f>x" as a word (e.g. "5x Per Week"), then the only sheet if the
+    workbook has just one. None if nothing fits.
+    """
+    exact = f"{frequency}x Week"
+    if exact in sheet_names:
+        return exact
+    pat = re.compile(rf"(?<!\d){frequency}\s*x(?![a-z0-9])", re.IGNORECASE)
+    for name in sheet_names:
+        if pat.search(name):
+            return name
+    if len(sheet_names) == 1:
+        return sheet_names[0]
+    return None
+
+
+def detect_program_title(ws, max_scan: int = 12) -> str | None:
+    """Best-effort program title: the first short text cell above the header row."""
+    found = _find_header_row(ws)
+    limit = min(found[0] - 1, max_scan) if found else max_scan
+    for row in ws.iter_rows(min_row=1, max_row=max(limit, 1), values_only=True):
+        for c in row:
+            if isinstance(c, str):
+                t = re.sub(r"\s+", " ", c).strip()
+                if 3 <= len(t) <= 60 and "\n" not in c and "COPYRIGHT" not in t.upper():
+                    return t
+        # only the first non-empty row is considered a title candidate
+        if any(v is not None for v in row):
+            return None
+    return None
+
+
+def parse_workbook(file_path: str | Path, frequency: int) -> dict:
+    """Open a workbook, pick the sheet for `frequency`, detect its format and parse.
+
+    Returns a dict:
+        sheet_name, format ("essentials" | "minmax"), title (str | None),
+        detected_frequency (max distinct sessions in any week, 0 if none),
+        exercises (list[dict]).
+    Raises ValueError if no sheet matches the frequency.
+    """
+    wb = openpyxl.load_workbook(str(file_path), data_only=True)
+    try:
+        sheet_name = resolve_sheet_name(wb.sheetnames, frequency)
+        if sheet_name is None:
+            raise ValueError(
+                f"No sheet for {frequency}x/week in workbook (sheets: {', '.join(wb.sheetnames)})"
+            )
+        ws = wb[sheet_name]
+        fmt = detect_sheet_format(ws) or "essentials"
+        exercises = _parse_sheet(ws)
+        title = detect_program_title(ws)
+    finally:
+        wb.close()
+
+    sessions_by_week: dict[int, set[str]] = {}
+    for ex in exercises:
+        sessions_by_week.setdefault(ex["week"], set()).add(ex["session_name"])
+    detected = max((len(v) for v in sessions_by_week.values()), default=0)
+
+    return {
+        "sheet_name": sheet_name,
+        "format": fmt,
+        "title": title,
+        "detected_frequency": detected,
+        "exercises": exercises,
+    }
 
 
 # ---------------------------------------------------------------------------

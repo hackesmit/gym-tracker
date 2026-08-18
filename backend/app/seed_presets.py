@@ -1,9 +1,14 @@
 """Seed curated preset programs every user can import.
 
-Creates a system-owned `preset` user (password disabled) and four copies of
-Jeff Nippard's "The Essentials" — 2x, 3x, 4x, 5x per week — each pinned to a
-stable human-readable share code so the existing share-import flow can clone
-them into any user's account.
+Creates a system-owned `preset` user (password disabled) and a set of Jeff
+Nippard programs -- "The Essentials" (2x, 3x, 4x, 5x per week) and "The
+Min-Max Program" (5x per week) -- each pinned to a stable human-readable
+share code so the existing share-import flow can clone them into any user's
+account.
+
+Fixtures are built from the original spreadsheets with
+scripts/build_preset_fixture.py (program structure only, never the sheet
+owner's logged loads).
 """
 
 from __future__ import annotations
@@ -22,10 +27,11 @@ PRESET_USERNAME = "preset"
 PRESET_DISPLAY_NAME = "The Essentials"
 
 PRESETS = [
-    {"freq": 2, "share_code": "NIPPARD2", "fixture": "nippard_2x.json"},
-    {"freq": 3, "share_code": "NIPPARD3", "fixture": "nippard_3x.json"},
-    {"freq": 4, "share_code": "NIPPARD4", "fixture": "nippard_4x.json"},
-    {"freq": 5, "share_code": "NIPPARD5", "fixture": "nippard_5x.json"},
+    {"freq": 2, "share_code": "NIPPARD2", "fixture": "nippard_2x.json", "family": "The Essentials"},
+    {"freq": 3, "share_code": "NIPPARD3", "fixture": "nippard_3x.json", "family": "The Essentials"},
+    {"freq": 4, "share_code": "NIPPARD4", "fixture": "nippard_4x.json", "family": "The Essentials"},
+    {"freq": 5, "share_code": "NIPPARD5", "fixture": "nippard_5x.json", "family": "The Essentials"},
+    {"freq": 5, "share_code": "MINMAX5", "fixture": "minmax_5x.json", "family": "The Min-Max Program"},
 ]
 
 
@@ -95,7 +101,7 @@ def _insert_fixture(db: Session, owner_id: int, share_code: str, fixture: dict) 
 
 
 def seed_preset_programs(db: Session) -> None:
-    """Create/refresh the four preset Essentials programs. Idempotent."""
+    """Create any missing preset programs (skip codes that already exist). Idempotent."""
     preset_user = _get_or_create_preset_user(db)
     for spec in PRESETS:
         existing = db.query(Program).filter(Program.share_code == spec["share_code"]).first()
