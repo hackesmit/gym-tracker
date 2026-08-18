@@ -195,7 +195,9 @@ def get_dashboard(
         from ..rank_engine import recompute_for_user
         recompute_for_user(db, uid)
     except Exception:
-        pass
+        # A failed statement leaves the session in a failed transaction;
+        # without a rollback the MuscleScore query below raises too.
+        db.rollback()
     ranks = db.query(MuscleScore).filter(MuscleScore.user_id == uid).all()
     muscle_ranks = [
         {"group": r.muscle_group, "rank": r.rank, "score": round(r.score, 1)}

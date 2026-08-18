@@ -11,6 +11,7 @@ import WarmUpPyramid from '../components/WarmUpPyramid';
 import SessionSummary from '../components/SessionSummary';
 import SetRow from '../components/SetRow';
 import { useApp } from '../context/AppContext';
+import { todayLocalISO } from '../utils/dates';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
@@ -95,7 +96,7 @@ export default function Logger() {
 
   const handleSetBw = async (bw) => {
     await logBodyMetric({
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalISO(),
       bodyweight_kg: displayToKg(bw, units),
     });
     if (refreshUser) await refreshUser();
@@ -173,9 +174,18 @@ export default function Logger() {
     knownProgramIds,
   });
 
+  // Sets are (re)built when the session changes and again when the overload
+  // plan for THAT session arrives. Once the user has typed anything, a late
+  // overload response must not wipe their entries.
+  const dirtyRef = useRef(false);
+  const sessionIdentity = selectedSession ? `${currentWeek}|${selectedSession.session_name}` : null;
+  useEffect(() => { dirtyRef.current = false; }, [sessionIdentity]);
+
   // Initialize sets when session or overload changes
   useEffect(() => {
     if (!selectedSession) return;
+    if (overload && overload.session_name && overload.session_name !== selectedSession.session_name) return; // stale plan for another session
+    if (dirtyRef.current) return;
     const exercises = selectedSession.exercises || [];
     const newSets = [];
     exercises.forEach((ex) => {
@@ -193,7 +203,11 @@ export default function Logger() {
       // Parse prescribed reps — handle ranges like "8-10"
       const repsStr = ex.prescribed_reps || '';
       const repsMatch = repsStr.match(/(\d+)/);
-      const defaultReps = repsMatch ? parseInt(repsMatch[1], 10) : 8;
+      const bwKind = getBodyweightKind(exName, catalogData);
+      // No rep prescription (e.g. a timed optional dead hang): leave a
+      // bodyweight exercise blank so it is only logged when the user fills
+      // it in; loaded exercises keep the historical default of 8.
+      const defaultReps = repsMatch ? parseInt(repsMatch[1], 10) : (bwKind ? '' : 8);
 
       for (let s = 1; s <= (ex.working_sets || 3); s++) {
         // Auto-fill: use exact per-set data from last session if available
@@ -201,10 +215,20 @@ export default function Logger() {
         let setLoad = displayLoad;
         let setReps = defaultReps;
         let setRpe = ex.prescribed_rpe || '';
+        let setAdded = '';
         if (prevSet) {
           setLoad = kgToDisplay(prevSet.load_kg, units);
           setReps = prevSet.reps_completed;
           if (prevSet.rpe_actual != null) setRpe = prevSet.rpe_actual;
+          if (bwKind === 'weighted_capable') {
+            // Weighted pull-ups / dips save added_load_kg; carry it forward
+            // (older rows: derive from total load minus bodyweight).
+            let addedKg = prevSet.added_load_kg;
+            if (addedKg == null && userBodyweightKg && prevSet.load_kg > userBodyweightKg) {
+              addedKg = prevSet.load_kg - userBodyweightKg;
+            }
+            if (addedKg != null && addedKg > 0) setAdded = kgToDisplay(addedKg, units);
+          }
         }
 
         newSets.push({
@@ -217,7 +241,7 @@ export default function Logger() {
           rpe_actual: setRpe,
           rest_period: ex.rest_period || '',
           warm_up_sets: ex.warm_up_sets || '',
-          added_load_kg: '',
+          added_load_kg: setAdded,
           is_dropset: false,
           dropset_load_kg: '',
           dropset_reps: '',
@@ -228,9 +252,10 @@ export default function Logger() {
       }
     });
     setSets(newSets);
-  }, [selectedSession, overload]);
+  }, [selectedSession, overload, catalogData]);
 
   const updateSet = (idx, field, value) => {
+    dirtyRef.current = true;
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
@@ -243,6 +268,7 @@ export default function Logger() {
       s.program_exercise_id != null
         ? s.program_exercise_id === groupKey
         : s.exercise_name === groupKey;
+    dirtyRef.current = true;
     setSets((prev) => {
       let lastIdx = -1;
       for (let i = 0; i < prev.length; i++) {
@@ -318,7 +344,7 @@ export default function Logger() {
         program_id: activeProgram.id,
         week: currentWeek,
         session_name: selectedSession.session_name,
-        date: new Date().toISOString().split('T')[0],
+        date: todayLocalISO(),
         sets: sets
           .filter((s) => {
             const kind = getBodyweightKind(s.exercise_name, catalogData);
@@ -378,7 +404,7 @@ export default function Logger() {
 
   const handleMetricsSave = async () => {
     const data = {
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalISO(),
       bodyweight_kg: displayToKg(metrics.bodyweight_kg, units),
     };
     if (metrics.body_fat_pct) data.body_fat_pct = +metrics.body_fat_pct;
@@ -389,6 +415,9 @@ export default function Logger() {
     try {
       await logBodyMetric(data);
       setMetricsSaved(true);
+      // Bodyweight exercises read user.bodyweight_kg: refresh so a weight
+      // saved here unlocks pull-ups / dead hangs in the Workout tab at once.
+      if (data.bodyweight_kg && refreshUser) await refreshUser();
     } catch (err) {
       addToast(err.message, 'error');
     }
@@ -399,6 +428,7 @@ export default function Logger() {
     try {
       await undoSession(undoInfo.sessionLogId);
       clearTimeout(undoTimerRef.current);
+      dirtyRef.current = true;
       setSets(undoInfo.savedSets);
       setSaved(false);
       setPrList([]);
@@ -591,7 +621,7 @@ export default function Logger() {
               <p className="text-xs text-info">Unsaved workout found. Restore?</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setSets(pendingRestore.sets); acceptRestore(); }}
+                  onClick={() => { dirtyRef.current = true; setSets(pendingRestore.sets); acceptRestore(); }}
                   className="px-3 py-1.5 text-xs font-medium bg-info text-white rounded-lg touch-manipulation"
                 >
                   Restore

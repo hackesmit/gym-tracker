@@ -281,6 +281,11 @@ def create_custom_program(
         raise HTTPException(status_code=400, detail="At least one session required")
     if any(not s.exercises for s in payload.sessions):
         raise HTTPException(status_code=400, detail="Each session needs at least one exercise")
+    # Sessions are keyed by (week, session_name) in tracker / logging; two
+    # sessions sharing a name would be logged and completed as one.
+    names = [(s.name.strip() or f"Session {i}").upper() for i, s in enumerate(payload.sessions, start=1)]
+    if len(set(names)) != len(names):
+        raise HTTPException(status_code=400, detail="Session names must be unique within a program")
 
     total_weeks = max(1, min(payload.total_weeks, 52))
     frequency = len(payload.sessions)
@@ -481,6 +486,14 @@ def update_program_status(
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
 
+    if status == "active":
+        # Same contract as /activate: exactly one active program per user.
+        db.query(Program).filter(
+            Program.user_id == current_user.id,
+            Program.id != program_id,
+            Program.status == "active",
+        ).update({"status": "paused"}, synchronize_session=False)
+        program.end_date = None
     program.status = status
     if status == "completed":
         program.end_date = date.today()

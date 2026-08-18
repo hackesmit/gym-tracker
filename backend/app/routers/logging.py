@@ -247,6 +247,12 @@ def log_bulk_session(
             detail=f"Program {payload.program_id} not found.",
         )
 
+    if payload.session_status not in ("completed", "partial", "skipped"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="session_status must be one of: completed, partial, skipped",
+        )
+
     # Validate all program_exercise_ids up-front (and ownership, same reason)
     pe_ids = {s.program_exercise_id for s in payload.sets}
     existing = {
@@ -261,6 +267,24 @@ def log_bulk_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ProgramExercise ids not found: {sorted(missing)}",
+        )
+    # Every set must belong to the session being logged: the SessionLog is
+    # keyed by (program, week, session) while WorkoutLogs hang off the
+    # exercise row, so a stray id would split one workout across programs.
+    stray = {
+        row.id
+        for row in db.query(ProgramExercise.id)
+        .filter(
+            ProgramExercise.id.in_(pe_ids),
+            (ProgramExercise.program_id != payload.program_id)
+            | (ProgramExercise.week != payload.week),
+        )
+        .all()
+    }
+    if stray:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"ProgramExercise ids not in program {payload.program_id} week {payload.week}: {sorted(stray)}",
         )
 
     # Check for existing session (same program/week/session_name) and replace

@@ -76,9 +76,12 @@ export default function useLoggerSession(activeProgram, units) {
   // Load overload suggestions when session changes
   useEffect(() => {
     if (!activeProgram || !selectedSession) return;
+    let cancelled = false;
+    setOverload(null); // never let the previous session's plan seed this one
     getOverloadPlan(activeProgram.id, currentWeek, selectedSession.session_name)
-      .then((data) => setOverload(data))
-      .catch(() => setOverload(null));
+      .then((data) => { if (!cancelled) setOverload(data); })
+      .catch(() => { if (!cancelled) setOverload(null); });
+    return () => { cancelled = true; };
   }, [activeProgram, selectedSession, currentWeek]);
 
   // Change displayed week

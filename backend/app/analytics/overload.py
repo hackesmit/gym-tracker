@@ -139,6 +139,9 @@ def suggest_next_session(db: Session, program_exercise_id: int) -> dict:
             "load_kg": round(lg.load_kg, 2),
             "reps_completed": lg.reps_completed,
             "rpe_actual": round(lg.rpe_actual, 1) if lg.rpe_actual else None,
+            # Weighted pull-ups / dips: the Logger auto-fills the added plate
+            # weight from this, not from the bodyweight-inclusive load_kg.
+            "added_load_kg": round(lg.added_load_kg, 2) if lg.added_load_kg is not None else None,
         }
         for lg in sorted(latest_logs, key=lambda x: x.set_number)
     ]

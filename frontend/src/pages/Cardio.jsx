@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { todayLocalISO } from '../utils/dates';
 import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DurationPicker, { formatDuration, splitDuration, combineDuration } from '../components/DurationPicker';
@@ -9,7 +10,7 @@ import { useT } from '../i18n';
 const MODALITIES = ['run', 'bike', 'swim', 'other'];
 
 const emptyForm = () => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayLocalISO(),
   modality: 'run',
   duration_min: 0,
   duration_sec: 0,

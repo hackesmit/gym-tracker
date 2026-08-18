@@ -4,7 +4,9 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
@@ -459,6 +461,9 @@ def _drop_is_bodyweight_column_once(db):
         try:
             db.execute(text("ALTER TABLE workout_logs DROP COLUMN is_bodyweight"))
         except Exception as e:
+            # Roll back so the failed statement does not poison the shared
+            # startup session for the migrations that run after this one.
+            db.rollback()
             print(f"drop_is_bodyweight: DROP COLUMN skipped: {e}", flush=True)
             return
 
@@ -587,6 +592,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Gym Tracker API", lifespan=lifespan)
+
+
+@app.exception_handler(OperationalError)
+async def _db_unavailable(request: Request, exc: OperationalError):
+    """A dropped / unreachable database (Supabase pause, pooler restart) is a
+    503 the client can retry, not an opaque 500."""
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database temporarily unavailable, please retry."},
+    )
 
 _allowed_origins = [
     o.strip()

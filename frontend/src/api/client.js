@@ -59,7 +59,9 @@ async function request(path, options = {}) {
         }
         throw err;
       }
-      return res.json();
+      if (res.status === 204 || res.headers.get('content-length') === '0') return null;
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
     } catch (err) {
       lastError = err;
       if (!err.status && attempt < maxRetries - 1) {

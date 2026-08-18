@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -74,9 +75,11 @@ def register(payload: RegisterPayload, db: Session = Depends(get_db)):
     username = _normalize_username(payload.username)
     if len(username) < 2 or len(username) > 40:
         raise HTTPException(status_code=400, detail="Username must be 2-40 characters")
-    if username.lower() in RESERVED_USERNAMES:
+    if username.lower() in RESERVED_USERNAMES or username.lower() in ADMIN_USERNAMES:
         raise HTTPException(status_code=409, detail="Username already taken")
-    existing = db.query(User).filter(User.username == username).first()
+    # Case-insensitive: admin checks lowercase the username, so "Hackesmit"
+    # must not be registrable alongside "hackesmit".
+    existing = db.query(User).filter(func.lower(User.username) == username.lower()).first()
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
     if payload.email:
@@ -101,9 +104,14 @@ def login(payload: LoginPayload, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    user.last_login_at = datetime.utcnow()
-    db.commit()
-    db.refresh(user)
+    # last_login_at is telemetry: a failed write must not turn valid
+    # credentials into a 500.
+    try:
+        user.last_login_at = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
     token = create_access_token(user.id, remember=payload.remember)
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
@@ -141,9 +149,13 @@ def change_username(
         raise HTTPException(status_code=400, detail="Username unchanged")
     if new_username.lower() in RESERVED_USERNAMES:
         raise HTTPException(status_code=409, detail="Username already taken")
+    if new_username.lower() in ADMIN_USERNAMES and (current_user.username or "").lower() not in ADMIN_USERNAMES:
+        raise HTTPException(status_code=409, detail="Username already taken")
     if not verify_challenge(payload.challenge, payload.answer, current_user.id):
         raise HTTPException(status_code=400, detail="Incorrect answer — try a new problem")
-    if db.query(User).filter(User.username == new_username, User.id != current_user.id).first():
+    if db.query(User).filter(
+        func.lower(User.username) == new_username.lower(), User.id != current_user.id
+    ).first():
         raise HTTPException(status_code=409, detail="Username already taken")
     current_user.username = new_username
     db.commit()
